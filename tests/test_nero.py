@@ -111,10 +111,11 @@ async def test(g):
     g.check('Wagen steht noch oben', await g.js(f"()=>{N}.phase==='halt'&&{N}.cars.some(c=>c.docked==='berg')"))
     m0 = await board(g, 'berg')
     g.check('F an der Bergstation: eingestiegen', await g.js(f"()=>!!{N}.riding"))
+    m1 = await g.js(f"()=>{M}.G.money")   # Fahrpreis direkt beim Einsteigen messen – während der Fahrt laufen andere Einnahmen (z. B. Revier)
     await step_until(g, f"()=>!{N}.riding", 60, 0.5)
     p = await player(g)
     g.check('Talfahrt: Spieler unten auf Talstations-Höhe', abs(p['y'] - tal['y']) < 1.6 and not await g.js(f"()=>!!{N}.riding"), f"{p['y']:.2f}")
-    g.check('Talfahrt kostet ebenfalls 4 €', m0 - p['money'] == 4, f"{m0} → {p['money']}")
+    g.check('Talfahrt kostet ebenfalls 4 €', m0 - m1 == 4, f"{m0} → {m1}")
 
     # 6. F ohne Wagen an der Station: kein Einsteigen, kein Geld weg
     await step_until(g, f"()=>{N}.phase==='fahrt'", 20)

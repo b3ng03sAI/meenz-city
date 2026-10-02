@@ -71,10 +71,10 @@ async def test(g):
     g.check('Timer läuft herunter', 1.5 < timer0 - timer1 < 2.5, f'{timer0:.1f} → {timer1:.1f}')
 
     # 3. Lehrlinge fliehen vor dem Spieler
-    flee = await g.js(f"""()=>{{const M={M},A=M.GAUTSCH,P=M.P1.h;const h=A.apprentices.find(o=>o.ga.act==='flee');P.x=h.x+4;P.z=h.z;P.y=M.groundYFn(P.x,P.z,0);
-        return {{x:h.x,z:h.z,px:P.x,pz:P.z}}}}""")
+    flee = await g.js(f"""()=>{{const M={M},A=M.GAUTSCH,P=M.P1.h;const i=A.apprentices.findIndex(o=>o.ga.act==='flee');const h=A.apprentices[i];P.x=h.x+4;P.z=h.z;P.y=M.groundYFn(P.x,P.z,0);
+        return {{i,x:h.x,z:h.z,px:P.x,pz:P.z}}}}""")
     await g.step(1.0)
-    d1 = await g.js(f"""(f)=>{{const h={GA}.apprentices.find(o=>o.ga.act==='flee'||o.ga.act==='idle');return Math.hypot(h.x-f.px,h.z-f.pz)}}""", flee)
+    d1 = await g.js(f"""(f)=>{{const h={GA}.apprentices[f.i];return Math.hypot(h.x-f.px,h.z-f.pz)}}""", flee)
     g.check('Lehrling flieht (Abstand zum Spieler wächst)', d1 > 4.5, f'{d1:.1f} m')
     far_e = await g.js(f"""()=>{{const M={M},A=M.GAUTSCH,P=M.P1.h;const h=A.apprentices[0];P.x=h.x+6;P.z=h.z;return A.wantsE(M.P1)}}""")
     g.check('E greift nicht, wenn kein Lehrling in Reichweite', far_e is False)
