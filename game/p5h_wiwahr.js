@@ -39,22 +39,24 @@ const WIWAHR_TEX={kur:[5,7.5],brick:[5,17.5],hbf:[6,7],schloss:[4.5,6],hall:[4,3
 const WIWAHR_MATS={};
 function wiwahrArch(g,x0,x1,yTop,yBot,pointed){const r=(x1-x0)/2,cx=(x0+x1)/2;g.beginPath();g.moveTo(x0,yBot);g.lineTo(x0,yTop);
   if(pointed){g.quadraticCurveTo(x0,yTop-r*1.3,cx,yTop-r*1.9);g.quadraticCurveTo(x1,yTop-r*1.3,x1,yTop);}else g.arc(cx,yTop,r,Math.PI,0);g.lineTo(x1,yBot);g.closePath();}
+// eigenes Rauschen mit festem Seed: noiseFill zöge Math.random beim Laden und verschöbe alle späteren Zufallsfolgen (Spawns, Tests)
+function wiwahrNoise(g,w,h,amt,n,seed){const R=mulberry32(seed);for(let i=0;i<n;i++){g.fillStyle=R()<0.5?`rgba(0,0,0,${amt})`:`rgba(255,255,255,${amt})`;g.fillRect(R()*w,R()*h,1+R()*2,1+R()*2);}}
 function wiwahrTex(k){const D={
-  kur:[160,240,g=>{g.fillStyle='#e6dbc3';g.fillRect(0,0,160,240);noiseFill(g,160,240,0.04,900);g.fillStyle='rgba(120,100,70,0.16)';for(let y=12;y<240;y+=22)g.fillRect(0,y,160,2);
+  kur:[160,240,g=>{g.fillStyle='#e6dbc3';g.fillRect(0,0,160,240);wiwahrNoise(g,160,240,0.04,900,701);g.fillStyle='rgba(120,100,70,0.16)';for(let y=12;y<240;y+=22)g.fillRect(0,y,160,2);
     g.fillStyle='#f0e8d6';g.fillRect(0,0,18,240);g.fillRect(142,0,18,240);g.fillStyle='#d3c4a4';g.fillRect(0,0,160,12);g.fillRect(0,226,160,14);
     g.fillStyle='#f4eee2';wiwahrArch(g,46,114,96,214,false);g.fill();g.fillStyle='#283036';wiwahrArch(g,54,106,96,206,false);g.fill();
     g.fillStyle='#f4eee2';g.fillRect(77,62,6,144);g.fillRect(54,138,52,5);g.fillStyle='rgba(160,185,205,0.25)';g.fillRect(58,100,16,34);}],
-  brick:[128,448,g=>{g.fillStyle='#a5452f';g.fillRect(0,0,128,448);noiseFill(g,128,448,0.06,2500);g.fillStyle='rgba(60,20,10,0.22)';for(let y=0;y<448;y+=7)g.fillRect(0,y,128,1.4);
+  brick:[128,448,g=>{g.fillStyle='#a5452f';g.fillRect(0,0,128,448);wiwahrNoise(g,128,448,0.06,2500,702);g.fillStyle='rgba(60,20,10,0.22)';for(let y=0;y<448;y+=7)g.fillRect(0,y,128,1.4);
     g.fillStyle='#c98f63';for(let y=40;y<448;y+=140)g.fillRect(0,y,128,5);
     g.fillStyle='#d9c6a2';wiwahrArch(g,34,94,150,400,true);g.fill();g.fillStyle='#232b35';wiwahrArch(g,40,88,152,394,true);g.fill();
     g.fillStyle='#d9c6a2';g.fillRect(62,110,4,284);for(let y=190;y<394;y+=50)g.fillRect(40,y,48,3);
     g.fillStyle='rgba(190,60,60,0.35)';g.fillRect(44,200,16,40);g.fillStyle='rgba(70,110,190,0.35)';g.fillRect(68,250,16,40);}],
-  hbf:[192,224,g=>{g.fillStyle='#a95b44';g.fillRect(0,0,192,224);noiseFill(g,192,224,0.05,1500);g.fillStyle='rgba(60,20,10,0.25)';for(let y=10;y<224;y+=16)g.fillRect(0,y,192,1.6);
+  hbf:[192,224,g=>{g.fillStyle='#a95b44';g.fillRect(0,0,192,224);wiwahrNoise(g,192,224,0.05,1500,703);g.fillStyle='rgba(60,20,10,0.25)';for(let y=10;y<224;y+=16)g.fillRect(0,y,192,1.6);
     for(let y=10,k=0;y<224;y+=16,k++)for(let x=(k%2)*24;x<192;x+=48)g.fillRect(x,y,1.6,16);
     g.fillStyle='#c98a6c';g.fillRect(0,208,192,16);g.fillRect(0,0,192,8);
     g.fillStyle='#d7b49a';wiwahrArch(g,52,140,92,196,false);g.fill();g.fillStyle='#262c31';wiwahrArch(g,60,132,92,190,false);g.fill();
     g.fillStyle='#d7b49a';g.fillRect(93,48,6,142);g.fillRect(60,120,72,5);g.fillRect(88,40,16,12);}],
-  schloss:[144,192,g=>{g.fillStyle='#dba98c';g.fillRect(0,0,144,192);noiseFill(g,144,192,0.04,900);g.fillStyle='#f2ece2';g.fillRect(0,0,14,192);g.fillRect(130,0,14,192);g.fillRect(0,0,144,10);g.fillRect(0,182,144,10);
+  schloss:[144,192,g=>{g.fillStyle='#dba98c';g.fillRect(0,0,144,192);wiwahrNoise(g,144,192,0.04,900,704);g.fillStyle='#f2ece2';g.fillRect(0,0,14,192);g.fillRect(130,0,14,192);g.fillRect(0,0,144,10);g.fillRect(0,182,144,10);
     g.fillStyle='#f4efe6';g.fillRect(40,34,64,138);g.beginPath();g.moveTo(34,36);g.quadraticCurveTo(72,6,110,36);g.closePath();g.fill();
     g.fillStyle='#2a3036';g.fillRect(48,42,48,122);g.fillStyle='#f4efe6';g.fillRect(70,42,4,122);for(let y=72;y<164;y+=30)g.fillRect(48,y,48,3);}],
   hall:[128,96,g=>{g.fillStyle='#4f5960';g.fillRect(0,0,128,96);g.fillStyle='#9db4c2';for(let x=0;x<128;x+=32)for(let y=0;y<96;y+=24)g.fillRect(x+3,y+3,26,18);g.fillStyle='rgba(255,255,255,0.18)';g.fillRect(6,6,10,12);}],
