@@ -4,11 +4,12 @@
 // Hartenberg-Münchfeld (Vorgärten mit Hecken und Zäunen). Alles läuft über die eigenen Wrapper unten.
 const OBERST={zita:{walls:[],gates:[],stairs:[],venue:null,WH:7,T:null,I:null,C:null,tips:[],raster:null},drusus:null,
   volkspark:{poly:null,play:[],blankets:[],swings:[]},klinik:{signs:[],bay:null,helipad:null,heliR:32},
-  hartenberg:{hedges:0,fences:0,mesh:[]},scenes:[],ft:[],placed:[],meshes:0,mem:null};
+  hartenberg:{hedges:0,fences:0,mesh:[]},scenes:[],ft:[],placed:[],objs:[],meshes:0,geoBytes:0,mem:null};
 const OBERST_WH=7,OBERST_PAR=1.1,OBERST_RW=12,OBERST_GATE_B=4.4;
 // gemeinsame Bausteine (Materialien/Geometrien nur einmal)
 const OBERST_C=h=>new THREE.Color(h);
-function oberstAdd(m,cast=true){m.castShadow=cast;m.receiveShadow=true;scene.add(m);OBERST.meshes++;return m;}
+function oberstGeoBytes(g){let n=g.index?g.index.count*4:0;for(const k in g.attributes){const a=g.attributes[k];n+=a.count*a.itemSize*4;}return n;}
+function oberstAdd(m,cast=true){m.castShadow=cast;m.receiveShadow=true;scene.add(m);OBERST.meshes++;OBERST.objs.push(m);if(m.geometry&&m.geometry.attributes)OBERST.geoBytes+=oberstGeoBytes(m.geometry);return m;}
 function oberstGBMesh(G,mat,cast=true){if(G.empty)return null;return oberstAdd(staticMesh(new THREE.Mesh(G.geo(),mat)),cast);}
 // Zylinder/Kegelstumpf in einen GB (n Segmente, optional unregelmäßiger Radius für Bruchstein)
 function oberstCyl(G,x,y0,z,r0,r1,h,n,col,jag=0,seed=1){const R=mulberry32(seed);const j=[];for(let i=0;i<n;i++)j.push(1+(R()-0.5)*jag);
@@ -49,12 +50,21 @@ function oberstZitaGates(){const Z=OBERST.zita;const R=Z.raster;const [x0,z0,x1,
       for(let s=0;s<=n;s++){const x=a[0]+(b[0]-a[0])*s/n,z=a[1]+(b[1]-a[1])*s/n;const inR=pip(x,z,Z.T)&&!pip(x,z,Z.I);
         if(inR){if(!run)run={pts:[],hw,name:r.name||'',dir:[(b[0]-a[0])/L,(b[1]-a[1])/L]};run.pts.push([x,z]);}else flush();}}
     flush();}
+  oberstRampPassages();
   // Haupttor: die Durchfahrt am Kommandantenbau (Bau A, 1696 über dem Tor zur Stadt errichtet)
   const kb=BUILDINGS.find(b=>b.name&&/Kommandantenbau/.test(b.name));const ref=kb?[kb.x,kb.z]:[90,575];let best=null,bd=1e9;
-  Z.gates.forEach(g=>{const m=g.pts[g.pts.length>>1];const d=Math.hypot(m[0]-ref[0],m[1]-ref[1]);g.mid=m;if(d<bd){bd=d;best=g;}});
-  Z.gates.forEach((g,k)=>{g.name=g===best?'Haupttor':'Tor '+(k+1);});
+  Z.gates.forEach(g=>{const m=g.pts[g.pts.length>>1];const d=Math.hypot(m[0]-ref[0],m[1]-ref[1]);g.mid=m;if(!g.ramp&&d<bd){bd=d;best=g;}});
+  Z.gates.forEach((g,k)=>{g.name=g.ramp?'Rampendurchfahrt':g===best?'Haupttor':'Tor '+(k+1);});
   for(const g of Z.gates){for(const p of g.pts){const r=Math.ceil(g.hw);for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){if(dx*dx+dz*dz>g.hw*g.hw)continue;const x=p[0]+dx,z=p[1]+dz;const i=Math.floor(x-R.x0),j=Math.floor(z-R.z0);
         if(i<0||j<0||i>=R.w||j>=R.h||!R.a[j*R.w+i])continue;R.a[j*R.w+i]=0;elevSetI(idx(x,z),OBERST_GATE_B,OBERST_WH);}}}}
+// Stuntrampen (Welle 1) liegen schon, bevor der Wall entsteht: kreuzt eine Anlauf-/Sprung-/Landebahn den Wall
+// abseits der Straßentore, bekommt sie eine eigene Durchfahrt wie ein Tor.
+function oberstRampPassages(){if(typeof STUNT==='undefined')return;const Z=OBERST.zita;const S=STUNT;
+  for(const R of S.ramps){if(Math.hypot(R.x-Z.C[0],R.z-Z.C[1])>600)continue;let run=null;const flush=()=>{if(run&&run.pts.length>2)Z.gates.push(run);run=null;};
+    for(let t=-S.RUN;t<=S.LEN+S.LAND;t+=0.5){const x=R.x+R.dx*t,z=R.z+R.dz*t;let hit=false;
+      for(const l of [-2.6,-1.3,0,1.3,2.6]){const px=x+R.rx*l,pz=z+R.rz*l;if(pip(px,pz,Z.T)&&!pip(px,pz,Z.I)){hit=true;break;}}
+      if(hit){if(!run)run={pts:[],hw:3.6,name:'',ramp:R.id,dir:[R.dx,R.dz]};run.pts.push([x,z]);}else flush();}
+    flush();}}
 function oberstNearGate(x,z,r){for(const g of OBERST.zita.gates)for(const p of g.pts)if(Math.hypot(p[0]-x,p[1]-z)<g.hw+r)return g;return null;}
 // Treppen innen an der Hofmauer, parallel zur Wand (Stufe 0,3 m hoch, 0,5 m tief)
 function oberstZitaStairs(){const Z=OBERST.zita;const I=Z.I;const W=3.2,L=Math.ceil(OBERST_WH/0.3)*0.5;
@@ -116,6 +126,7 @@ function oberstZitaBuild(){const Z=OBERST.zita;const G=new GB();const WH=OBERST_
 function oberstDrusus(){const p=(OSM.pl&&OSM.pl.drusus)||[13,740];const x=p[0],z=p[1];
   // altes Klötzchen-Gebäude aus den OSM-Daten durch das Modell ersetzen
   const old=BUILDINGS.filter(b=>b.name==='Drususstein'&&Math.hypot(b.x-x,b.z-z)<20);
+  for(const b of old)BUILDINGS.splice(BUILDINGS.indexOf(b),1);
   if(old.length){const k=chunkKey(x,z);const c=CITY.chunks.get(k);if(c){c.list=c.list.filter(b=>!old.includes(b));if(c.low){disposeGroup(c.low);c.low=buildChunkGroup(c,-1);}if(c.high){disposeGroup(c.high);c.high=buildChunkGroup(c,QS.detail);if(c.low)c.low.visible=false;}}}
   const G=new GB();const st=OBERST_C(0xa49884),dk=OBERST_C(0x8a7f6c),lt=OBERST_C(0xb8ad98);
   oberstCyl(G,x,0,z,6.4,6.2,0.8,16,lt);oberstCyl(G,x,0.8,z,5.6,5.6,0.4,16,OBERST_C(0xc4b9a4));
@@ -185,7 +196,7 @@ function oberstUpdateScene(s,dt,px,pz){
     const mv=moveHuman(h,dx,dz,h.walkSpeed,dt);if(mv<0.05)w.stuck+=dt;faceTo(h,dx,dz,dt,5);h.animate(dt,mv);h.y=groundY(h.x,h.z,h.y);h.sync();
     if(w.dog){const d=w.dog;d.ph+=dt*8;const fx=Math.sin(h.facing),fz=Math.cos(h.facing);const tx=h.x+fx*1.6+fz*0.7,tz=h.z+fz*1.6-fx*0.7;d.g.position.x+=(tx-d.g.position.x)*Math.min(1,dt*3);d.g.position.z+=(tz-d.g.position.z)*Math.min(1,dt*3);d.g.position.y=h.y;d.g.rotation.y=h.facing;
       const k=mv>0.1?0.5:0;d.legs.forEach((l,i)=>{l.rotation.x=Math.sin(d.ph+(i%2?Math.PI:0))*k;});d.tail.rotation.z=Math.sin(d.ph*1.6)*0.5;}}
-  for(const k of s.swingers){k.ph+=dt*k.sp;const a=Math.sin(k.ph)*0.55;k.seat.rotation.x=a;const h=k.h;if(h&&!h.removed&&h.alive&&h.state==='roof'){const L=k.L-0.45;h.x=k.x+k.fx*Math.sin(a)*L;h.z=k.z+k.fz*Math.sin(a)*L;h.y=k.y-Math.cos(a)*L-0.5;h.g.position.set(h.x,h.y,h.z);h.g.rotation.y=k.face;}}
+  for(const k of s.swingers){k.ph+=dt*k.sp;const a=Math.sin(k.ph)*0.55;k.a=a;k.seat.rotation.x=a;const h=k.h;if(h&&!h.removed&&h.alive&&h.state==='roof'){const L=k.L-0.45;h.x=k.x+k.fx*Math.sin(a)*L;h.z=k.z+k.fz*Math.sin(a)*L;h.y=k.y-Math.cos(a)*L-0.5;h.g.position.set(h.x,h.y,h.z);h.g.rotation.y=k.face;}}
   s.lineT-=dt;if(s.lineT<=0){s.lineT=mr(5,10);const c=s.people.filter(h=>!h.removed&&h.alive&&h.state==='roof'&&!h.bubble&&Math.hypot(h.x-px,h.z-pz)<32);if(c.length){const h=mpick(c);say(h,mpick(s.lines),3.8,'quiet');s.said=(s.said||0)+1;}}}
 
 // ===================== ZITADELLE: Szenen =====================
@@ -244,7 +255,7 @@ function oberstVolkspark(){const V=OBERST.volkspark;const park=AREAS.find(a=>a.n
       for(const b of V.benches.slice(0,2)){const [x,z,f]=b;oberstPerson(s,x+Math.sin(f)*0.1,z+Math.cos(f)*0.1,0,f,{sit:true});}},
     ['Noch emol schaukele! Höher!','Mama, guck emol, ohne Händ!','Kevin-Lukas, mer gehe gleich, gell!','Ei, wer hot dann jetzt widder Sand im Schuh?','Rutsche is net zum Hochlaafe da!','Isch bin de Schnellst vom ganze Volkspark!']);
   const b0=V.blankets[0];if(b0)oberstScene('vp_picnic','Picknick auf der Wiese',b0.x,b0.z,s=>{for(const b of V.blankets.slice(0,3)){const ex=[Math.cos(b.face),-Math.sin(b.face)];for(const o of [-0.6,0.6])oberstPerson(s,b.x+ex[0]*o,b.z+ex[1]*o,0,b.face+(o<0?0.4:-0.4),{sit:true,sitH:0.25});}},
-    ['Reich mer emol die Fleischworscht, gell.','Des is Riesling vom Onkel. Der is schee trocke. Wie de Onkel.','Gugg, die Wolk sieht aus wie de Dom!','Ameise! Ameise im Kardoffelsalat!','Im Volkspark is es halt am schönste. Basta.','Ei, mach emol Platz uff de Deck!']);
+    ['Reich mer emol die Fleischworscht, gell.','Des is Riesling vom Onkel. Der is schee trocke. Wie de Onkel.','Gugg, die Wolk sieht aus wie de Dom!','Ei, Ameise! Ameise im Kardoffelsalat!','Im Volkspark is es halt am schönste, gell. Basta.','Ei, mach emol Platz uff de Deck!']);
   // Gassigeher auf dem längsten Parkweg
   const inPark=paths.map(r=>r.pts.filter(p=>pip(p[0],p[1],park.poly))).filter(p=>p.length>3).sort((a,b)=>b.length-a.length);
   const lp=inPark[0];if(lp){const dense=[];for(let k=0;k+1<lp.length;k++){const a=lp[k],b=lp[k+1];const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/6));for(let s=0;s<n;s++)dense.push([a[0]+(b[0]-a[0])*s/n,a[1]+(b[1]-a[1])*s/n]);}dense.push(lp[lp.length-1]);V.dogPath=dense;
@@ -316,6 +327,7 @@ function oberstFtTargets(){const Z=OBERST.zita;const S=Z.tips[1];const x=S.x+(Z.
 // ===================== SETUP / UPDATE =====================
 function setupOberst(){const pm=performance.memory;const h0=pm?pm.usedJSHeapSize:0;const m0=OBERST.meshes;const t0=performance.now();
   oberstZitadelle();oberstZitaScenes();oberstFtTargets();oberstVolkspark();oberstKlinik();oberstHartenberg();
-  OBERST.mem={heap0:h0,heap1:pm?pm.usedJSHeapSize:0,meshes:OBERST.meshes-m0,ms:Math.round(performance.now()-t0)};}
+  const R=OBERST.zita.raster;OBERST.mem={heap0:h0,heap1:pm?pm.usedJSHeapSize:0,meshes:OBERST.meshes-m0,geoBytes:OBERST.geoBytes,rasterBytes:R?R.a.byteLength:0,ms:Math.round(performance.now()-t0)};
+  OBERST.zitaAt=oberstZitaAt;OBERST.nearGate=oberstNearGate;}
 function updateOberst(dt){if(mode!=='play'||!P1.h)return;const [px,pz]=ppos(P1);const indoor=!!INDOOR;
   for(const s of OBERST.scenes){const d=minPlayerDist(s.x,s.z);if(!s.active&&d<s.R&&!indoor)oberstSpawn(s);else if(s.active&&d>s.R+90)oberstDespawn(s);if(s.active)oberstUpdateScene(s,dt,px,pz);}}
