@@ -1,0 +1,22 @@
+# Build-Ausgaben (cd game && python3 build.py)
+game/meenz-city.html
+game/test.html
+game/real.html
+
+# Abhängigkeiten
+node_modules/
+
+# Test-Ausgaben (Screenshots etc.)
+tests/out/*
+!tests/out/.gitkeep
+
+# OSM-Rohdaten und Quellcode-Archive (zu groß; p1_osm.js wird daraus erzeugt)
+*.osm.json
+*-osm*.json
+*-osm*.json.gz
+*.zip
+
+# System / Python
+.DS_Store
+__pycache__/
+*.pyc

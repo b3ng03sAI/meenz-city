@@ -1,0 +1,1 @@
+const handler={get(t,p){if(p===Symbol.toPrimitive)return()=>0;if(p==="then")return undefined;if(p===Symbol.iterator)return undefined;if(p in t)return t[p];return U();},apply(){return U();},construct(){return U();},set(t,p,v){t[p]=v;return true;}};function U(){const f=function(){};return new Proxy(f,handler);} export const RenderPass=U();

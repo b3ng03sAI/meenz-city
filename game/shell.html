@@ -1,0 +1,309 @@
+<title>Meenz City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
+<style>
+/* Ein Spielbildschirm: Vollbild-3D, HUD am Rand, Menüs als Overlays. Bewusst nur dunkel. */
+:root{
+  --ink:#0c1013; --ink-2:#151b20; --paper:#f4efe6; --muted:#a9b0b4;
+  --mainz:#c8102e; --gold:#ffd23f; --money:#79d36f; --blue:#58a8ff;
+  --display:"Bungee","Arial Black",Impact,sans-serif;
+  --hud:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--hud);}
+#stage{position:fixed;inset:0;}
+#stage canvas{display:block;width:100%;height:100%;outline:none;transition:filter .8s;}
+body.desat #stage canvas{filter:grayscale(.85) contrast(1.1) brightness(.9);}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;user-select:none;-webkit-user-select:none;}
+.shadow{text-shadow:0 2px 0 #000,0 0 6px rgba(0,0,0,.8),2px 0 0 #000,-2px 0 0 #000,0 -2px 0 #000;}
+.tr{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:18px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+#clock{font-weight:700;font-size:22px;letter-spacing:.06em;color:#fff;font-variant-numeric:tabular-nums;}
+.weapon{display:flex;gap:10px;align-items:baseline;font-weight:800;font-size:18px;letter-spacing:.08em;color:#e9e4da;}
+#ammo{font-size:16px;color:var(--muted);font-variant-numeric:tabular-nums}
+#money{font-family:var(--display);font-size:30px;color:var(--money);letter-spacing:.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+#wanted{display:flex;gap:4px;margin-top:2px}
+#wanted .wheel{width:26px;height:26px;color:rgba(255,255,255,.18);filter:drop-shadow(0 1px 1px #000)}
+#wanted .wheel.on{color:#fff;filter:drop-shadow(0 0 4px var(--mainz)) drop-shadow(0 1px 1px #000)}
+#wanted.flash .wheel.on{animation:blink .5s steps(2) infinite}
+#wanted.pulse{animation:pulse .6s ease-out}
+@keyframes blink{50%{opacity:.25}}
+@keyframes pulse{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+.bl{position:absolute;left:18px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;width:200px}
+#mini{width:200px;height:200px;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.55),0 6px 18px rgba(0,0,0,.5)}
+.bars{display:flex;flex-direction:column;gap:4px}
+.bar{height:8px;background:rgba(0,0,0,.55);border:1px solid rgba(0,0,0,.7)}
+.bar i{display:block;height:100%;width:100%;background:linear-gradient(#7fe07a,#3e9e3a);transition:width .25s}
+.bar.ar i{background:linear-gradient(#8cc6ff,#2f6fb7)}
+.bar.jet{height:5px}.bar.jet i{background:linear-gradient(#ffd27a,#e07a1a)}.bar.jet.on i{background:linear-gradient(#fff2a8,#ff9a2a);box-shadow:0 0 8px #ffb040}
+#speed{position:absolute;right:22px;bottom:calc(22px + env(safe-area-inset-bottom,0px));font-family:var(--display);font-size:40px;color:#fff;font-variant-numeric:tabular-nums}
+#speed span{font-family:var(--hud);font-size:18px;font-weight:700;color:var(--muted)}
+#zone{position:absolute;right:22px;bottom:calc(80px + env(safe-area-inset-bottom,0px));text-align:right;opacity:0;transform:translateY(6px);transition:opacity .4s,transform .4s;display:flex;flex-direction:column}
+#zone.show{opacity:1;transform:none}
+#zone b{font-weight:800;font-size:26px;letter-spacing:.02em;color:#fff}
+#zone span{font-weight:600;font-size:18px;color:var(--gold);letter-spacing:.12em;text-transform:uppercase}
+#hint{position:absolute;left:18px;top:calc(18px + env(safe-area-inset-top,0px));max-width:min(360px,calc(100vw - 36px));background:rgba(8,10,12,.82);border-left:4px solid var(--mainz);padding:10px 14px;font-size:18px;font-weight:600;line-height:1.3;color:#eee}
+#hint b{color:var(--gold)}
+#mtext{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(640px,calc(100vw - 32px));text-align:center;font-size:22px;font-weight:600;line-height:1.3;color:#fff}
+#mtext b{color:var(--gold)}
+#timer{position:absolute;right:18px;top:calc(150px + env(safe-area-inset-top,0px));font-family:var(--display);font-size:28px;color:#fff;background:rgba(0,0,0,.45);padding:2px 10px}
+#timer.low{color:#ff6b6b}
+#cross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}
+#cross::before,#cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#cross::before{left:10px;top:0;width:2px;height:22px}#cross::after{top:10px;left:0;height:2px;width:22px}
+.big{position:absolute;left:0;right:0;top:34%;text-align:center;opacity:0;transition:opacity .35s;pointer-events:none}
+.big.show{opacity:1}
+.big-t{font-family:var(--display);font-size:clamp(40px,8vw,88px);letter-spacing:.02em;line-height:1;color:#fff;text-shadow:0 4px 0 #000,0 0 18px rgba(0,0,0,.6);-webkit-text-stroke:2px #000}
+.big-s{margin-top:10px;font-size:22px;font-weight:700;color:#eee}
+.big.dead .big-t{color:#d32f2f}.big.busted .big-t{color:#3f7fe0}.big.win .big-t{color:var(--gold)}.big.fail .big-t{color:#ff6b6b}.big.mission .big-t{color:#fff;font-size:clamp(30px,5vw,56px)}
+.big.title .big-t{color:#fff;-webkit-text-stroke:3px var(--mainz)}
+.tl{position:absolute;right:18px;top:calc(196px + env(safe-area-inset-top,0px));display:flex;gap:10px;align-items:center;pointer-events:auto}
+.tl .sch{font-weight:700;font-size:16px;color:var(--muted);letter-spacing:.06em}.tl .sch b{color:var(--gold)}
+#btn-hud-pause{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);color:#fff;width:34px;height:30px;font-weight:800}
+#hurt{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(180,0,0,.75) 100%)}
+
+/* ---------- Touch ---------- */
+#touch{position:absolute;inset:0;pointer-events:none}
+#tlook{position:absolute;right:0;top:0;width:55%;height:100%;pointer-events:auto;touch-action:none}
+#tpad{position:absolute;left:24px;bottom:calc(250px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);pointer-events:auto;touch-action:none}
+#tknob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
+.tbtns{position:absolute;right:16px;bottom:calc(90px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,64px);gap:10px;pointer-events:auto}
+.tbtns button{height:56px;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:rgba(10,12,14,.55);color:#fff;font-weight:800;font-size:15px;letter-spacing:.04em;touch-action:none}
+.tbtns #tb-fire{background:rgba(200,16,46,.6)}
+
+/* ---------- Start / Pause ---------- */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;padding-inline:clamp(16px,6vw,90px);padding-block:24px;box-sizing:border-box;overflow:auto}
+#start{background:linear-gradient(90deg,rgba(9,12,15,.96) 0%,rgba(9,12,15,.86) 46%,rgba(9,12,15,.25) 100%)}
+.panel{max-width:620px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.emblem{display:flex;align-items:center;gap:14px}
+.emblem svg{width:46px;height:46px;color:#fff;flex:none}
+.emblem span{font-weight:700;letter-spacing:.3em;font-size:14px;color:var(--muted);text-transform:uppercase}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(52px,10vw,112px);line-height:.88;margin:0;letter-spacing:.01em;color:#fff;text-wrap:balance}
+h1 em{font-style:normal;color:var(--mainz)}
+.lede{font-size:20px;line-height:1.4;color:#d9d4cb;max-width:52ch;margin:0;font-weight:500}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 22px;font-size:17px;color:#cfd3d6}
+.keys div{display:flex;gap:10px;align-items:baseline;min-width:0}
+kbd{font-family:var(--hud);font-weight:800;font-size:14px;min-width:22px;text-align:center;padding:1px 6px;border:1px solid rgba(255,255,255,.35);border-bottom-width:3px;border-radius:4px;color:#fff;background:rgba(255,255,255,.06)}
+.load{display:flex;flex-direction:column;gap:6px}
+.loadtrack{height:6px;background:rgba(255,255,255,.12);overflow:hidden}
+#loadbar{height:100%;width:0;background:var(--mainz);transition:width .3s}
+#loadtxt{font-size:15px;color:var(--muted);letter-spacing:.04em}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{border:0;padding:12px 30px;font-weight:800;font-size:22px;letter-spacing:.08em;text-transform:uppercase;background:var(--mainz);color:#fff;clip-path:polygon(0 0,100% 0,94% 100%,0 100%)}
+.btn:disabled{background:#3a3f44;color:#8b9298;cursor:wait}
+.btn.ghost{background:transparent;color:#fff;border:2px solid rgba(255,255,255,.35);clip-path:none;font-size:17px;padding:9px 18px}
+.note{font-size:14px;color:#80888e;max-width:60ch;line-height:1.4;margin:0}
+#pause{background:rgba(9,12,15,.78);justify-content:center}
+#pause .panel{align-items:center;text-align:center}
+#pause h2{font-family:var(--display);font-weight:400;font-size:clamp(40px,7vw,70px);margin:0;color:#fff}
+.stats{display:flex;gap:28px;flex-wrap:wrap;justify-content:center;font-size:18px;color:var(--muted)}
+.stats b{display:block;font-size:26px;color:#fff;font-variant-numeric:tabular-nums}
+#map{position:fixed;inset:0;background:#10171c;display:flex;flex-direction:column}
+.maphead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;padding-top:calc(12px + env(safe-area-inset-top,0px));border-bottom:1px solid rgba(255,255,255,.08)}
+.maphead h3{margin:0;font-family:var(--display);font-weight:400;font-size:26px;color:#fff}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:15px;color:#cfd3d6}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid #000}
+#mapc{flex:1;width:100%;min-height:0;display:block}
+
+/* ---------- Zweiter Spieler / Split-Screen ---------- */
+#hud2{position:absolute;right:0;top:0;bottom:0;width:50%;pointer-events:none}
+body.split #stage::after{content:"";position:fixed;left:50%;top:0;bottom:0;width:3px;margin-left:-1px;background:#000;z-index:2}
+body.split .tr{right:calc(50% + 18px)}
+body.split .tl{right:calc(50% + 18px)}
+body.split #speed{right:calc(50% + 22px)}
+body.split #zone{right:calc(50% + 22px)}
+body.split #timer{right:calc(50% + 18px)}
+body.split #cross{left:25%}
+body.split .big{right:auto;width:100%}
+body.split #mtext{left:25%;width:min(460px,46vw)}
+#hud2 .p2tag{position:absolute;right:18px;top:16px;font-family:var(--display);font-size:20px;color:var(--blue)}
+#hud2 .weapon{position:absolute;right:18px;top:46px}
+#hud2 .bl{left:auto;right:18px;width:160px}
+#mini2{width:160px;height:160px;border-radius:50%;box-shadow:0 0 0 3px rgba(0,0,0,.55),0 6px 18px rgba(0,0,0,.5)}
+body.split #mini{width:160px;height:160px}body.split .bl{width:160px}
+#speed2{position:absolute;left:22px;bottom:calc(22px + env(safe-area-inset-bottom,0px));font-family:var(--display);font-size:34px;color:#fff;font-variant-numeric:tabular-nums}
+#speed2 span{font-family:var(--hud);font-size:16px;font-weight:700;color:var(--muted)}
+#cross2{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}
+#cross2::before,#cross2::after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#cross2::before{left:10px;top:0;width:2px;height:22px}#cross2::after{top:10px;left:0;height:2px;width:22px}
+#hint2{position:absolute;left:18px;top:18px;max-width:300px;background:rgba(8,10,12,.82);border-left:4px solid var(--blue);padding:8px 12px;font-size:16px;font-weight:600;color:#eee}
+
+/* ---------- Gespräche ---------- */
+#bubbles{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:3}
+.bubble{position:absolute;left:0;top:0;max-width:240px;background:#fff;color:#151515;font-weight:700;font-size:16px;line-height:1.25;padding:7px 11px;border-radius:12px;box-shadow:0 2px 0 rgba(0,0,0,.35);transform-origin:50% 100%;white-space:normal}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-top-color:#fff;border-bottom:0}
+.bubble.loud{background:#ffd23f;font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.02em}
+.bubble.loud::after{border-top-color:#ffd23f}
+.bubble.quiet{background:rgba(255,255,255,.82);font-style:italic;font-weight:600;font-size:14px;color:#333}
+.bubble.quiet::after{border-top-color:rgba(255,255,255,.82)}
+#talk{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(680px,calc(100vw - 32px));background:rgba(10,12,14,.9);border-left:5px solid var(--gold);padding:14px 18px;box-sizing:border-box;z-index:5;display:flex;flex-direction:column;gap:8px}
+#talk .who{font-weight:800;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+#talk .line{font-size:22px;font-weight:600;line-height:1.3;color:#fff;min-height:29px}
+#talk .caret{color:var(--gold)}
+#talk .opts{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+#talk button.opt{text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#fff;padding:8px 12px;font-size:18px;font-weight:600}
+#talk button.opt:hover,#talk button.opt:focus-visible{background:rgba(255,210,63,.18)}
+#talk button.opt kbd{margin-right:10px}
+#talk .hint2{font-size:14px;color:var(--muted)}
+/* ---------- Geschäfte ---------- */
+#shopmenu{position:fixed;right:clamp(16px,5vw,60px);top:50%;transform:translateY(-50%);width:min(380px,calc(100vw - 32px));background:rgba(10,12,14,.92);border-top:5px solid var(--gold);padding:18px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px;z-index:5}
+#shopmenu h3{margin:0;font-family:var(--display);font-weight:400;font-size:26px;color:#fff;line-height:1.05;overflow-wrap:anywhere}
+#shopmenu .cat{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700}
+#shopmenu button.item{display:flex;justify-content:space-between;gap:12px;align-items:baseline;width:100%;text-align:left;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#fff;padding:10px 12px;font-size:19px;font-weight:600}
+#shopmenu button.item:hover,#shopmenu button.item:focus-visible{background:rgba(255,210,63,.18)}
+#shopmenu button.item kbd{margin-right:8px}
+#shopmenu button.item .pr{color:var(--money);font-variant-numeric:tabular-nums;font-weight:800}
+#shopmenu .msg{min-height:22px;font-size:16px;color:#cfd3d6}
+#shopmenu .foot{font-size:14px;color:var(--muted)}
+
+/* ---------- Spielstände ---------- */
+.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;width:min(620px,100%)}
+.slot{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);padding:10px 12px;display:flex;flex-direction:column;gap:8px;text-align:left;min-width:0}
+.slot .t{font-weight:800;font-size:18px;color:#fff}
+.slot .d{font-size:14px;color:var(--muted);line-height:1.3;min-height:36px;overflow-wrap:anywhere}
+.slot .b{display:flex;gap:6px}
+.slot .b button{flex:1;padding:6px 8px;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+.slot .b button.save{border-color:var(--gold);color:var(--gold)}
+.slot .b button:disabled{opacity:.35;cursor:default}
+#savemsg{font-size:15px;color:var(--gold);min-height:20px}
+
+@media (max-width:640px){
+  #mini{width:150px;height:150px}.bl{width:150px}
+  #money{font-size:24px}#wanted .wheel{width:20px;height:20px}
+  .keys{font-size:15px}.lede{font-size:17px}
+  #zone b{font-size:20px}#mtext{font-size:18px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+#keysov{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:30;max-height:86vh;overflow:auto;width:min(380px,92vw);padding:14px 16px;border-radius:12px;background:rgba(12,16,20,0.86);color:#eee;font:500 14px "Barlow Condensed",system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+#keysov .kh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:17px;gap:10px}#keysov .kh span{font-size:12px;opacity:.75}
+#keysov .kgrid div{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)}#keysov .kgrid h4{margin:10px 0 4px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#ffd23f}
+#keysov kbd,#keystip kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:3px;border-radius:4px;background:#2c343c;border:1px solid #4a545e;color:#fff;font:600 12px system-ui,sans-serif;text-align:center}
+#keystip{position:fixed;right:12px;bottom:12px;z-index:5;padding:3px 8px;border-radius:8px;background:rgba(12,16,20,.55);color:#ddd;font:600 12px "Barlow Condensed",sans-serif;pointer-events:none;display:none}
+body.playing #keystip{display:block}
+</style>
+
+<div id="stage"></div>
+
+<div id="hud" hidden>
+  <div class="tr">
+    <div id="clock" class="shadow">17:35</div>
+    <div class="weapon shadow"><span id="weapon">FAUST</span><span id="ammo"></span></div>
+    <div id="money" class="shadow">€00000250</div>
+    <div id="wanted" aria-label="Fahndungslevel">
+      <svg class="wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+      <svg class="wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+      <svg class="wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+      <svg class="wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+      <svg class="wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>
+    </div>
+  </div>
+  <div class="tl"><span class="sch shadow">Schoppe <b id="schoppen">0/11</b></span><button id="btn-hud-pause" aria-label="Pause">II</button></div>
+  <div id="timer" hidden></div>
+  <div class="bl">
+    <canvas id="mini" width="200" height="200"></canvas>
+    <div class="bars"><div class="bar"><i id="hp"></i></div><div class="bar ar" id="arwrap" hidden><i id="ar"></i></div><div class="bar jet" id="jetwrap"><i id="jet"></i></div></div>
+  </div>
+  <div id="zone" class="shadow"></div>
+  <div id="speed" class="shadow" hidden></div>
+  <div id="hint" hidden></div>
+  <div id="mtext" class="shadow" hidden></div>
+  <div id="cross" hidden></div>
+  <div id="big" class="big"></div>
+  <div id="touch" hidden>
+    <div id="tlook"></div>
+    <div id="tpad"><div id="tknob"></div></div>
+    <div class="tbtns">
+      <button id="tb-weapon">WAFFE</button><button id="tb-map">KARTE</button><button id="tb-enter">EIN/AUS</button>
+      <button id="tb-jump">SPRUNG</button><button id="tb-brake">BREMSE</button><button id="tb-fire">FEUER</button>
+    </div>
+  </div>
+</div>
+<div id="hud2" hidden>
+  <div class="p2tag shadow">SPIELER 2</div>
+  <div class="weapon shadow"><span id="weapon2">FAUST</span><span id="ammo2"></span></div>
+  <div class="bl"><canvas id="mini2" width="160" height="160"></canvas><div class="bars"><div class="bar"><i id="hp2"></i></div><div class="bar ar" id="arwrap2" hidden><i id="ar2"></i></div><div class="bar jet" id="jetwrap2"><i id="jet2"></i></div></div></div>
+  <div id="speed2" class="shadow" hidden></div>
+  <div id="cross2" hidden></div>
+  <div id="hint2" hidden></div>
+</div>
+<div id="bubbles"></div>
+<div id="talk" hidden></div>
+<div id="shopmenu" hidden role="dialog" aria-label="Geschäft">
+  <div class="cat" id="shopcat"></div>
+  <h3 id="shopname"></h3>
+  <div id="shopitems"></div>
+  <div class="msg" id="shopmsg"></div>
+  <div class="foot">Ziffern oder Klick kaufen · <kbd>F</kbd> schließen · Waffe auf den Verkäufer richten = Überfall</div>
+</div>
+<div id="hurt"></div>
+<pre id="errbox" hidden style="position:fixed;left:8px;bottom:8px;max-width:90vw;max-height:40vh;overflow:auto;background:rgba(80,0,0,.85);color:#fff;font:12px monospace;padding:8px;z-index:99;white-space:pre-wrap"></pre>
+
+<div id="start" class="overlay">
+  <div class="panel">
+    <div class="emblem">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#c8102e" stroke-width="2.4"/><g stroke="#c8102e" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/><line x1="4.2" y1="16.5" x2="19.8" y2="7.5"/></g><circle cx="12" cy="12" r="2.4" fill="#c8102e"/></svg>
+      <span>Open World · Mainz am Rhein</span>
+    </div>
+    <h1>Meenz<br><em>City</em></h1>
+    <p class="lede">Vom Dom zum Hauptbahnhof, über die Theodor-Heuss-Brücke nach Kastel. Klau dir ein Auto, erledige Aufträge und häng die Polizei ab, bevor alle fünf Mainzer Räder leuchten.</p>
+    <div class="keys">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Laufen, Fahren</div>
+      <div><kbd>Maus</kbd> Umsehen</div>
+      <div><kbd>F</kbd> Einsteigen, Aussteigen</div>
+      <div><kbd>Shift</kbd> Rennen</div>
+      <div><kbd>Leertaste</kbd> Springen, Handbremse</div>
+      <div><kbd>Leertaste</kbd> in der Luft halten: Jetpack</div>
+      <div><kbd>Linke Maus</kbd> Schlagen, Schießen</div>
+      <div><kbd>Rechte Maus</kbd> Zielen</div>
+      <div><kbd>Q</kbd> Waffe · <kbd>R</kbd> Nachladen</div>
+      <div><kbd>M</kbd> Karte · <kbd>P</kbd> Pause</div>
+      <div><kbd>H</kbd> Hupe · <kbd>T</kbd> +1 Stunde</div>
+      <div><kbd>Z</kbd> Wetter wechseln</div>
+      <div><kbd>1</kbd>–<kbd>8</kbd> Waffe wählen</div>
+      <div><kbd>F</kbd> an Ladentür: Geschäft betreten</div>
+      <div><kbd>F5</kbd> Schnellspeichern</div>
+      <div><kbd>E</kbd> Passanten ansprechen</div>
+      <div><kbd>U</kbd> Superschuhe an/aus</div>
+      <div><kbd>G</kbd> Mittrinken, Schoppen kaufen (Marktfrühstück)</div>
+      <div><kbd>E</kbd> an der Heunensäule: Brezel-Schalter</div>
+      <div><kbd>K</kbd> oder <kbd>F1</kbd> Tastenbelegung im Spiel</div>
+    </div>
+    <div class="load"><div class="loadtrack"><div id="loadbar"></div></div><div id="loadtxt">Lade Mainz …</div></div>
+    <div class="row"><button id="btn-play" class="btn" disabled>Lädt …</button><button id="btn-continue" class="btn ghost" hidden>Weiterspielen</button><button id="btn-split" class="btn ghost" disabled>2 Spieler (Split-Screen)</button></div>
+    <div class="row"><button id="btn-sound" class="btn ghost snd">Ton: an</button><button class="btn ghost qual">Grafik</button></div>
+    <p class="note">Grafik-Stufe „Ultra“ nutzt Ambient Occlusion, Parallax-Fassaden und 4K-Schatten. Bei Rucklern auf „Hoch“ oder „Mittel“ stellen.</p>
+    <p class="note">Spieler 2 (Split-Screen): Pfeiltasten laufen und fahren, <kbd>Enter</kbd> ein/aus, rechte <kbd>Strg</kbd> schießen, rechte <kbd>Shift</kbd> springen/Handbremse, <kbd>-</kbd> Waffe, <kbd>,</kbd> <kbd>.</kbd> umsehen. Gamepads werden unterstützt.</p>
+    <p class="note">Fan-Projekt, kein offizielles Spiel. Gebäude, Straßen, Rheinufer, Bäume und Geschäfte stammen aus OpenStreetMap. Kartendaten © OpenStreetMap-Mitwirkende, ODbL.</p>
+  </div>
+</div>
+
+<div id="keysov" hidden><div class="kh"><b>Tastenbelegung</b><span><kbd>K</kbd>/<kbd>F1</kbd> ausblenden</span></div><div class="kgrid"></div></div>
+<div id="keystip"><kbd>K</kbd> Tasten</div>
+<div id="pause" class="overlay" hidden>
+  <div class="panel">
+    <h2>Pause</h2>
+    <div class="row"><button id="btn-resume" class="btn">Weiter</button><button id="btn-pause-map" class="btn ghost">Karte</button><button id="btn-sound2" class="btn ghost snd">Ton: an</button><button class="btn ghost wx">Wetter: klar</button><button class="btn ghost qual">Grafik</button></div>
+    <div class="slots" id="slots"></div>
+    <div id="savemsg"></div>
+    <div class="row"><button id="btn-keys" class="btn ghost">Tastenbelegung</button><button id="btn-quit" class="btn ghost">Hauptmenü</button></div>
+    <p class="note">Klick ins Bild, um die Maus wieder zu fangen. Esc gibt sie frei. Das Spiel speichert zusätzlich alle zwei Minuten automatisch.</p>
+  </div>
+</div>
+
+<div id="map" hidden>
+  <div class="maphead">
+    <h3>Mainz</h3>
+    <div class="legend"><span><i style="background:#fff"></i>Du</span><span><i style="background:#ffd23f"></i>Mission</span><span><i style="background:#ff3b3b"></i>Polizei</span><span><i style="background:#c06bff"></i>Lackiererei</span><span><i style="background:#5fd36a"></i>Gesundheit</span><span><i style="background:#e8e8e8"></i>Waffe</span><span><i style="background:#58a8ff"></i>Spieler 2</span></div>
+    <button id="btn-map-close" class="btn ghost">Schließen (M)</button>
+  </div>
+  <canvas id="mapc"></canvas>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+/*__GAME__*/
+</script>
