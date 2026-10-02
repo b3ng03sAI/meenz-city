@@ -115,8 +115,9 @@ async def test(g):
     g.check('zweites Eintunken → dunked 2', await g.js(f"()=>{GA}.dunked") == 2)
 
     # 5. Zeit läuft ab → Ergebnis, Geld, Gautschbrief, Mission gewonnen
-    left = await g.js(f"()=>{GA}.timer")
-    for _ in range(int(left) + 2):
+    left = await g.js(f"()=>{{const A={GA};const t=A.timer;A.timer=2;return t}}")  # Rest der Runde abkürzen, Ablauf bleibt derselbe
+    g.check('Runde lief bis hierher noch (Restzeit > 60 s)', left > 60, f'{left:.1f} s')
+    for _ in range(3):
         await g.step(1)
     res = await g.js(f"""()=>{{const A={GA},M={M};return {{r:A.result,running:A.running,timer:A.timer,money:M.G.money,briefe:M.G.gautschBriefe,
         mission:!!M.activeMission,done:!!M.G.done.gautschen,brief:!!A.brief&&!A.brief.hidden&&A.brief.textContent}}}}""")
