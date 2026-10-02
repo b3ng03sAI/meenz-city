@@ -112,7 +112,12 @@ async def test(g):
     g.check('am Bahnsteig Wiesbaden an der Tür', door['near'] and door['plat'] == 'wi', door)
     await g.key('KeyE')
     g.check('ohne Fahrschein eingestiegen', (await g.js(RIDE) or {}).get('ticket') is False)
+    # Regression: Banden-Schüsse (npcShoot → damagePlayer) trafen den sitzenden Fahrgast durchs Abteil
+    hp = await g.js(f"()=>{{const M={M},P=M.P1,h0=P.h.health;M.damagePlayer(P,60);return [h0,P.h.health,!!P.gameOver]}}")
+    g.check('im Abteil kein Schaden von draußen', hp[0] == hp[1] and not hp[2], hp)
     t_c = await until(g, f"()=>!!{M}.STRABA.control", 90, 0.5)
+    alive = await g.js(f"()=>({{over:{M}.P1.gameOver||null,hp:{M}.P1.h.health}})")
+    g.check('Fahrgast überlebt die Fahrt bis zur Kontrolle (keine Treffer durchs Abteil)', not alive['over'] and alive['hp'] == hp[0], alive)
     g.check('Kontrolleur kommt während der Fahrt', t_c is not None and (await g.js(RIDE))['cond'], t_c)
     await g.key('KeyB')
     paid = await g.js(f"()=>({{money:{M}.G.money,ctl:!!{M}.STRABA.control,res:({M}.STRABA.lastControl||{{}}).result,ride:!!{S}.riding}})")
