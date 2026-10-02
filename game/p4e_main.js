@@ -42,7 +42,7 @@ function renderSplit(){const W=innerWidth,H=innerHeight;renderer.setScissorTest(
 let miniT=0;
 function frame(now){requestAnimationFrame(frame);const rdt=Math.min(0.05,(now-lastT)/1000);lastT=now;
   try{
-    if(mode==='play'){update(rdt*timeScale);updateHUD(rdt);miniT-=rdt;if(miniT<=0){miniT=1/30;drawMinimap(P1,$('mini'));if(P2)drawMinimap(P2,$('mini2'));}}
+    if(mode==='play'&&!window.__MANUAL){update(rdt*timeScale);updateHUD(rdt);miniT-=rdt;if(miniT<=0){miniT=1/30;drawMinimap(P1,$('mini'));if(P2)drawMinimap(P2,$('mini2'));}}
     else if(mode==='menu'){updateSky(rdt*0.4);updateShips(rdt);menuCamera(rdt);}
     if(mode!=='loading'&&!window.__NORENDER){if(G.split&&mode!=='menu')renderSplit();else renderFrame();}
   }catch(e){showErr(e);}}
