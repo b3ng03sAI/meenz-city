@@ -54,4 +54,8 @@ async def test(g):
     await g.key('KeyM'); g.check('Karte schließt', await g.js(f"()=>{M}.mode") == 'play')
     await g.key('KeyK')
 
+    # Lizenz: Quellcode-Link (AGPL §13) und OSM-Namensnennung im Startbildschirm
+    lic = await g.js("()=>[!!document.querySelector('a[href=\"https://github.com/b3ng03sAI/meenz-city\"]'),!!document.querySelector('a[href=\"https://www.openstreetmap.org/copyright\"]'),document.documentElement.innerHTML.includes('AGPL-3.0')]")
+    g.check('Quellcode-Link, OSM-Nennung und AGPL-Hinweis vorhanden', all(lic), lic)
+
 run(test)

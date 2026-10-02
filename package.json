@@ -1,6 +1,7 @@
 {
   "name": "meenz-city",
   "private": true,
+  "license": "AGPL-3.0-only",
   "version": "31.0.0",
   "description": "GTA-artiges Browserspiel in Mainz und Wiesbaden (three.js)",
   "scripts": {

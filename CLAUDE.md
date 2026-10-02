@@ -80,6 +80,8 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
 - **Keine fremden Marken/Figuren nachbauen** (z. B. Mario-Kart-Elemente: keine Pilze, Panzer, ?-Blöcke) – eigene Designs.
 - Keine Gesten, die nach verbotenem Gruß aussehen (Arme beim Jubeln senkrecht nach oben).
 - Kartendaten © OpenStreetMap-Mitwirkende (ODbL).
+- **Lizenz:** Spiel AGPL-3.0-only, OSM-Daten ODbL (`LICENSE`, `NOTICE.md`). Keinen fremden Code/Assets übernehmen, deren Lizenz
+  nicht AGPL-kompatibel ist; neue Laufzeit-Abhängigkeiten in `NOTICE.md` eintragen. Quellcode-Link im Startbildschirm nie entfernen (AGPL §13).
 
 ## Kartendaten neu erzeugen
 ```bash
