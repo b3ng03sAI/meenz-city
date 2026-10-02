@@ -43,7 +43,7 @@ def main(argv):
     srv = None
     if not (env.get('MEENZ_URL') and up(env['MEENZ_URL'])):
         port = free_port()
-        srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1'],
+        srv = subprocess.Popen([sys.executable, os.path.join(TESTS, 'lib', 'serve.py'), str(port), ROOT],
                                cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         env['MEENZ_URL'] = f'http://127.0.0.1:{port}'
         for _ in range(50):

@@ -80,7 +80,7 @@ function updateRoofs(dt){if(mode!=='play')return;const P=P1;if(!P.h)return;const
   const indoor=!!P.h.room;
   for(const [b,sc] of ROOF.active){if(!sc)continue;sc.g.visible=!indoor;const S=ROOF_SCENES[sc.key];const t=simTime;
     for(const h of sc.people){if(h.removed||!h.alive||h.state==='talk')continue;if(h.state!=='roof'){continue;}
-      const pose=S.pose;if(pose==='yoga'){const ph=Math.floor((t/6+h.phase)%3);h.armL.rotation.x=h.armR.rotation.x=ph===0?-3.05:ph===1?-1.57:0;h.armL.rotation.z=ph===1?-1.2:0.06;h.armR.rotation.z=ph===1?1.2:-0.06;h.legL.rotation.x=ph===2?-1.2:0;}
+      const pose=S.pose;if(pose==='yoga'){const ph=Math.floor((t/6+h.phase)%3);h.armL.rotation.x=h.armR.rotation.x=ph===0?-2.4:ph===1?-1.57:0;h.armL.rotation.z=ph===1?-1.2:ph===0?0.7:0.06;h.armR.rotation.z=ph===1?1.2:ph===0?-0.7:-0.06;h.legL.rotation.x=ph===2?-1.2:0;}
       else if(sc.extra.tuba){h.armL.rotation.x=-1.2;h.armR.rotation.x=-1.2;h.armL.rotation.z=0.5;h.armR.rotation.z=-0.5;if(h.tuba)h.tuba.rotation.z=Math.sin(t*2)*0.05;}
       else if(sc.extra.golf){h.armL.rotation.x=h.armR.rotation.x=-0.3+Math.sin(t*1.3)*0.6;}
       else if(!pose)h.animate(dt,0);
