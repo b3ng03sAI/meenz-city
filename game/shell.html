@@ -187,6 +187,36 @@ body.split #mini{width:160px;height:160px}body.split .bl{width:160px}
 #keysov kbd,#keystip kbd{display:inline-block;min-width:18px;padding:1px 5px;margin-right:3px;border-radius:4px;background:#2c343c;border:1px solid #4a545e;color:#fff;font:600 12px system-ui,sans-serif;text-align:center}
 #keystip{position:fixed;right:12px;bottom:12px;z-index:5;padding:3px 8px;border-radius:8px;background:rgba(12,16,20,.55);color:#ddd;font:600 12px "Barlow Condensed",sans-serif;pointer-events:none;display:none}
 body.playing #keystip{display:block}
+
+/* ===== Splash- und Ladescreen im GTA-Stil: Cover sofort beim Öffnen (auch das Vorschaubild), danach wechselnde Szenen ===== */
+#splash{position:fixed;inset:0;z-index:9000;background:#0b0d10;overflow:hidden;font-family:var(--display);color:#fff;transition:opacity .7s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash .sl{position:absolute;inset:-4%;background-size:cover;background-position:center;opacity:0;transition:opacity 1.4s ease;animation:splZoom 14s ease-in-out infinite alternate}
+#splash .sl.on{opacity:1}
+@keyframes splZoom{from{transform:scale(1) translate(0,0)}to{transform:scale(1.12) translate(-2%,1.5%)}}
+#splash .vig{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,0) 35%,rgba(0,0,0,.55) 78%,rgba(0,0,0,.85) 100%)}
+#splash .logo{position:absolute;left:5vw;bottom:15vh;line-height:.86;text-transform:uppercase;letter-spacing:.01em}
+#splash .logo b{display:block;font-size:clamp(54px,12vw,170px);font-weight:400;color:#fff;-webkit-text-stroke:3px #111;paint-order:stroke fill;text-shadow:6px 6px 0 #111,0 0 40px rgba(0,0,0,.6)}
+#splash .logo b+b{color:#f6c142;margin-left:.5em}
+#splash .tag{position:absolute;left:5vw;bottom:9vh;font-family:"Barlow Condensed",Arial Narrow,sans-serif;font-weight:700;font-size:clamp(16px,2.4vw,30px);letter-spacing:.12em;text-transform:uppercase;color:#f3e6c8;text-shadow:2px 2px 0 #000}
+#splash .tip{position:absolute;right:4vw;bottom:5vh;max-width:min(560px,80vw);text-align:right;font-family:"Barlow Condensed",Arial Narrow,sans-serif;font-weight:600;font-size:clamp(15px,1.9vw,24px);color:#fff;text-shadow:2px 2px 0 #000;opacity:.95}
+#splash .tip i{display:inline-block;width:.9em;height:.9em;margin-right:.45em;border:3px solid #f6c142;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:splSpin .9s linear infinite}
+@keyframes splSpin{to{transform:rotate(360deg)}}
+#splash .bar{position:absolute;left:0;right:0;bottom:0;height:6px;background:rgba(255,255,255,.12)}#splash .bar div{height:100%;width:0;background:#f6c142;transition:width .3s}
+#splash .go{position:absolute;right:4vw;top:4vh;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(14px,1.6vw,20px);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.45);border:2px solid #f6c142;padding:.35em .8em;border-radius:4px;opacity:0;transition:opacity .4s}
+#splash.ready .go{opacity:1;cursor:pointer}
+@media (prefers-reduced-motion:reduce){#splash .sl{animation:none}#splash .tip i{animation:none}}
+
+html.touchmode #zone{right:auto;left:50%;transform:translate(-50%,6px);bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));text-align:center}
+html.touchmode #zone.show{transform:translate(-50%,0)}
+html.touchmode #keystip{display:none}
+/* Touch-Modus (Paket 51): Kontext-Knöpfe und Touch-Hilfe */
+.tctx{position:absolute;right:16px;bottom:calc(230px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
+.tctx button{min-width:86px;height:46px;padding:0 12px;border-radius:12px;border:2px solid rgba(246,193,66,.7);background:rgba(10,12,14,.6);color:#f6c142;font-weight:800;font-size:14px;letter-spacing:.05em;touch-action:none}
+.tctx button[hidden]{display:none}
+.tkeys{display:none}
+html.touchmode .tkeys{display:grid;gap:4px;margin:10px 0;font-size:15px}
+html.touchmode .keys{display:none}
 </style>
 
 <div id="stage"></div>
@@ -245,6 +275,32 @@ body.playing #keystip{display:block}
 <div id="hurt"></div>
 <pre id="errbox" hidden style="position:fixed;left:8px;bottom:8px;max-width:90vw;max-height:40vh;overflow:auto;background:rgba(80,0,0,.85);color:#fff;font:12px monospace;padding:8px;z-index:99;white-space:pre-wrap"></pre>
 
+<div id="splash" aria-label="Meenz City">
+  <div class="sl on" style="background-image:url(/*__COVER_01__*/)"></div><div class="sl" style="background-image:url(/*__COVER_02__*/)"></div><div class="sl" style="background-image:url(/*__COVER_03__*/)"></div>
+  <div class="vig"></div>
+  <div class="logo"><b>Meenz</b><b>City</b></div>
+  <div class="tag">Mainz · Wiesbaden · Open World</div>
+  <div class="tip"><i></i><span id="spltip">Lade Mainz …</span></div>
+  <div class="go">Weiter ▸</div>
+  <div class="bar"><div id="splbar"></div></div>
+</div>
+<script>/* Splash/Ladescreen: läuft sofort, vor dem großen Spielmodul */
+(()=>{const S=document.getElementById('splash');if(!S)return;const t0=Date.now();let done=false,ready=false,si=0,ti=0;
+  const TIPS=['Lade Mainz …','Schmiere Weck mit Spundekäs …','Zähle Fastnachtsorden …','Verhandle mit Nessie über 2,50 Mark …','Suche den Bräutigam …','Bringe den Fliegerdackel ins Bett …','Stelle die Mainzelbahn auf Verspätung …','Poliere die Domtürme …','Erkläre einem Wiesbadener die Fassenacht …','Klebe Kaugummi unter die Theodor-Heuss-Brücke …','Fülle Schoppe nach …','Warne alle vor der Ablecke-Oma …','Gebe Eichhörnchen Nüsse …','Diskutiere, ob AKK zu Meenz gehört …'];
+  const sl=[...S.querySelectorAll('.sl')],tip=document.getElementById('spltip'),bar=document.getElementById('splbar');
+  const iv=setInterval(()=>{if(done)return;sl[si].classList.remove('on');si=(si+1)%sl.length;sl[si].classList.add('on');},5200);
+  const it=setInterval(()=>{if(done||ready)return;ti=(ti+1)%TIPS.length;tip.textContent=TIPS[ti];},1900);
+  const ib=setInterval(()=>{const b=document.getElementById('loadbar');if(b&&b.style.width)bar.style.width=b.style.width;},250);
+  function hide(){if(done)return;done=true;clearInterval(iv);clearInterval(it);clearInterval(ib);S.classList.add('out');setTimeout(()=>S.remove(),800);}
+  window.__splashReady=()=>{ready=true;bar.style.width='100%';tip.textContent='Fertig – Helau!';S.classList.add('ready');
+    if(window.__MANUAL||window.__NORENDER){hide();return;}const wait=Math.max(0,3200-(Date.now()-t0));setTimeout(hide,wait+1200);};
+  window.__splashHide=hide;S.addEventListener('click',()=>{if(ready)hide();});
+  /* Fehler beim Laden sichtbar machen statt ewig zu drehen (z. B. auf Handys) */
+  addEventListener('error',()=>{if(!ready)hide();});addEventListener('unhandledrejection',()=>{if(!ready)hide();});
+  setTimeout(()=>{if(ready||done)return;tip.textContent='Dauert ungewöhnlich lange … ';const b=document.createElement('button');b.textContent='Mit niedriger Grafik neu laden';
+    b.style.cssText='margin-left:8px;font:700 15px "Barlow Condensed",sans-serif;padding:6px 12px;border:0;border-radius:6px;background:#f6c142;color:#111;cursor:pointer';
+    b.onclick=e=>{e.stopPropagation();try{localStorage.setItem('meenz-quality','niedrig');}catch(_){}location.hash='niedrig';location.reload();};tip.appendChild(b);},45000);addEventListener('keydown',()=>{if(ready)hide();});})();
+</script>
 <div id="start" class="overlay">
   <div class="panel">
     <div class="emblem">
@@ -253,6 +309,16 @@ body.playing #keystip{display:block}
     </div>
     <h1>Meenz<br><em>City</em></h1>
     <p class="lede">Vom Dom zum Hauptbahnhof, über die Theodor-Heuss-Brücke nach Kastel. Klau dir ein Auto, erledige Aufträge und häng die Polizei ab, bevor alle fünf Mainzer Räder leuchten.</p>
+    <div class="tkeys">
+      <div><b>Linker Kreis</b> Laufen, Fahren</div>
+      <div><b>Rechte Bildhälfte wischen</b> Umsehen</div>
+      <div><b>EIN/AUS</b> Einsteigen, Aussteigen, Läden</div>
+      <div><b>SPRUNG</b> halten: Jetpack · im Auto Handbremse · im Flieger HOCH</div>
+      <div><b>FEUER</b> Schlagen, Schießen · <b>WAFFE</b> wechseln</div>
+      <div><b>AKTION</b> Ansprechen, Schalter, Brunnen, Lehrlinge …</div>
+      <div>Im Fahrzeug erscheinen <b>RADIO</b>, <b>HUPE</b>, <b>JOB</b>, <b>RUNTER</b> – je nach Lage</div>
+      <div><b>KARTE</b> mit Schnellreise</div>
+    </div>
     <div class="keys">
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Laufen, Fahren</div>
       <div><kbd>Maus</kbd> Umsehen</div>

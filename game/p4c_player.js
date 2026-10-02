@@ -34,7 +34,7 @@ function updatePlayerFoot(P,I,dt){const h=P.h;h.swimmer=true;const y=P.cam.yaw;c
   P.vy-=16*dt;h.y+=P.vy*dt;const gy=playerGroundY(P,h.x,h.z,h.y+0.3);if(h.y<=gy){h.y=gy;if(P.vy<-14&&!swimHere(h.x,h.z,h.y)&&!jetting&&!(P.jet&&P.jet.fuel>0.05)&&!(P.pu&&(P.pu.jump>0||P.pu.god>0))){damagePlayer(P,(-P.vy-14)*4);}P.vy=0;P.ground=true;}else if(h.y>gy+0.3)P.ground=false;
   if(P.ground)jetLand(P,dt);
   h.animate(dt,P.ground?Math.min(mv,9):0);if(!P.ground){h.legL.rotation.x=0.5;h.legR.rotation.x=-0.3;}
-  if(P.fireT>0.25&&W.melee)h.armR.rotation.x=-1.8;
+  if(P.fireT>0.25&&W.melee){h.armR.rotation.x=-0.85;h.armR.rotation.z=0.4;}
   for(const o of HUMANS){if(o===h||o.inCar||!o.alive)continue;const ddx=o.x-h.x,ddz=o.z-h.z;const d=Math.hypot(ddx,ddz);if(d<0.6&&d>0.01){const p=(0.6-d)/2;o.x+=ddx/d*p;o.z+=ddz/d*p;}}
   if(h.state==='knock'){updatePed(h,dt);if(h.state==='down'||h.state==='dead'){h.state='walk';h.stand();}}
   h.sync();swimPose(P,dt);}

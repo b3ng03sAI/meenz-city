@@ -15,12 +15,18 @@ window.addEventListener('error',e=>{const el=document.getElementById('errbox');i
 window.addEventListener('unhandledrejection',e=>{const el=document.getElementById('errbox');if(el){el.hidden=false;el.textContent+='\n'+(e.reason&&e.reason.message||e.reason);}});
 
 const IS_TOUCH=!!(window.matchMedia&&matchMedia('(pointer: coarse)').matches);
+// Mobilgeräte: Touch-Zeigegerät, Handy-/Tablet-Kennung oder iPad im Desktop-Modus (meldet sich als Mac mit Touch)
+const IS_MOBILE=IS_TOUCH||/iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&(navigator.maxTouchPoints||0)>1);
+const IS_PHONE=IS_MOBILE&&Math.min(screen.width||0,screen.height||0)<600;
 let QUALITY=null;try{QUALITY=localStorage.getItem('meenz-quality');}catch(e){}
-if(!['ultra','hoch','mittel'].includes(QUALITY))QUALITY=IS_TOUCH?'mittel':'ultra';
+if(location.hash==='#niedrig')QUALITY='niedrig';
+if(!['ultra','hoch','mittel','niedrig'].includes(QUALITY))QUALITY=IS_PHONE?'niedrig':IS_MOBILE?'mittel':'ultra';
+if(IS_MOBILE&&(QUALITY==='ultra'||QUALITY==='hoch'))QUALITY=IS_PHONE?'niedrig':'mittel';// Mobil nie über „Mittel“: GPU/Speicher der Handys reichen dafür nicht
 const QS={
   ultra:{tileRes:1536,shadow:4096,shadowBox:150,ao:true,bloom:true,pom:true,msaa:4,detail:2,tex:1024,peds:60,traffic:28,parked:16,pr:2,lights:8,sharp:0.5},
   hoch:{tileRes:1024,shadow:2048,shadowBox:130,ao:false,bloom:true,pom:true,msaa:4,detail:1,tex:1024,peds:50,traffic:24,parked:14,pr:1.5,lights:6,sharp:0.45},
   mittel:{tileRes:512,shadow:2048,shadowBox:110,ao:false,bloom:false,pom:false,msaa:0,detail:0,tex:512,peds:34,traffic:16,parked:8,pr:IS_TOUCH?1.35:1.15,lights:0,sharp:0},
+  niedrig:{tileRes:256,shadow:1024,shadowBox:90,ao:false,bloom:false,pom:false,msaa:0,detail:0,tex:256,peds:20,traffic:10,parked:6,pr:1,lights:0,sharp:0,noShadow:true,lowLOD:true},
 }[QUALITY];
 const Q={tileRes:QS.tileRes,shadow:QS.shadow,peds:QS.peds,traffic:QS.traffic,parked:QS.parked,pixelRatio:Math.min(window.devicePixelRatio||1,QS.pr)};
 
@@ -83,7 +89,7 @@ const nextFrame=()=>new Promise(r=>setTimeout(r,0));
 const stage=document.getElementById('stage');
 const renderer=new THREE.WebGLRenderer({antialias:QS.msaa===0,powerPreference:'high-performance',stencil:false});
 renderer.setPixelRatio(Q.pixelRatio);renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=!QS.noShadow;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.62;
 stage.appendChild(renderer.domElement);
 const ANISO=Math.min(16,renderer.capabilities.getMaxAnisotropy());
@@ -92,7 +98,7 @@ const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.5,13000);
 scene.fog=new THREE.Fog(0xb9c9d8,0.0011,0.012);
 const hemi=new THREE.HemisphereLight(0xcfe0ff,0x5e5446,0.25);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff1dc,3.2);
-sun.castShadow=true;sun.shadow.mapSize.set(Q.shadow,Q.shadow);
+sun.castShadow=!QS.noShadow;sun.shadow.mapSize.set(Q.shadow,Q.shadow);
 {const sc=sun.shadow.camera,b=QS.shadowBox;sc.left=-b;sc.right=b;sc.top=b;sc.bottom=-b;sc.near=10;sc.far=900;}
 sun.shadow.bias=-0.0003;sun.shadow.normalBias=0.35;
 scene.add(sun);scene.add(sun.target);

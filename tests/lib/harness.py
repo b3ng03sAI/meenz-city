@@ -51,9 +51,14 @@ class Game:
     async def start(self, split=False):
         """Wartet auf das fertig geladene Spiel und startet eine neue Runde."""
         # Laden: bis das Menü steht – sofort abbrechen bei Fehlerbox oder Seitenfehler (z. B. SyntaxError bei Namenskollision)
-        t0 = time.time()
+        # Netzwerk-Abbrüche beim Laden (Server unter Last) → Seite neu laden, höchstens 2×; Spielfehler nie wiederholen
+        t0 = time.time(); reloads = 0
         while time.time() - t0 < 300:
             if await self.js('()=>window.__MEENZ!==undefined&&__MEENZ.mode==="menu"'): break
+            if reloads < 2 and any('net::ERR_' in e for e in self.errors):
+                reloads += 1; self.errors[:] = [e for e in self.errors if 'net::ERR_' not in e]
+                print(f'  (Ladeabbruch im Netzwerk – Neuladen {reloads}/2)', flush=True)
+                await self.page.reload(); continue
             err = await self.errbox() or next((e for e in self.errors if e.startswith('pageerror')), '')
             if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
             await asyncio.sleep(0.25)   # Wartezeit nur beim Laden, nicht in der Spielzeit

@@ -73,7 +73,7 @@ async def test(g):
     await g.reseed(7)   # Rennstrecke und KI-Fahrer unabhängig vom Zufallsverbrauch anderer Features
     # Gokart: Angebot, einsteigen, Rennen, Zieleinlauf mit Preisgeld
     k = await g.js(f"""()=>{{const M={M},P=M.P1;M.setWanted(0);if(M.activeMission)M.activeMission.timer=0.001;M.update(1/60);if(P.car)M.exitCar(P,true);
-        P.h.x=M.POI.markt[0];P.h.z=M.POI.markt[1];P.h.y=0;M.KART.next=0;for(let i=0;i<5&&!M.KART.offer;i++)M.kartOffer();
+        P.h.x=M.POI.markt[0];P.h.z=M.POI.markt[1];P.h.y=0;M.KART.next=0;window.__reseed(7);for(let i=0;i<5&&!M.KART.offer;i++)M.kartOffer();
         const o=M.KART.offer;return {{why:M.KART.why||null,mission:M.activeMission&&M.activeMission.id,offer:!!o,len:o&&o.route.len}}}}""")
     g.check('Gokart-Angebot kommt', k['offer'], k)
     if not k['offer']:
