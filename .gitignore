@@ -23,3 +23,6 @@ __pycache__/
 
 # Python-Umgebung für Tests
 .venv/
+
+# Agent-Worktrees (parallele Wellen)
+.claude/worktrees/

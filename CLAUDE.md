@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GTA-artiges Browser-Spiel in Mainz + Wiesbaden (three.js r160). Das Spiel wird als **eine einzige HTML-Datei** ausgeliefert
 (`game/meenz-city.html`, ~4,8 MB) und als claude.ai-Artifact veröffentlicht:
-https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (Stand: Version 31).
+https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (Stand: Version 32).
 
 Sprache im Spiel und in Kommentaren: **Deutsch**, Dialoge gern auf **Meenzerisch/Rheinhessisch**.
 
@@ -41,7 +41,7 @@ python3 tests/run.py rad hbf     # nur test_rad.py + test_hbf.py;  --no-build ü
 - `real.html` rendert echt (SwiftShader); `run(test, real=True)` bzw. `g.snap(name)` → JPEG nach `tests/out/`.
 - **Manuell (ohne Asserts)** in `tests/manual/`: `shot3.py hoch <prefix>` / `shot4.py` / `fly.py` (Screenshots),
   `mob9.py m` (Handy-Speicher, Ziel s. u.), `prof.py` (Ladezeit je Phase), `scan2.py` (Analyse). Brauchen einen Server
-  auf Port 8765 (`npm run serve`). Screenshots nach dem Lauf selbst ansehen.
+  auf Port 8765 (`npm run serve`, nur auf 127.0.0.1). Screenshots nach dem Lauf selbst ansehen.
 
 ## Architektur (Kurzfassung)
 | Datei | Inhalt |
@@ -78,7 +78,10 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
 ## Inhaltliche Regeln
 - **Keine echten lebenden Politiker** darstellen – nur fiktive Figuren (z. B. „Dr. Hubertus Schoppenhauer“).
 - **Keine fremden Marken/Figuren nachbauen** (z. B. Mario-Kart-Elemente: keine Pilze, Panzer, ?-Blöcke) – eigene Designs.
-- Keine Gesten, die nach verbotenem Gruß aussehen (Arme beim Jubeln senkrecht nach oben).
+- **Keine Gesten, die nach verbotenem Gruß aussehen:** nie den rechten Arm allein gestreckt über ~33° unter der Waagerechten
+  heben (Faustschlag = Stoß schräg nach unten zur Körpermitte), nie beide Arme senkrecht (Jubel nur als seitliches V).
+  `game/p3c_haltung.js` erzwingt das am Ende jedes `update()` für alle Figuren; `tests/test_haltung.py` prüft es mit echtem
+  three.js. Neue Posen trotzdem von vornherein so bauen.
 - Kartendaten © OpenStreetMap-Mitwirkende (ODbL).
 - **Lizenz:** Spiel AGPL-3.0-only, OSM-Daten ODbL (`LICENSE`, `NOTICE.md`). Keinen fremden Code/Assets übernehmen, deren Lizenz
   nicht AGPL-kompatibel ist; neue Laufzeit-Abhängigkeiten in `NOTICE.md` eintragen. Quellcode-Link im Startbildschirm nie entfernen (AGPL §13).
@@ -100,7 +103,9 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 - **Nächstes Paket** = erst alle mit Status **In Arbeit**, dann **Geplant** nach aufsteigender Spalte „Reihenfolge“
   (Pakete ohne Reihenfolge zuletzt). „Pausiert“ wird übersprungen, bis der Nutzer es wieder freigibt.
 - Nach einem fertigen Paket **direkt das nächste beginnen** – keine Rückfrage, kein Warten auf Freigabe zwischen Paketen.
-  Alles läuft auf **einem** Arbeits-Branch; nach jedem Paket committen und pushen, der offene PR wächst mit.
+  Arbeits-Branch je Welle/Stapel (`feat/welle-N`), die Feature-Agents einer Welle arbeiten in eigenen Worktrees und Branches
+  (`feat/wN-<paket>`) und werden in den Arbeits-Branch gemergt. Nach jedem Paket committen und pushen – `git push` hat der
+  Nutzer am 2026-10-02 für dieses Repo ausdrücklich dauerhaft freigegeben (Force-Push weiterhin nur nach Rückfrage).
 - Unterbrechen nur für: Artifact-Veröffentlichung/Release-Tag, eine echte Produktentscheidung, die die Notizen nicht
   beantworten, oder einen roten Test, dessen Ursache sich nicht klären lässt. Dann kurz fragen, sonst weiter.
 - Querbezüge in den Notizen beachten (z. B. „baut auf Paket 7 auf“): Voraussetzung zuerst.
@@ -108,7 +113,8 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 ## Ablauf je Roadmap-Paket
 1. Notion: Paket auf **In Arbeit** (Status-Schreibzugriffe über den `tickets`-Agent).
 2. Plan in `.claude/plans/YYYY-MM-DD-<thema>.md` – mit Spec der unklaren Punkte und **wie verifiziert wird**.
-3. Branch `feat/<paket>` von `main`; Checkliste in `tasks/todo.md`.
+3. Paket-Branch: in einer Welle `feat/wN-<paket>` im eigenen Worktree (Vertrag `.claude/plans/…-welle-N.md`), sonst direkt auf
+   dem Arbeits-Branch; Checkliste in `tasks/todo.md`.
 4. Umsetzung in eigener Datei (Präfix je Feature), in den konfliktträchtigen Dateien nur Einzeiler.
 5. `web-tester` schreibt/erweitert `tests/test_<paket>.py`; Bugfix → Regressionstest, der ohne Fix rot ist.
 6. `npm test` grün; visuelle Änderungen per `tests/manual/shot3.py`, Handy-Budget per `tests/manual/mob9.py m`.
@@ -118,6 +124,11 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 9. Notion: **Fertig** + Notizen (Version, was drin ist, Teststand); Lessons in `tasks/lessons.md`.
 
 ## Parallel arbeiten (Agent-Team)
+- **Rollen:** `team-lead` (`.claude/agents/team-lead.md`) plant die Welle, verdrahtet vorab, startet je Paket einen
+  `meenz-dev` im eigenen Worktree, merged die Branches und gibt den Gesamtstand **einmal** an einen `web-tester`
+  (volle Suite, Screenshots, `mob9`, Haltung). Feature-Agents testen nur ihre eigene Datei + `test_all`
+  (`python3 tests/run.py <paket> all`), nie die volle Suite – sonst laufen N volle Suiten parallel und die Maschine kippt.
+  Höchstens ~5 Feature-Agents gleichzeitig.
 - Ein Feature = eine eigene Datei + eigener Branch/Worktree. Konfliktträchtig sind nur `build.py`, `p4e_main.js`
   (Schleife/Boot/`__MEENZ`), `p3_actors.js` (Fahrzeugtypen) und `p4c_player.js` – Änderungen dort klein halten.
 - Integration in der Hauptsession: mergen, dann `npm test` im Haupt-Tree – zwei grüne Branches sind nicht automatisch

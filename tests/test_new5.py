@@ -16,6 +16,7 @@ async def walk(g, sec):
 
 async def test(g):
     await g.start()
+    await g.reseed(1)
     g.check('Spiel läuft', await g.js(f"()=>{M}.mode") == 'play')
     free = await g.js(f"()=>{M}.MISSIONS.filter(m=>m.free).map(m=>m.id)")
     v31 = ['erstflug', 'luftbild', 'jetski', 'eis', 'oldtimer', 'ufojagd']
@@ -61,7 +62,6 @@ async def test(g):
     await g.step(0.5)  # Feuerpause (fireT) des Flammenwerfers ablaufen lassen – der Alttest schoss hier ins Leere
     sn = await g.js(f"()=>{{const M={M},P=M.P1;P.weapon='scharf';P.h.aiming=true;const m0=P.mag.scharf;M.playerFire(P,{{fireP:true,aim:true}});return [m0,P.mag.scharf]}}")
     g.check('Scharfschützengewehr: ein Schuss = eine Patrone', sn[1] == sn[0] - 1, sn)
-    await g.js(f"()=>{{const M={M},P=M.P1;P.weapon='saege';for(let i=0;i<30;i++){{M.playerFire(P,{{fire:true,fireP:i==0}});M.update(1/60);}}}}")
 
     # UFO: Anflug → (Schweben) → Beamen → Flucht → weg
     ph = await g.js(f"""()=>{{const M={M};M.ufoStart(true);const seen=[];for(let i=0;i<60*70;i++){{M.update(1/60);
@@ -70,9 +70,10 @@ async def test(g):
     g.check('UFO durchläuft Anflug → Beamen → Flucht', [s for s in seen if s in ('anflug', 'beam', 'flucht')] == ['anflug', 'beam', 'flucht'], seen)
     g.check('UFO ist nach spätestens 70 s wieder weg', on is False, on)
 
+    await g.reseed(7)   # Rennstrecke und KI-Fahrer unabhängig vom Zufallsverbrauch anderer Features
     # Gokart: Angebot, einsteigen, Rennen, Zieleinlauf mit Preisgeld
     k = await g.js(f"""()=>{{const M={M},P=M.P1;M.setWanted(0);if(M.activeMission)M.activeMission.timer=0.001;M.update(1/60);if(P.car)M.exitCar(P,true);
-        P.h.x=M.POI.markt[0];P.h.z=M.POI.markt[1];P.h.y=0;M.KART.next=0;for(let i=0;i<5&&!M.KART.offer;i++)M.kartOffer();
+        P.h.x=M.POI.markt[0];P.h.z=M.POI.markt[1];P.h.y=0;M.KART.next=0;window.__reseed(7);for(let i=0;i<5&&!M.KART.offer;i++)M.kartOffer();
         const o=M.KART.offer;return {{why:M.KART.why||null,mission:M.activeMission&&M.activeMission.id,offer:!!o,len:o&&o.route.len}}}}""")
     g.check('Gokart-Angebot kommt', k['offer'], k)
     if not k['offer']:
@@ -89,5 +90,10 @@ async def test(g):
     fin = await g.js(f"()=>[!!{M}.KART.race,{M}.G.money]")
     g.check('Rennen nach Zieleinlauf beendet', fin[0] is False)
     g.check('Sieg bringt 1500 € Preisgeld', fin[1] - money0 == 1500, f'{money0}→{fin[1]}')
+
+    # Kettensäge zuletzt: der Test-Passant verbraucht Zufallszahlen und darf die geseedete Folge davor nicht verschieben
+    await g.js(f"()=>{{const M={M};if(M.P1.car)M.exitCar(M.P1,true);M.P1.h.x=M.POI.markt[0];M.P1.h.z=M.POI.markt[1];M.P1.h.y=0;}}")
+    saw = await g.js(f"()=>{{const M={M},P=M.P1;const h=M.mkHuman();h.x=P.h.x+1.2;h.z=P.h.z;h.y=P.h.y;const hp=h.health;P.weapon='saege';P.h.aiming=false;P.aimT=0;P.fireT=0;P.swim=false;P.h.facing=Math.PI/2;for(let i=0;i<30;i++){{M.playerFire(P,{{fire:true,fireP:i==0}});M.update(1/60);}}return [hp,h.health]}}")
+    g.check('Kettensäge verletzt einen Passanten direkt davor', saw[1] < saw[0], saw)
 
 run(test)

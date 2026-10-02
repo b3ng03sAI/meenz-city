@@ -15,7 +15,7 @@ function exitCar(P,force=false){const c=P.car;if(!c)return;const airborne=c.T.pl
   if(airborne){h.x=c.x-Math.cos(c.h)*2.5;h.z=c.z+Math.sin(c.h)*2.5;h.y=c.y-0.5;P.vy=0;P.ground=false;P.airT=1;h.facing=c.h;h.inCar=false;h.g.visible=true;h.stand();h.g.rotation.set(0,c.h,0);c.driver=null;c.ctrl='none';c.ai={mode:'none'};c.inp={throttle:0,brake:0,steer:0,hand:false};P.car=null;h.sync();updateWeaponModel(P);hint('Abgesprungen! <b>Leertaste halten</b> für den Jetpack.',3,P);return;}
   let toWater=false;if(c.T.boat){const s=landSpotNear(c.x,c.z,c.T.jetski?6:14);if(!s){const lx=Math.cos(c.h),lz=-Math.sin(c.h);x=c.x+lx*(c.T.W/2+1.2);z=c.z+lz*(c.T.W/2+1.2);toWater=true;}else [x,z]=s;}
   else{[x,z]=doorPos(c,1);if(blocked(x,z))[x,z]=doorPos(c,-1);if(blocked(x,z))[x,z]=freeSpot(c.x,c.z,0.4);}
-  h.x=x;h.z=z;h.y=toWater?SWIM_Y:groundY(x,z);if(toWater){P.swim=true;splash(x,z,1);}h.facing=c.h;h.inCar=false;h.g.visible=true;h.stand();for(const l of [h.legL,h.legR,h.armL,h.armR])l.rotation.set(0,0,0);h.g.rotation.z=0;
+  h.x=x;h.z=z;h.y=toWater?SWIM_Y:groundY(x,z);if(toWater){P.swim=true;splash(x,z,1);}h.facing=c.h;h.inCar=false;h.g.visible=true;h.stand();for(const l of [h.legL,h.legR,h.armL,h.armR])l.rotation.set(0,0,0);if(h.hips)h.hips.rotation.x=0;h.g.rotation.z=0;
   if(c.T.bike&&!c.T.pedal&&Math.abs(c.speed)>7){knockHuman(h,c.vx*0.6,c.vz*0.6,3,0,false);damagePlayer(P,Math.abs(c.speed)*1.5);h.state='walk';}
   c.driver=null;c.ctrl='none';c.ai={mode:c.T.boat?'docked':'none'};c.inp={throttle:0,brake:c.T.boat?0:1,steer:0,hand:false};P.car=null;h.sync();updateWeaponModel(P);}
 function vehicleInput(P,I){const c=P.car;const i=c.inp;i.throttle=I.throttle;i.brake=I.brake;i.steer=clamp(I.steer,-1,1);i.hand=I.hand;
@@ -34,7 +34,7 @@ function updatePlayerFoot(P,I,dt){const h=P.h;h.swimmer=true;const y=P.cam.yaw;c
   P.vy-=16*dt;h.y+=P.vy*dt;const gy=playerGroundY(P,h.x,h.z,h.y+0.3);if(h.y<=gy){h.y=gy;if(P.vy<-14&&!swimHere(h.x,h.z,h.y)&&!jetting&&!(P.jet&&P.jet.fuel>0.05)&&!(P.pu&&(P.pu.jump>0||P.pu.god>0))){damagePlayer(P,(-P.vy-14)*4);}P.vy=0;P.ground=true;}else if(h.y>gy+0.3)P.ground=false;
   if(P.ground)jetLand(P,dt);
   h.animate(dt,P.ground?Math.min(mv,9):0);if(!P.ground){h.legL.rotation.x=0.5;h.legR.rotation.x=-0.3;}
-  if(P.fireT>0.25&&W.melee)h.armR.rotation.x=-1.8;
+  if(P.fireT>0.25&&W.melee){h.armR.rotation.x=-0.85;h.armR.rotation.z=0.4;}
   for(const o of HUMANS){if(o===h||o.inCar||!o.alive)continue;const ddx=o.x-h.x,ddz=o.z-h.z;const d=Math.hypot(ddx,ddz);if(d<0.6&&d>0.01){const p=(0.6-d)/2;o.x+=ddx/d*p;o.z+=ddz/d*p;}}
   if(h.state==='knock'){updatePed(h,dt);if(h.state==='down'||h.state==='dead'){h.state='walk';h.stand();}}
   h.sync();swimPose(P,dt);}

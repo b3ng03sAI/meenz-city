@@ -21,7 +21,7 @@ function update(dt){simTime+=dt;updateSky(dt);
     if(h.state==='shout'||h.state==='approach'||h.state==='brawl'){updateActivePed(h,dt);continue;}
     if(h.kind==='cop')updateCop(h,dt);else if(h.kind==='gang')updateGang(h,dt);else updatePed(h,dt);}
   updateProjectiles(dt);updateFires(dt);updatePolice(dt);updateMissions(dt);updatePickups(dt);updateShops(dt);updateParts(dt);updateTracers(dt);updateShips(dt);managePopulation(dt);updateZone(dt);
-  for(const P of PLAYERS){lackiererei(P);shoeEffects(P,dt);}updateTalk(dt);updateAmbient(dt);updateMarkt(dt);updateDogs(dt);updateDrunk(dt);updateUI();updateRoofs(dt);updateTrip(dt);updateBuses(dt);updateHbf(dt);updateRhein(dt);humanShadowLOD();perfGovernor(dt);updatePoliticians(dt);updatePowerups(dt);updateEgg(dt);updateFlug(dt);updateRockets(dt);updateBurning(dt);updateUfo(dt);updateKart(dt);updateRad(dt);
+  for(const P of PLAYERS){lackiererei(P);shoeEffects(P,dt);}updateTalk(dt);updateAmbient(dt);updateMarkt(dt);updateDogs(dt);updateDrunk(dt);updateUI();updateRoofs(dt);updateTrip(dt);updateBuses(dt);updateHbf(dt);updateRhein(dt);humanShadowLOD();perfGovernor(dt);updatePoliticians(dt);updatePowerups(dt);updateEgg(dt);updateFlug(dt);updateRockets(dt);updateBurning(dt);updateUfo(dt);updateKart(dt);updateRad(dt);updateRadio(dt);updateStunt(dt);updateGautsch(dt);updateHubi(dt);updateWiWahr(dt);updateJobs(dt);updateStraba(dt);updateRosenmo(dt);updateNero(dt);updateRevier(dt);updateCoup(dt);updateAltst(dt);updateNeust(dt);updateOberst(dt);updateBretz(dt);updateGons(dt);updateMomb(dt);updateWeis(dt);updateEich(dt);updateSprung(dt);updateOma(dt);updateNessie(dt);updateJga(dt);updateIntro(dt);
   talkHintT-=dt;if(talkHintT<=0){talkHintT=0.6;if(!TALK&&!P1.car&&P1.h&&(!P1.h.room||P1.h.room.venue)&&!SHOP_UI.open){const c=talkCandidate(P1);if(c&&!shopNear(P1.h.x,P1.h.z,1.9))hint('<b>E</b>: ansprechen',0.8);}}
   for(const P of PLAYERS)updateCamera(P,dt);
   {const pts=PLAYERS.filter(P=>P.h).map(P=>P.h.room?[P.h.room.shop.doorX,P.h.room.shop.doorZ]:[P.camera.position.x,P.camera.position.z]);updateCityLOD(0,0,1,false,pts);if(pts[0])updateStaticLOD(pts[0][0],pts[0][1]);updateGround(0,0,false,1,pts);}
@@ -43,10 +43,10 @@ let miniT=0;
 function frame(now){requestAnimationFrame(frame);const rdt=Math.min(0.05,(now-lastT)/1000);lastT=now;
   try{
     if(mode==='play'&&!window.__MANUAL){update(rdt*timeScale);updateHUD(rdt);miniT-=rdt;if(miniT<=0){miniT=1/30;drawMinimap(P1,$('mini'));if(P2)drawMinimap(P2,$('mini2'));}}
-    else if(mode==='menu'){updateSky(rdt*0.4);updateShips(rdt);menuCamera(rdt);}
+    else if(mode==='menu'&&!window.__MANUAL){updateSky(rdt*0.4);updateShips(rdt);menuCamera(rdt);}
     if(mode!=='loading'&&!window.__NORENDER){if(G.split&&mode!=='menu')renderSplit();else renderFrame();}
   }catch(e){showErr(e);}}
-function showErr(e){console.error(e);const b=$('errbox');if(b&&!b.dataset.n){b.hidden=false;b.textContent=(e&&e.stack||String(e)).slice(0,1200);b.dataset.n=1;}}
+function showErr(e){console.error(e);if(window.__splashHide)window.__splashHide();const b=$('errbox');if(b&&!b.dataset.n){b.hidden=false;b.textContent=(e&&e.stack||String(e)).slice(0,1200);b.dataset.n=1;}}
 
 // ===================== SPIELSTÄNDE =====================
 let autoSaveT=120;
@@ -59,7 +59,8 @@ function snapshot(){const P=P1;const [x,z]=P.h.room?[P.h.room.shop.doorX,P.h.roo
 function saveGame(slot,quick=false){if(mode!=='play'&&mode!=='pause')return false;if(P1.gameOver){hint('Jetzt nicht speichern.',2);return false;}const ok=lsSet(SAVE_KEY+slot,JSON.stringify(snapshot()));
   const msg=ok?`Gespeichert in ${slot===0?'Autosave':'Slot '+slot}.`:'Speichern nicht möglich – der Browser blockiert den Speicher.';if(quick||mode==='play')hint(msg,2.5);$('savemsg').textContent=msg;renderSlots();return ok;}
 function autoSave(){if(mode==='play'&&!P1.gameOver)lsSet(SAVE_KEY+0,JSON.stringify(snapshot()));}
-function readSave(slot){const s=lsGet(SAVE_KEY+slot);if(!s)return null;try{return JSON.parse(s);}catch(e){return null;}}
+function escHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function readSave(slot){const s=lsGet(SAVE_KEY+slot);if(!s)return null;try{const d=JSON.parse(s);if(!d||typeof d!=='object'||(d.money!==undefined&&!Number.isFinite(d.money))||(d.t!==undefined&&!Number.isFinite(d.t))||(d.zone!==undefined&&typeof d.zone!=='string'))return null;return d;}catch(e){return null;}}
 function latestSave(){let best=null,bs=-1;for(const k of [0,1,2,3]){const d=readSave(k);if(d&&d.t>(best?best.t:0)){best=d;bs=k;}}return bs;}
 function applySave(d){if(!d)return false;
   if(activeMission)endMission('fail');clearWanted();
@@ -69,12 +70,12 @@ function applySave(d){if(!d)return false;
   const P=P1,p=d.p||{};P.owned=Object.assign({fist:true},p.owned||{});P.ammo=Object.assign({},p.ammo||{});P.mag=Object.assign({},p.mag||{});P.armor=p.armor||0;
   respawnPlayer(P,p.x??POI.start[0],p.z??POI.start[1],p.yaw??0);P.h.health=clamp(p.health??100,10,100);selectWeapon(P,P.owned[p.weapon]?p.weapon:'fist');
   for(let i=CARS.length-1;i>=0;i--){const c=CARS[i];if(c.T.police&&!c.mission)c.remove();}managePopulation(0,true);return true;}
-function loadGame(slot){const d=readSave(slot);if(!d){$('savemsg').textContent='Kein Spielstand vorhanden.';return;}applySave(d);$('savemsg').textContent='Geladen.';hint(`Spielstand geladen: ${d.zone||''}`,3);if(mode==='pause')resumeGame();}
+function loadGame(slot){const d=readSave(slot);if(!d){$('savemsg').textContent='Kein Spielstand vorhanden.';return;}applySave(d);$('savemsg').textContent='Geladen.';hint(`Spielstand geladen: ${escHtml(d.zone||'')}`,3);if(mode==='pause')resumeGame();}
 function fmtDate(t){const d=new Date(t);return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});}
 function renderSlots(){const box=$('slots');if(!box)return;box.innerHTML='';
   for(const k of [0,1,2,3]){const d=readSave(k);const el=document.createElement('div');el.className='slot';
     const nDone=d?Object.keys(d.done||{}).length:0;
-    el.innerHTML=`<div class="t">${k===0?'Autosave':'Slot '+k}</div><div class="d">${d?`${fmtDate(d.t)} · ${d.zone||'Mainz'}<br>€${d.money} · ${nDone}/${MISSIONS.length} Missionen`:'leer'}</div><div class="b">${k?'<button class="save">Speichern</button>':''}<button class="load"${d?'':' disabled'}>Laden</button></div>`;
+    el.innerHTML=`<div class="t">${k===0?'Autosave':'Slot '+k}</div><div class="d">${d?`${fmtDate(d.t)} · ${escHtml(d.zone||'Mainz')}<br>€${escHtml(d.money)} · ${nDone}/${MISSIONS.length} Missionen`:'leer'}</div><div class="b">${k?'<button class="save">Speichern</button>':''}<button class="load"${d?'':' disabled'}>Laden</button></div>`;
     if(k)el.querySelector('.save').addEventListener('click',()=>saveGame(k));el.querySelector('.load').addEventListener('click',()=>loadGame(k));box.appendChild(el);}}
 
 // ===================== MENÜS =====================
@@ -82,7 +83,7 @@ function lockPointer(){if(!IS_TOUCH&&cvs.requestPointerLock){try{const r=cvs.req
 function startGame(opts={}){audioInit();if(AUD.ctx&&AUD.ctx.state==='suspended')AUD.ctx.resume();$('start').hidden=true;$('hud').hidden=false;mode='play';P1.cam.init=false;lastT=performance.now();
   if(opts.split&&!P2)enableSplit();resizeAll();lockPointer();
   if(opts.load!=null){const d=readSave(opts.load);if(d)applySave(d);}
-  if(!startGame.done){startGame.done=true;showBig('MEENZ CITY','title',3.5,G.split?'Zwei Spieler · Willkommen in Mainz':'Willkommen in Mainz');setTimeout(()=>hint('<b>WASD</b> laufen · <b>Maus</b> umsehen · <b>F</b> Auto knacken oder Laden betreten · <b>M</b> Karte · Gelbe Marker = Missionen',9),3500);}}
+  if(!startGame.done){startGame.done=true;showBig('MEENZ CITY','title',3.5,G.split?'Zwei Spieler · Willkommen in Mainz':'Willkommen in Mainz');setTimeout(()=>hint(document.documentElement.classList.contains('touchmode')?'<b>Linker Kreis</b> laufen · rechts <b>wischen</b> umsehen · <b>EIN/AUS</b> Auto knacken oder Laden betreten · <b>KARTE</b> · Gelbe Marker = Missionen':'<b>WASD</b> laufen · <b>Maus</b> umsehen · <b>F</b> Auto knacken oder Laden betreten · <b>M</b> Karte · Gelbe Marker = Missionen',9),3500);}}
 function enableSplit(){G.split=true;P2=makePlayer(1);PLAYERS.push(P2);const h=P2.h=new Human('player');restyle(h);attachJetpack(P2);const tor=h.hips.children[0];if(tor&&tor.material)tor.material=stdMat({color:0x2f5fb0,roughness:0.85});for(const a of [h.armL,h.armR]){const c=a.children[0];if(c)c.material=tor.material;}
   const [x,z]=freeSpot(P1.h.x+2.5,P1.h.z,0.5);h.x=x;h.z=z;h.y=groundY(x,z);h.facing=P1.h.facing;h.sync();P2.cam.yaw=P1.cam.yaw;updateWeaponModel(P2);
   document.body.classList.add('split');$('hud2').hidden=false;}
@@ -110,14 +111,14 @@ async function boot(){
   try{
     await generateWorld((f,t)=>{bar.style.width=Math.round(f*100)+'%';lt.textContent=t+' …';});
     lt.textContent='Missionen …';await nextFrame();
-    buildRoadSegHash();setupLackiererei();defineMissions();setupPickups();buildHeli();setupVehicles();setupJetskis();setupRad();extraMissions();setupNewWeapons();
+    buildRoadSegHash();setupLackiererei();defineMissions();setupPickups();buildHeli();setupVehicles();setupJetskis();setupRad();setupWiWahr();setupRadio();setupStunt();setupGautsch();setupHubi();setupJobs();setupStraba();setupRosenmo();setupNero();setupRevier();setupCoup();setupAltst();setupNeust();setupOberst();setupBretz();setupGons();setupMomb();setupWeis();setupEich();setupSprung();setupOma();setupNessie();setupJga();setupTouchUI();extraMissions();setupNewWeapons();
     P1.h=new Human('player');attachJetpack(P1);const [sx,sz]=freeSpot(POI.start[0],POI.start[1],0.5);P1.h.x=sx;P1.h.z=sz;P1.h.facing=Math.PI/2;P1.h.sync();P1.cam.yaw=Math.PI/2;
     {const r=roadSpot(POI.start[0]+10,POI.start[1]);const c=new Car('sport',r[0],r[1],r[2]||0,{ctrl:'none',color:0xc8102e,plate:'MZ-MZ 1105'});if(c.collides()){const [x,z]=freeSpot(r[0],r[1],1.6);c.x=x;c.z=z;}c.ai={mode:'parked'};}
     managePopulation(0,true);
     await setupPost();updateSky(0);updateEnv(true);bar.style.width='100%';
     lt.textContent=`${BUILDINGS.length.toLocaleString('de-DE')} Gebäude · ${ROADS.length.toLocaleString('de-DE')} Straßen · ${SHOPS.length.toLocaleString('de-DE')} Geschäfte · ${TREES.length.toLocaleString('de-DE')} Bäume · bereit`;
-    $('btn-play').disabled=false;$('btn-play').textContent='Neues Spiel';$('btn-split').disabled=false;if(latestSave()>=0)$('btn-continue').hidden=false;mode='menu';setupTouch();
-    window.__MEENZ={Car,RAD,radSpawnCop,kartRoute,swimBlocked,get activeMission(){return activeMission},FLUG,UFO,KART,kartOffer,ufoStart,enterCar,exitCar,swimHere,CHEAT,WEAPONS,ROCKETS,playerFire:(P,I)=>playerFire(P,I),flugP,mfG,idx,MAT,GROUND,CITY,SIGN_ATLASES:()=>SIGN_ATLASES,EGG,AREAS,ROADSx:ROADS,mkHuman:(k)=>new Human(k||"ped"),snap:(n=3,hide)=>{for(let i=0;i<n;i++)update(0.016);updateHUD(0.016);if(hide)P1.h.g.visible=false;renderFrame();return renderer.domElement.toDataURL('image/jpeg',0.88);},PU,puActivate,FT,fastTravel,ftDestinations,POL,spawnPolitician,ELEV,groundYFn:(x,z,y)=>groundY(x,z,y),blockedFn:(x,z,y)=>blocked(x,z,y),RHEIN,HBF,hbfToPlatform,stepAt,exitShop,VENUES,enterVenue,exitVenue,venueNear,Car,BUS_STOPS,TRIP,get mushT(){return mushT},set mushT(v){mushT=v},ROOF,ENGINES,MAPV,DOGS,BRIDGES,MARKT,BREZEL,marktPuke,startTalk,chooseTalk,get TALK(){return TALK;},setWeather,WEATHER,get gameMin(){return gameMin;},set gameMin(v){gameMin=v;envDirty=true;},BUILDINGS,ROADS,NODES,EDGES,CARS,HUMANS,P1,PLAYERS,TREES,LAMPS,SHOPS,OVERVIEW,HG,keys,update,startGame,tryEnterExit,get wanted(){return wanted;},setWanted,get mode(){return mode;},MISSIONS,startMission,get activeMission(){return activeMission;},crime,ppos,gridH,blocked,spawnPolice,damagePlayer,busted,enterShop,exitShop,shopNear,saveGame,loadGame,applySave,snapshot,G,POI,giveWeapon,makeRoom,enableSplit,INDOOR:()=>INDOOR};
+    $('btn-play').disabled=false;$('btn-play').textContent='Neues Spiel';$('btn-split').disabled=false;if(latestSave()>=0)$('btn-continue').hidden=false;mode='menu';setupTouch();if(window.__splashReady)window.__splashReady();
+    window.__MEENZ={OSM_SANITIZED,HALTUNG,TOUCHUI,INTRO,updateHUD:(dt)=>updateHUD(dt),drawMinimaps:()=>{drawMinimap(P1,$('mini'));if(P2)drawMinimap(P2,$('mini2'));},Car,RAD,radSpawnCop,RADIO,STUNT,GAUTSCH,HUBI,WIWAHR,JOBS,STRABA,ROSENMO,NERO,REVIER,COUP,ALTST,NEUST,OBERST,BRETZ,GONS,MOMB,WEIS,EICH,SPRUNG,OMA,NESSIE,JGA,kartRoute,swimBlocked,get activeMission(){return activeMission},FLUG,UFO,KART,kartOffer,ufoStart,enterCar,exitCar,swimHere,CHEAT,WEAPONS,ROCKETS,playerFire:(P,I)=>playerFire(P,I),flugP,mfG,idx,MAT,GROUND,CITY,SIGN_ATLASES:()=>SIGN_ATLASES,EGG,AREAS,ROADSx:ROADS,mkHuman:(k)=>new Human(k||"ped"),snap:(n=3,hide)=>{for(let i=0;i<n;i++)update(0.016);updateHUD(0.016);if(hide)P1.h.g.visible=false;renderFrame();return renderer.domElement.toDataURL('image/jpeg',0.88);},PU,puActivate,FT,fastTravel,ftDestinations,POL,spawnPolitician,ELEV,groundYFn:(x,z,y)=>groundY(x,z,y),blockedFn:(x,z,y)=>blocked(x,z,y),RHEIN,HBF,hbfToPlatform,stepAt,exitShop,VENUES,enterVenue,exitVenue,venueNear,Car,BUS_STOPS,TRIP,get mushT(){return mushT},set mushT(v){mushT=v},ROOF,ENGINES,MAPV,DOGS,BRIDGES,MARKT,BREZEL,marktPuke,startTalk,chooseTalk,get TALK(){return TALK;},setWeather,WEATHER,get gameMin(){return gameMin;},set gameMin(v){gameMin=v;envDirty=true;},BUILDINGS,ROADS,NODES,EDGES,CARS,HUMANS,P1,PLAYERS,TREES,LAMPS,SHOPS,OVERVIEW,HG,keys,update,startGame,tryEnterExit,get wanted(){return wanted;},setWanted,get mode(){return mode;},MISSIONS,startMission,get activeMission(){return activeMission;},crime,ppos,gridH,blocked,spawnPolice,damagePlayer,busted,enterShop,exitShop,shopNear,saveGame,loadGame,applySave,snapshot,G,POI,giveWeapon,makeRoom,enableSplit,INDOOR:()=>INDOOR};
   }catch(err){showErr(err);lt.textContent='Fehler beim Laden: '+err.message;}
 }
 function setupLackiererei(){const cand=SHOPS.filter(s=>/car_repair|car|motorcycle/.test(s.kind)&&rhineSide(s.x,s.z)>0);let best=null,bd=1e9;for(const s of cand){const d=Math.hypot(s.x-700,s.z+760);if(d<bd){bd=d;best=s;}}

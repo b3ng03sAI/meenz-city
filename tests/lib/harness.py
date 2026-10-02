@@ -31,11 +31,11 @@ SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--igno
 INIT = """
 window.__NORENDER=true;window.__MANUAL=true;
 (()=>{let s=%d>>>0;Math.random=function(){s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);
-t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};})();
+t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};window.__reseed=n=>{s=n>>>0;};})();
 """ % SEED
 
 # Konsolenfehler, die kein Spielfehler sind (fehlende Ressourcen im Offline-/Stub-Betrieb)
-IGNORE_CONSOLE = ('Failed to load resource', 'favicon')
+IGNORE_CONSOLE = ('fonts.googleapis', 'fonts.gstatic', 'favicon')
 
 
 class Game:
@@ -50,16 +50,34 @@ class Game:
 
     async def start(self, split=False):
         """Wartet auf das fertig geladene Spiel und startet eine neue Runde."""
-        await self.page.wait_for_function('(window.__MEENZ!==undefined&&__MEENZ.mode==="menu")||!!(document.getElementById("errbox")||{}).textContent', timeout=300000)
-        err = await self.errbox()
-        if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
+        # Laden: bis das Menü steht – sofort abbrechen bei Fehlerbox oder Seitenfehler (z. B. SyntaxError bei Namenskollision)
+        # Netzwerk-Abbrüche beim Laden (Server unter Last) → Seite neu laden, höchstens 2×; Spielfehler nie wiederholen
+        t0 = time.time(); reloads = 0
+        while time.time() - t0 < 300:
+            if await self.js('()=>window.__MEENZ!==undefined&&__MEENZ.mode==="menu"'): break
+            if reloads < 2 and any('net::ERR_' in e for e in self.errors):
+                reloads += 1; self.errors[:] = [e for e in self.errors if 'net::ERR_' not in e]
+                print(f'  (Ladeabbruch im Netzwerk – Neuladen {reloads}/2)', flush=True)
+                await self.page.reload(); continue
+            err = await self.errbox() or next((e for e in self.errors if e.startswith('pageerror')), '')
+            if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
+            await asyncio.sleep(0.25)   # Wartezeit nur beim Laden, nicht in der Spielzeit
+        else:
+            raise RuntimeError('Spiel lädt nicht: Zeitüberschreitung (300 s)')
         await self.js('(s)=>{if(s)__MEENZ.enableSplit&&__MEENZ.enableSplit();__MEENZ.startGame();}', bool(split))
+        await self.reseed(SEED)   # ab Spielstart dieselbe Zufallsfolge, egal wie viel Zufall neue Features beim Boot verbrauchen
         await self.step(0.1)
 
     async def step(self, sec, dt=1 / 60):
         """Lässt `sec` Sekunden Spielzeit in Schritten von `dt` laufen. Fehler im Update werfen hier."""
-        return await self.js('([n,dt])=>{const M=__MEENZ;for(let i=0;i<n;i++)M.update(dt);return M.mode;}',
+        # wie frame(): update + HUD jeden Schritt, Minimap ~30 Hz – so fallen auch HUD-/Kartenfehler in Tests auf
+        return await self.js('([n,dt])=>{const M=__MEENZ;for(let i=0;i<n;i++){M.update(dt);if(M.mode==="play"){M.updateHUD(dt);if(i%2===0)M.drawMinimaps();}}return M.mode;}',
                              [max(1, round(sec / dt)), dt])
+
+    async def reseed(self, n):
+        """Setzt den Zufallsgenerator neu – vor zufallsabhängigen Abschnitten, damit neue Features mit eigenem
+        Zufallsverbrauch beim Boot die Erwartungen späterer Checks nicht verschieben."""
+        await self.js('(n)=>window.__reseed(n)', int(n))
 
     async def key(self, code, hold=0.0, after=0.1):
         """Drückt eine Taste (KeyboardEvent.code, z. B. 'KeyE'), hält sie `hold` s Spielzeit, dann `after` s weiter."""

@@ -30,6 +30,7 @@ async def test(g):
         await g.key('KeyW', hold=2.5, after=0)
         w = await g.js(ROOM)
         g.check(f'{vid}: Laufen bleibt im Raum', w['in'], [w['lx'], w['lz']])
+        g.check(f'{vid}: Spieler hat sich im Raum bewegt', ((w['lx'] - r['lx']) ** 2 + (w['lz'] - r['lz']) ** 2) ** 0.5 > 1, [r['lx'], r['lz'], w['lx'], w['lz']])
 
         if vid == 'malakoff':
             await g.js(f"()=>{{const M={M};const s=M.P1.h.room.mshops[0];M.P1.h.x=s.doorX+1;M.P1.h.z=s.doorZ;}}")
