@@ -211,12 +211,19 @@ function altstWeinstubeSign(d){const fx=Math.sin(d[2]),fz=Math.cos(d[2]),tx=fz,t
 let ALTST_PROP=null;
 function altstProps(){if(ALTST_PROP)return ALTST_PROP;return ALTST_PROP={cap:new THREE.ConeGeometry(0.15,0.34,10).translate(0,0.27,0).rotateZ(-0.35),bell:new THREE.SphereGeometry(0.035,8,6).translate(-0.13,0.43,0),
   ruff:new THREE.TorusGeometry(0.11,0.035,6,14).rotateX(Math.PI/2),glass:new THREE.CylinderGeometry(0.035,0.03,0.12,8),barrel:new THREE.CylinderGeometry(0.42,0.42,1.0,14).translate(0,0.5,0)};}
+// Narrenkappe, Schelle und Halskrause als ein Mesh je Kappenfarbe: ein Draw-Call statt drei pro Fastnachter und Pass
+const ALTST_JESTER=[];let ALTST_JESTER_MAT=null;
+function altstJesterMat(){return ALTST_JESTER_MAT||(ALTST_JESTER_MAT=stdMat({vertexColors:true,roughness:0.6}));}
+function altstJesterGeo(k){if(ALTST_JESTER[k])return ALTST_JESTER[k];const P=altstProps(),cap=[0xc8102e,0x1d4e89,0xf2c500][k];
+  const parts=[[P.cap,cap,0.2],[P.bell,0xd4af37,0.2],[P.ruff,0xf2f2f2,0]].map(([g,c,dy])=>{const n=new THREE.BufferGeometry();n.setAttribute('position',g.attributes.position.clone());n.setAttribute('normal',g.attributes.normal.clone());
+    if(g.index)n.setIndex(g.index.clone());n.translate(0,dy,0);const col=new THREE.Color(c),cnt=n.attributes.position.count,a=new Float32Array(cnt*3);for(let i=0;i<cnt;i++){a[i*3]=col.r;a[i*3+1]=col.g;a[i*3+2]=col.b;}
+    n.setAttribute('color',new THREE.BufferAttribute(a,3));return n;});
+  return ALTST_JESTER[k]=mergeGeometries(parts);}
 function altstGlass(h){const m=new THREE.Mesh(altstProps().glass,cmat(0xe6d27c,0.15));m.position.set(0,-0.62,0.06);h.armR.add(m);h.altstGlass=m;}
 const ALTST_SCENE_DEFS={
   fastnacht:{n:3,lines:['Helau! Un nochemol vun vorn!','Ritsch, ratsch – wer hot mei Narrekapp?','Schunkele, Leut, schunkele!','Mer üwe fer die Sitzung!','Am Rosemondaach steh ich ganz vorne!','Ei, des Kostüm is noch vun meim Vadder.'],
     who:['Gardist Ewald (Fastnachter)','Gisela (Fastnachterin)','Bubi (Fastnachter)'],
-    dress(h,k){const P=altstProps();const cols=[0xc8102e,0x1d4e89,0xf2c500];const c=new THREE.Mesh(P.cap,cmat(cols[k%3],0.7));c.position.set(0,0.83,0);h.hips.add(c);const b=new THREE.Mesh(P.bell,cmat(0xd4af37,0.3));b.position.set(0,0.83,0);h.hips.add(b);
-      const r=new THREE.Mesh(P.ruff,cmat(0xf2f2f2,0.9));r.position.set(0,0.63,0);h.hips.add(r);},
+    dress(h,k){const c=new THREE.Mesh(altstJesterGeo(k%3),altstJesterMat());c.position.set(0,0.63,0);h.hips.add(c);},
     anim(h,k,t){h.g.rotation.z=Math.sin(t*2.2)*0.1;h.armL.rotation.z=0.35;h.armR.rotation.z=-0.35;h.armL.rotation.x=-0.2;h.armR.rotation.x=-0.2;}},
   weinprobe:{n:3,lines:['Des is en Silvaner aus Rheinhesse – riech emol, des is Sommer im Glas!','Ich schmeck … Holz. Un Hoffnung.','Noch e Schlückche – fer die Wissenschaft!','Spucke? Ei, des wär ja Verschwendung!','Mineralisch, sacht die Fraa. Ich sach: lecker.'],
     who:['Winzerin Anneliese','Herr Hebestreit (Weinprobe)','Frau Kuhnert (Weinprobe)'],
