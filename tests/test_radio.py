@@ -109,7 +109,8 @@ async def test(g):
     r = await g.js(f"()=>{{const R={M}.RADIO;const e=R.log.filter(e=>e.type==='raser').pop();return {{e:e?{{s:e.s,k:e.k}}:null,line:R.line}}}}")
     await g.js(f"()=>{{{M}.RADIO.RASER_V=33}}")
     g.check('Raserei wird geloggt (mit Straße und km/h)', r['e'] and r['e']['s'] and r['e']['k'] > 20, r)
-    g.check('Nachrichten: „Raser uff de <Straße>“', r['e'] and f"Raser uff de {r['e']['s']}" in r['line'], r['line'])
+    g.check('Nachrichten: „Raser …“ mit Straßenname', r['e'] and r['line'].startswith('+++ Eilmeldung +++ Raser') and r['e']['s'] in r['line'], r['line'])
+    g.check('Präposition im Namen → kein doppeltes „uff de“', await g.js(f"()=>[{M}.RADIO.onStreet('Im Fort Montebello',true),{M}.RADIO.onStreet('Rheinallee',false)]") == ['Im Fort Montebello', 'uff de Rheinallee'])
 
     # 7. Aussteigen → aus
     await g.js(f"()=>{{const M={M},c=M.P1.car;c.vx=c.vz=c.speed=0;M.exitCar(M.P1,true)}}")

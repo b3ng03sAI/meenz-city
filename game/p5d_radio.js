@@ -58,7 +58,7 @@ const RADIO_CRIME_NEWS={
 const RADIO_TRAFFIC=['Uff de {s} stockt’s – e Traktor mit Rebstöck is unnerwegs.','Achtung: Uff de {s} läuft en Fastnachter mit Pappnas uff de Fahrbahn. Bitte langsam fahre!',
   '{s} zwische {s2} un {s3}: zähflüssiger Verkehr wesche ere Baustell. Die is do schon seit Jahrzehnte.','Uff de {s} hot e Lieferwage Fleischworscht verlorn. Die Polizei bitt: net uffläse!',
   'Freie Fahrt uff de {s}! Do fährt grad werklich kaaner – mer wisse aach net warum.','Blitzer uff de {s} in {d}, gell – also Fuß vom Gas.',
-  'Uff de {s} steht e Schoppe-Lieferung quer. Umleitung iwwer die {s2} empfohle.','In {d}: Ampelausfall an de {s}. Bitte uffpasse un freundlich winke.',
+  'Uff de {s} steht e Schoppe-Lieferung quer. Umleitung iwwer {s2} empfohle.','In {d}: Ampelausfall uff de {s}. Bitte uffpasse un freundlich winke.',
   'Uff de {s} sinn Gäns unnerwegs, Richtung Rhoi. Die hawwe Vorfahrt.','Kurz un knapp: {s}, {s2} un {s3} – alles frei. Fast unheimlich.'];
 const RADIO_TRAFFIC_WANTED='Polizeieinsatz uff de {s} in {d} – do werd e Fahrzeug verfolgt. Ach, des sinn Sie? Na dann: gut Fahrt!';
 const RADIO_WEATHER={klar:'Sonnig – Sonnebrill uff, Schoppe kalt stelle.',wolkig:'Bewölkt, awwer trocke. Ideal zum Schunkele.',regen:'Es schifft. Scheibewischer an, Laune bleibt.',
@@ -77,7 +77,9 @@ function radioStreetsNear(x,z,R=450){const best=new Map();if(!NODE_HASH)return [
       for(const e of N.e){const E=EDGES[e];const nm=E.road&&E.road.name;if(!nm||!E.car)continue;if(!best.has(nm)||best.get(nm)>d)best.set(nm,d);}}}
   return [...best.entries()].sort((p,q)=>p[1]-q[1]).map(p=>p[0]);}
 function radioStreetAt(x,z){const s=radioStreetsNear(x,z,150);if(s.length)return s[0];const w=radioStreetsNear(x,z,900);return w[0]||'Rheinallee';}
-function radioFill(tpl,o){return tpl.replace(/\{(\w+)\}/g,(m,k)=>o[k]!==undefined?o[k]:m);}
+// „Im Fort Montebello“, „Am Rathaus“ … tragen ihre Präposition schon im Namen → kein „uff de“ davor
+function radioOnStreet(s,cap){if(/^(Im|Am|An|Auf|In|Zum|Zur|Hinter|Unter|Über|Vor|Bei|Beim)\s/.test(s))return s;return (cap?'Uff':'uff')+' de '+s;}
+function radioFill(tpl,o){if(o.s)tpl=tpl.replace(/(Uff|uff) de \{s\}/g,(m,u)=>radioOnStreet(o.s,u==='Uff'));return tpl.replace(/\{(\w+)\}/g,(m,k)=>o[k]!==undefined?o[k]:m);}
 
 // --- Ereignis-Log für die Nachrichten ---
 function radioLog(type,x,z,extra={}){if(x===undefined||z===undefined)[x,z]=ppos(P1);
@@ -174,9 +176,9 @@ function radioSilence(){RADIO.vol=0;if(RADIO.bus&&AUD.ctx)RADIO.bus.gain.setTarg
 // --- HUD ---
 function radioHud(){const el=RADIO.hud;if(!el)return;const st=radioStationNow();const key=RADIO.on&&st?st.id+'|'+RADIO.line:'';if(key===RADIO.hudKey)return;RADIO.hudKey=key;
   if(!key){el.hidden=true;return;}el.hidden=false;el.querySelector('.rn').innerHTML=`📻 <b>${st.name}</b> <span>${st.freq} · N: Sender</span>`;el.querySelector('.rl').textContent=RADIO.line;}
-function setupRadio(){
+function setupRadio(){RADIO.onStreet=radioOnStreet;
   const css=document.createElement('style');
-  css.textContent=`#radio{position:absolute;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(460px,calc(100vw - 420px));min-width:240px;
+  css.textContent=`#radio{position:absolute;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(420px,calc(100vw - 420px));min-width:240px;
 background:rgba(8,10,12,.78);border-left:4px solid var(--gold,#f5c518);padding:6px 12px 8px;color:#eee;pointer-events:auto;cursor:pointer;font-size:16px;line-height:1.25}
 #radio .rn{font-size:15px;letter-spacing:.04em;color:#cfd3d6}#radio .rn b{color:var(--gold,#f5c518);font-weight:800}#radio .rn span{float:right;color:#8a9096;font-size:13px}
 #radio .rl{margin-top:3px;font-weight:600;min-height:20px}
