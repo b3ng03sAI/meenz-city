@@ -20,3 +20,6 @@ tests/out/*
 .DS_Store
 __pycache__/
 *.pyc
+
+# Python-Umgebung für Tests
+.venv/
