@@ -5,7 +5,7 @@
 // Christuskirche (Modell + Innenraum) und Bäume/Bänke/Laternen nach OSM gibt es schon – hier nur, was fehlt.
 const NEUST={markt:{on:false,stands:[],vendors:[],shoppers:[],t0:7*60,t1:13*60,grp:null,built:false,x:0,z:0,welcomed:false},
   kranhaus:null,venue:null,scenes:[],ft:[],cafe:{tables:[],grp:null},playground:null,promenade:[],
-  gz:0,gzBuilt:0,zoll:0,ra:{edges:[],mids:[],bias:0.5,near:330,spawned:0,onRa:0,cap:0},ready:false};
+  gz:0,gzBuilt:0,gzVerts:0,zoll:0,ra:{edges:[],mids:[],bias:0.5,near:330,spawned:0,onRa:0,cap:0},meshes:[],ready:false};
 
 // ---------- Hilfen ----------
 const neustFree=(x,z)=>{const i=idx(x,z);return i>=0&&hgG(i)===0&&!(mfG(i)&6);};
@@ -14,7 +14,13 @@ function neustArea(name,fb){const a=AREAS.find(a=>a.name===name);return a?polyCe
 // Spirale um (cx,cz): erster Punkt, der pred erfüllt
 function neustSpiral(cx,cz,rMax,step,pred){for(let r=0;r<=rMax;r+=step){const n=Math.max(1,Math.round(TAU*r/step));for(let k=0;k<n;k++){const a=k/n*TAU;const x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r;if(pred(x,z))return [x,z];}}return null;}
 function neustNearWater(x,z,r){for(let a=0;a<TAU;a+=Math.PI/4){const i=idx(x+Math.sin(a)*r,z+Math.cos(a)*r);if(i>=0&&(mfG(i)&4))return a;}return null;}
-function neustMesh(gb,mat,grp){if(gb.empty)return null;const m=new THREE.Mesh(gb.geo(),mat);m.castShadow=true;m.receiveShadow=true;(grp||scene).add(m);if(!grp)staticMesh(m);return m;}
+// Markt- und Szenenfiguren zählen zur normalen Fußgänger-Obergrenze: vor dem Spawnen so viele ferne, umherlaufende
+// Passanten entfernen, dass die Gesamtzahl (und damit Draw-Calls/Speicher der Figuren) nicht wächst.
+const neustPedCap=()=>Q.peds*(G.split?1.3:1);
+function neustMakeRoom(n){let peds=0;const amb=[];for(const h of HUMANS){if(h.kind!=='ped'||!h.alive)continue;peds++;
+    if((h.state==='walk'||h.state==='wait')&&!h.keeper&&!h.mission&&!h.room&&!h.inCar&&!playerOfHuman(h))amb.push([minPlayerDist(h.x,h.z),h]);}
+  amb.sort((a,b)=>b[0]-a[0]);for(let k=0;k<amb.length&&peds+n>neustPedCap();k++){amb[k][1].remove();peds--;}}
+function neustMesh(gb,mat,grp){if(gb.empty)return null;const m=new THREE.Mesh(gb.geo(),mat);NEUST.meshes.push(m);m.castShadow=true;m.receiveShadow=true;(grp||scene).add(m);if(!grp)staticMesh(m);return m;}
 // Lokales Koordinatensystem (lx entlang Achse a, lz quer dazu) → Welt
 function neustFrame(x,z,a){const ux=Math.sin(a),uz=Math.cos(a);return (lx,y,lz)=>[x+ux*lx+uz*lz,y,z+uz*lx-ux*lz];}
 // Zollhafen: zwischen Rheinallee und Rhein, nördlich des Feldbergplatzes (Neubaugebiet)
@@ -32,7 +38,7 @@ planOSMBuilding=function(b){_neustPlanOSM(b);
   if(b.H<9.5||b.H>26||b.area<60||b.area>4000||(b.style!=='sandstone'&&b.style!=='plaster'))return;
   if(mulberry32(b.gid%1000003+35)()<0.8){b.neustGz=true;NEUST.gz++;}};
 const _neustAddOSM=addOSMBuilding;
-addOSMBuilding=function(b){_neustAddOSM(b);if(b.neustGz&&DET>=1){neustGzDetail(b);NEUST.gzBuilt++;}};
+addOSMBuilding=function(b){_neustAddOSM(b);if(b.neustGz&&DET>=1){const ch=chunkOf(b.x,b.z),T=cg(ch,'trim'),G=cg(ch,b.style),v0=T.p.length+G.p.length;neustGzDetail(b);NEUST.gzBuilt++;NEUST.gzVerts+=(T.p.length+G.p.length-v0)/3;}};
 function neustGzDetail(b){const ch=chunkOf(b.x,b.z);const TR=cg(ch,'trim'),G=cg(ch,b.style);const R=mulberry32(b.seed^0x5a17);
   const rb=b.rect;const gf=rb?rb.gf:b.gf,fh=rb?rb.fh:b.fh,y0=b.mh||0,top=b.wallTop||b.H;const nFl=Math.floor((top-y0-gf)/fh+0.01);if(nFl<2)return;
   const P=(x,y,z)=>[x,y,z];const tint=b.tint,iron={r:0.13,g:0.13,b:0.14};const ring=b.poly,n=ring.length;
@@ -205,7 +211,7 @@ function neustBuildMarkt(){const M=NEUST.markt;const WD=new GB(),MT=new GB(),CL=
   grp.visible=false;M.built=true;}
 function neustMarktPerson(x,z,face,role){const h=new Human('ped');h.x=x;h.z=z;h.y=groundY(x,z);h.facing=face;h.state='venue';h.neust={role,home:[x,z],face,evT:mr(2,9),wait:0,tgt:null};
   h.npcName=mpick(NPC_NAMES)+(role==='vendor'?' vom Wochenmarkt':' vom Gartenfeldplatz');h.walkSpeed=mr(0.9,1.25);h.sync();return h;}
-function neustMarktSpawn(){const M=NEUST.markt;if(!M.built)neustBuildMarkt();
+function neustMarktSpawn(){const M=NEUST.markt;if(!M.built)neustBuildMarkt();neustMakeRoom(M.stands.length*(LOWMEM?0.5:1)+(LOWMEM?3:8));
   // Handy: weniger Figuren (jede Figur kostet ~20 Draw-Calls), Stände ohne Händler bleiben trotzdem stehen
   M.stands.forEach((s,k)=>{if(LOWMEM&&k%2)return;const Q=neustFrame(s.x,s.z,s.a);const p=Q(-0.3,0,0);M.vendors.push(neustMarktPerson(p[0],p[2],s.a,'vendor'));});
   for(let i=0;i<(LOWMEM?3:8)&&M.stands.length;i++){const s=M.stands[i%M.stands.length];const Q=neustFrame(s.x,s.z,s.a);const p=Q(2.6+mr(0,1.5),0,mr(-1.2,1.2));if(blocked(p[0],p[2],0.5))continue;M.shoppers.push(neustMarktPerson(p[0],p[2],s.a+Math.PI,'shopper'));}
@@ -216,7 +222,9 @@ function neustMarktStep(h,dt){const nb=h.neust;if(!h.alive||h.removed||h.state!=
     else{h.animate(dt,0);nb.wait-=dt;if(nb.stand)faceTo(h,nb.stand.x-h.x,nb.stand.z-h.z,dt,3);if(nb.wait<=0){const s=mpick(NEUST.markt.stands);const Q=neustFrame(s.x,s.z,s.a);const p=Q(2.4+mr(0,1.2),0,mr(-1.3,1.3));nb.tgt=[p[0],p[2]];nb.stand=s;nb.wait=0;}}}
   else{h.animate(dt,0);h.facing+=angDiff(h.facing,nb.face+Math.sin(simTime*0.4+h.phase)*0.4)*Math.min(1,dt*2);}
   nb.evT-=dt;if(nb.evT<=0){nb.evT=mr(7,16);if(minPlayerDist(h.x,h.z)<40&&!h.bubble){if(nb.role==='vendor')say(h,mpick(NEUST_VENDOR),3.2,Math.random()<0.4?'loud':'');
-      else if(!nb.tgt){say(h,mpick(NEUST_SHOPPER),3);const v=NEUST.markt.vendors.find(o=>o.alive&&!o.removed&&nb.stand&&Math.hypot(o.x-nb.stand.x,o.z-nb.stand.z)<3);if(v)setTimeout(()=>{if(v.alive&&!v.removed&&!v.bubble)say(v,mpick(NEUST_REPLY),3);},1400);}}}
+      else if(!nb.tgt){say(h,mpick(NEUST_SHOPPER),3);const v=NEUST.markt.vendors.find(o=>o.alive&&!o.removed&&nb.stand&&Math.hypot(o.x-nb.stand.x,o.z-nb.stand.z)<3);if(v)v.neust.replyT=1.4;}}}
+  // Antwort des Händlers in Spielzeit (kein setTimeout), damit Tests mit g.step deterministisch bleiben
+  if(nb.replyT>0){nb.replyT-=dt;if(nb.replyT<=0&&!h.bubble)say(h,mpick(NEUST_REPLY),3);}
   h.y=groundY(h.x,h.z);h.sync();}
 function neustUpdateMarkt(dt){const M=NEUST.markt;if(!M.stands.length)return;const m=gameMin;const inWin=m>=M.t0&&m<M.t1;const stallWin=m>=M.t0-60&&m<M.t1+30;const pd=minPlayerDist(M.x,M.z);
   if(stallWin&&!M.built&&pd<900)neustBuildMarkt();if(M.grp)M.grp.visible=stallWin;
@@ -250,7 +258,7 @@ function neustSceneSpots(id){const K=NEUST.kranhaus;
 function neustSetupScenes(){for(const d of NEUST_SCENE_DEFS){const spots=neustSceneSpots(d.id);if(!spots||!spots.length)continue;let x=0,z=0;for(const s of spots){x+=s[0];z+=s[1];}x/=spots.length;z/=spots.length;
   if(d.id==='rheinallee'){const WD=new GB();WD.box(x,0,z,2.2,0.45,0.6,spots[0][2],C3(0x6b4426),1);neustMesh(WD,vm('wood'));}// Bank für die Autozähler
   NEUST.scenes.push({id:d.id,name:d.name,x,z,spots:spots.slice(0,d.n),pose:d.pose,dialog:d.dialog,people:[],active:false,line:0,t:mr(1,4),said:0});}}
-function neustSceneSpawn(sc){sc.people=sc.spots.map(([x,z,f],i)=>{const h=new Human('ped');h.x=x;h.z=z;h.y=groundY(x,z);h.facing=f;h.state='venue';h.neustScene=sc;h.npcName=mpick(NPC_NAMES)+' ('+sc.name.split(' ')[0]+')';
+function neustSceneSpawn(sc){neustMakeRoom(sc.spots.length);sc.people=sc.spots.map(([x,z,f],i)=>{const h=new Human('ped');h.x=x;h.z=z;h.y=groundY(x,z);h.facing=f;h.state='venue';h.neustScene=sc;h.npcName=mpick(NPC_NAMES)+' ('+sc.name.split(' ')[0]+')';
   if(sc.pose==='sit'){h.hips.position.y=0.55;h.legL.rotation.x=-1.5;h.legR.rotation.x=-1.5;h.neustSit=true;}h.sync();return h;});sc.active=true;}
 function neustSceneDespawn(sc){for(const h of sc.people)if(!h.removed&&!(h.alive&&h.state==='talk'))h.remove();sc.people=[];sc.active=false;}
 function neustUpdateScenes(dt){for(const sc of NEUST.scenes){const d=minPlayerDist(sc.x,sc.z);
@@ -287,3 +295,11 @@ function setupNeust(){
   neustBuildFeldberg();neustMarktLayout();neustSetupScenes();neustSetupRheinallee();neustSetupTravel();
   NEUST.ready=true;}
 function updateNeust(dt){if(!NEUST.ready||mode!=='play')return;neustUpdateMarkt(dt);neustUpdateScenes(dt);}
+
+// ===================== MESSHILFEN (Speicher-/Draw-Call-Budget, nur für Tests und Bericht) =====================
+// Geometrie-Bytes der eigenen Meshes + geschätzte Bytes der Fassadendetails in den Chunk-Meshes (~50 B je Vertex)
+NEUST.stats=()=>{let bytes=0;for(const m of NEUST.meshes){const g=m.geometry;for(const k in g.attributes)bytes+=g.attributes[k].array.byteLength;if(g.index)bytes+=g.index.array.byteLength;}
+  return {meshes:NEUST.meshes.length,bytes,gzBytes:Math.round(NEUST.gzVerts*50)};};
+// Draw-Calls eines kompletten Frames (inkl. Schatten- und Postprocessing-Durchgänge)
+NEUST.pedCap=neustPedCap;
+NEUST.drawCalls=()=>{const I=renderer.info;I.autoReset=false;I.reset();renderFrame();const n=I.render.calls;I.autoReset=true;return n;};
