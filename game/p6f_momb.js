@@ -330,12 +330,6 @@ function mombZoneDispose(Z){const n=Z.name,key=Z.mombKey;
   if(key==='rhein')MOMB.rhein={path:[],benches:[],anglers:[]};
   const H=Z.mombHG||[];for(let k=H.length-2;k>=0;k-=2)hgS(H[k],H[k+1]);Z.mombHG=[];Z.mombMeshes=0;}
 
-// Umgehung für den three-Stub (test.html): dort ist eine Group ein Proxy auf eine Funktion, deren `name` schreibgeschützt ist –
-// lazyBuild wirft beim Setzen von group.name. Nur für Mombach-Zonen, gleiche Schritte wie lazyBuild; entfällt mit einer zentralen Korrektur.
-const _mombLazyBuild=lazyBuild;
-lazyBuild=function(Z){if(!Z.mombKey||Z.built)return _mombLazyBuild(Z);
-  Z.group=new THREE.Group();try{Z.group.name='lazy_'+Z.name;}catch(e){}scene.add(Z.group);Z.built=true;Z.builds++;Z.o.build(Z);};
-
 function setupMomb(){if(MOMB.zone)return;
   for(const [name,x,z] of MOMB_ZONES)MOMB.zones[name]=lazyZone({name:'momb_'+name,x,z,build:mombZoneBuild,dispose:mombZoneDispose});
   for(const [k,Z] of Object.entries(MOMB.zones))Z.mombKey=k;
