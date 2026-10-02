@@ -35,6 +35,8 @@ async def board(g, key):
 
 async def test(g):
     await g.start()
+    # Revierkämpfe ruhigstellen: die Wiesbadener Gang würde den Spieler am Neroberg angreifen (Zufall) – hier nicht Thema
+    await g.js(f"()=>{{const R={M}.REVIER;if(R){{R.spawnT=R.attackT=R.incomeT=1e9;for(const m of (R.members||[]))if(!m.removed)m.remove();}}}}")
     st = await g.js(f"()=>({{tal:{N}.stations.tal,berg:{N}.stations.berg,b:{N}.brunnen,n:{N}.cars.length}})")
     tal, berg, b = st['tal'], st['berg'], st['b']
 

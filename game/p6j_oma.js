@@ -62,7 +62,7 @@ function omaClearRun(ax,az,bx,bz){const L=Math.hypot(bx-ax,bz-az);for(let s=1;s<
 function omaSpawnSpot(P){const hd=P.cam?P.cam.yaw:P.h.facing;let first=null;
   for(const da of [0,0.35,-0.35,0.7,-0.7,1.0,-1.0])for(const D of [OMA.SPAWN_D,OMA.SPAWN_D*0.75]){const a=hd+da;
     const p=freeSpot(P.h.x-Math.sin(a)*D,P.h.z-Math.cos(a)*D,0.4);if(!first)first=p;
-    const d=Math.hypot(p[0]-P.h.x,p[1]-P.h.z);if(d>12&&omaClearRun(p[0],p[1],P.h.x,P.h.z))return p;}
+    const d=Math.hypot(p[0]-P.h.x,p[1]-P.h.z);if(d>15&&omaClearRun(p[0],p[1],P.h.x,P.h.z))return p;}
   return first;}
 function omaSpawn(P,forced=false){if(omaCanSpawn(P))return null;
   const [x,z]=omaSpawnSpot(P);
@@ -134,7 +134,7 @@ function omaUpdateSparks(dt){for(const s of OMA_SPARKS){if(s.life<=0)continue;s.
 function updateOma(dt){OMA.cooldown=Math.max(0,OMA.cooldown-dt);omaUpdateWatchers(dt);omaUpdateSparks(dt);
   if(OMA.slobberT>0){OMA.slobberT-=dt;if(OMA.slobberT<=0)omaSlobber(false);}
   const A=OMA.active;
-  if(!A){if(mode!=='play'||OMA.cooldown>0)return;OMA.rollT+=dt;if(OMA.rollT<OMA.ROLL_EVERY)return;OMA.rollT=0;
+  if(!A){if(mode!=='play'||OMA.cooldown>0)return;if(window.__MANUAL&&OMA.CHANCE<1)return;/* Testmodus: keine zufällige Oma in fremden Tests (test_oma setzt CHANCE=1) */OMA.rollT+=dt;if(OMA.rollT<OMA.ROLL_EVERY)return;OMA.rollT=0;
     if(omaCanSpawn(P1)||omaPeopleAround(P1,OMA.PED_R)<OMA.MIN_PEDS)return;if(Math.random()<OMA.CHANCE)omaSpawn(P1);return;}
   const h=A.h,P=A.P;A.t+=dt;
   if(h.removed){omaAbort('gone');return;}
