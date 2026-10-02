@@ -1,0 +1,55 @@
+# Veröffentlicht ein Release als installierbare Web-App auf GitHub Pages.
+# Automatisch bei jedem Release-Tag (v*), von Hand über „Run workflow“ mit einem vorhandenen Tag.
+name: Pages
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release-Tag, z. B. v33.0.0'
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Spielquellen des Release-Tags holen (Rahmen site/ bleibt vom aktuellen Stand)
+        run: |
+          git rev-parse --verify "refs/tags/$TAG"
+          git checkout "$TAG" -- game package.json package-lock.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bauen
+        run: |
+          cd game && python3 build.py && cd ..
+          python3 site/build_site.py dist
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
