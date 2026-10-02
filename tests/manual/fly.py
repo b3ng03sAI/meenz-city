@@ -1,6 +1,6 @@
 import os
 CHROME=os.environ.get('CHROME') or None  # Pfad zu Chromium, sonst Playwright-Standard
-OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'out')+'/'
+OUT=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),'out')+'/'  # tests/out
 import asyncio,base64
 from playwright.async_api import async_playwright
 SP=OUT
