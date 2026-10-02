@@ -100,7 +100,9 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 - **Nächstes Paket** = erst alle mit Status **In Arbeit**, dann **Geplant** nach aufsteigender Spalte „Reihenfolge“
   (Pakete ohne Reihenfolge zuletzt). „Pausiert“ wird übersprungen, bis der Nutzer es wieder freigibt.
 - Nach einem fertigen Paket **direkt das nächste beginnen** – keine Rückfrage, kein Warten auf Freigabe zwischen Paketen.
-  Alles läuft auf **einem** Arbeits-Branch; nach jedem Paket committen und pushen, der offene PR wächst mit.
+  Arbeits-Branch je Welle/Stapel (`feat/welle-N`), die Feature-Agents einer Welle arbeiten in eigenen Worktrees und Branches
+  (`feat/wN-<paket>`) und werden in den Arbeits-Branch gemergt. Nach jedem Paket committen und pushen – `git push` hat der
+  Nutzer am 2026-10-02 für dieses Repo ausdrücklich dauerhaft freigegeben (Force-Push weiterhin nur nach Rückfrage).
 - Unterbrechen nur für: Artifact-Veröffentlichung/Release-Tag, eine echte Produktentscheidung, die die Notizen nicht
   beantworten, oder einen roten Test, dessen Ursache sich nicht klären lässt. Dann kurz fragen, sonst weiter.
 - Querbezüge in den Notizen beachten (z. B. „baut auf Paket 7 auf“): Voraussetzung zuerst.
@@ -108,7 +110,8 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 ## Ablauf je Roadmap-Paket
 1. Notion: Paket auf **In Arbeit** (Status-Schreibzugriffe über den `tickets`-Agent).
 2. Plan in `.claude/plans/YYYY-MM-DD-<thema>.md` – mit Spec der unklaren Punkte und **wie verifiziert wird**.
-3. Branch `feat/<paket>` von `main`; Checkliste in `tasks/todo.md`.
+3. Paket-Branch: in einer Welle `feat/wN-<paket>` im eigenen Worktree (Vertrag `.claude/plans/…-welle-N.md`), sonst direkt auf
+   dem Arbeits-Branch; Checkliste in `tasks/todo.md`.
 4. Umsetzung in eigener Datei (Präfix je Feature), in den konfliktträchtigen Dateien nur Einzeiler.
 5. `web-tester` schreibt/erweitert `tests/test_<paket>.py`; Bugfix → Regressionstest, der ohne Fix rot ist.
 6. `npm test` grün; visuelle Änderungen per `tests/manual/shot3.py`, Handy-Budget per `tests/manual/mob9.py m`.

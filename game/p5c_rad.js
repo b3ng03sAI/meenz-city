@@ -10,7 +10,7 @@ const RAD={bikes:[],forceCop:false,copCD:0,cop:null,
 const _radCarGeo=carGeo;
 carGeo=function(id){const T=CAR_TYPES[id];if(!T||!T.pedal)return _radCarGeo(id);if(CAR_GEO.has(id))return CAR_GEO.get(id);
   const k={r:0.09,g:0.09,b:0.1},sil={r:0.62,g:0.64,b:0.66};const wr=T.wr,hw=T.wb/2;
-  const rw=[0,wr,-hw],fw=[0,wr,hw],bb=[0,0.3,-0.04],st=[0,0.86,-0.24],ht=[0,0.9,0.36],hb=[0,0.64,0.42];
+  const rw=[0,wr,-hw],bb=[0,0.3,-0.04],st=[0,0.86,-0.24],ht=[0,0.9,0.36],hb=[0,0.64,0.42];
   const pt=new GB();for(const [a,b] of [[bb,st],[bb,hb],[[0,0.82,-0.22],ht],[hb,ht],[bb,rw],[[0,0.8,-0.23],rw]])pt.beam(a,b,0.045,0.045,WHITE);
   const body=pt.geo();body.deleteAttribute('color');
   const det=new GB(),head=new GB(),tail=new GB();
@@ -22,7 +22,7 @@ carGeo=function(id){const T=CAR_TYPES[id];if(!T||!T.pedal)return _radCarGeo(id);
     gbox(det,sx*0.13,0.3+0.17*sx,-0.04,0.09,0.025,0.06,k);}                                                 // Pedale
   gbox(det,0,0.62,-0.62,0.14,0.02,0.42,k);                                                                  // Schutzblech hinten
   gbox(head,0,0.86,0.47,0.07,0.06,0.04,{r:1,g:0.97,b:0.9});gbox(tail,0,0.66,-0.86,0.06,0.04,0.02,{r:1,g:0.06,b:0.04});
-  const r={body,glass:new THREE.BoxGeometry(0.001,0.001,0.001),det:det.geo(),head:head.geo(),tail:tail.geo()};CAR_GEO.set(id,r);return r;};
+  const r={body,glass:new THREE.BufferGeometry(),det:det.geo(),head:head.geo(),tail:tail.geo()};CAR_GEO.set(id,r);return r;};
 
 // --- Speichenräder statt Auto-Felgen: einmalig nach dem ersten sync (Konstruktor ruft sync auf) ---
 let RAD_WHEEL=null;
@@ -30,9 +30,9 @@ function radWheelGeo(wr){if(RAD_WHEEL)return RAD_WHEEL;const r=wr-0.03;
   RAD_WHEEL={tire:new THREE.TorusGeometry(r,0.03,6,28).rotateY(Math.PI/2),hub:new THREE.CylinderGeometry(0.035,0.035,0.1,8).rotateZ(Math.PI/2),
     spokes:[0,1,2,3].map(i=>new THREE.BoxGeometry(0.006,2*r-0.02,0.006).rotateX(i*Math.PI/4))};return RAD_WHEEL;}
 const _radSync=Car.prototype.sync;
-Car.prototype.sync=function(dt){_radSync.call(this,dt);if(!this.T.pedal||this.radInit)return;this.radInit=true;const G=radWheelGeo(this.T.wr);
+Car.prototype.sync=function(dt){_radSync.call(this,dt);if(!this.T.pedal||this.radInit)return;this.radInit=true;const WG=radWheelGeo(this.T.wr);
   for(const w of this.wheels){const ch=w.w.children;if(Array.isArray(ch))for(const m of ch)m.visible=false;
-    w.w.add(new THREE.Mesh(G.tire,TIRE_M));w.w.add(new THREE.Mesh(G.hub,RIM_M));for(const s of G.spokes)w.w.add(new THREE.Mesh(s,RIM_M));}};
+    w.w.add(new THREE.Mesh(WG.tire,TIRE_M));w.w.add(new THREE.Mesh(WG.hub,RIM_M));for(const s of WG.spokes)w.w.add(new THREE.Mesh(s,RIM_M));}};
 
 // --- Fahrer: sitzt auf dem Sattel, Beine folgen der Kurbel ---
 const _radVehicleInput=vehicleInput;
@@ -40,6 +40,12 @@ vehicleInput=function(P,I){_radVehicleInput(P,I);const c=P.car;if(!c||!c.T.pedal
   h.x=c.x-fx*0.2;h.z=c.z-fz*0.2;h.y=c.y+0.2;const a=c.spin*0.45;
   h.legL.rotation.set(-0.55+Math.sin(a)*0.35,0,0.06);h.legR.rotation.set(-0.55-Math.sin(a)*0.35,0,-0.06);
   h.armL.rotation.set(-1.2,0,0.18-c.steer*0.15);h.armR.rotation.set(-1.2,0,-0.18-c.steer*0.15);h.hips.rotation.x=0.35;h.g.position.set(h.x,h.y,h.z);};
+
+// --- kein Motor, kein Feuerball: ein Totalschaden wirft den Fahrer ab, das Rad bleibt fahrbar-kaputt liegen ---
+const _radDamage=Car.prototype.damage;
+Car.prototype.damage=function(d,byPlayer=false){if(!this.T.pedal){_radDamage.call(this,d,byPlayer);return;}if(this.dead)return;
+  this.health=Math.max(0,this.health-d);if(this.health>0)return;this.health=30;const P=PLAYERS.find(P=>P.car===this);
+  if(P){exitCar(P,true);knockHuman(P.h,this.vx*0.5,this.vz*0.5,2.5,0,false);hint('Abgeflogen! Des Rad hot genuch.',2,P);}this.speed=0;this.vx=this.vz=0;};
 
 const _radEnterCar=enterCar;
 enterCar=function(P,c){_radEnterCar(P,c);if(!c.T.pedal)return;P.radT=0;
@@ -74,28 +80,30 @@ function radRoute(x,z,len=520){let best=null;
       const e=opts[Math.floor(Math.random()*opts.length)];const o=edgeOther(e,n);acc+=EDGES[e].len;seen.add(o);nodes.push(o);n=o;}
     if(!best||acc>best.len)best={nodes,len:acc};if(acc>=len)break;}
   return best;}
-function radCheckpoints(route,n=6){const out=[];let acc=0,next=1;const N=route.nodes;
-  for(let i=1;i<N.length&&out.length<n;i++){const a=NODES[N[i-1]],b=NODES[N[i]];acc+=Math.hypot(b.x-a.x,b.z-a.z);if(acc>=route.len*next/n||i===N.length-1){out.push([b.x,b.z]);next++;}}
+function radCheckpoints(route,n=6){const N=route.nodes,segs=[];let tot=0;
+  for(let i=1;i<N.length;i++){const a=NODES[N[i-1]],b=NODES[N[i]];const L=Math.hypot(b.x-a.x,b.z-a.z);segs.push([a,b,L]);tot+=L;}
+  const out=[];let acc=0,k=0;for(let j=1;j<=n&&segs.length;j++){const want=tot*j/n;while(k<segs.length-1&&acc+segs[k][2]<want){acc+=segs[k][2];k++;}
+    const [a,b,L]=segs[k];const t=L>0?Math.min(1,(want-acc)/L):1;out.push([a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t]);}
   return out;}
 function radRing(p,q){const g=ringMesh();g.scale.setScalar(0.36);g.position.set(p[0],groundY(p[0],p[1])+3.3,p[1]);if(q)g.rotation.y=Math.atan2(q[0]-p[0],q[1]-p[1]);return g;}
 
 // --- Prüferin (fiktiv) ---
-const RAD_EXAM_LINES={start:'So, Schätzelsche! Sechs Ringe, zwei Minuude – un net umfahre, gell?',
-  ring:['Gut so!','Weiter, weiter!','Des laaft ja wie geschmiert!','Net so schnell, du bist net bei de Tour de France!'],
+const RAD_EXAM_LINES={start:n=>`So, Schätzelsche! ${n} Ringe, zwei Minuude – un net umfahre, gell?`,
+  ring:['Gut so!','Weiter, weiter!','Des laaft ja wie geschmiert!','Net so schnell, des is kaa Radrenne!'],
   win:'Bestanne! Jetzt derfste ganz offiziell radle.',fail:'Ei Gude, des war nix. Nochemol!'};
 function radExaminer(x,z){const h=new Human('ped');const [sx,sz]=freeSpot(x+3,z+2,0.4);h.x=sx;h.z=sz;h.y=groundY(sx,sz);h.mission=true;h.state='idle';h.walkSpeed=0;return h;}
 
 const _radKnockHuman=knockHuman;
 knockHuman=function(h,vx,vz,vy,dmg,byPlayer=true){const m=activeMission;
-  if(byPlayer&&m&&m.id==='fahrradschein'&&m.stage===1&&h&&h.alive&&!playerOfHuman(h)&&h!==m.ex)m.hitPed=true;
+  if(byPlayer&&m&&m.id==='fahrradschein'&&m.stage===1&&h&&h.alive&&!playerOfHuman(h))m.hitPed=true;
   return _radKnockHuman(h,vx,vz,vy,dmg,byPlayer);};
 
 function radMission(){const [sx,sz]=roadSpot(POI.rathaus[0]-60,POI.rathaus[1]+20);const start=freeSpot(sx+4,sz,0.5);
-  return {id:'fahrradschein',tag:'R',free:true,title:'Fahrradführerschein',start,
+  return {id:'fahrradschein',tag:'P',free:true,title:'Fahrradführerschein',start,
     begin(m){const r=roadSpot(start[0],start[1]);m.car=spawnMissionCar('fahrrad',r,{color:0x2e7d32});m.stage=0;m.target=[m.car.x,m.car.z];
-      m.rings=[];m.off=0;m.hitPed=false;m.lt=simTime;m.ex=radExaminer(start[0],start[1]);say(m.ex,RAD_EXAM_LINES.start,5,'loud');
-      const route=radRoute(m.car.x,m.car.z);m.pts=route?radCheckpoints(route):[];
-      missionText('Steig aufs <b>Prüfungsrad</b> und fahr durch alle <b>6 Ringe</b>. Nicht zu viel Schaden, niemanden umfahren, nicht absteigen!',7);},
+      m.rings=[];m.off=0;m.hitPed=false;m.lt=simTime;const route=radRoute(m.car.x,m.car.z);m.pts=route?radCheckpoints(route):[];
+      m.ex=radExaminer(start[0],start[1]);say(m.ex,RAD_EXAM_LINES.start(m.pts.length),5,'loud');
+      missionText(`Steig aufs <b>Prüfungsrad</b> und fahr durch alle <b>${m.pts.length} Ringe</b>. Nicht zu viel Schaden, niemanden umfahren, nicht absteigen!`,7);},
     update(m){const P=mP(m);const c=m.car;const dt=Math.max(0,simTime-m.lt);m.lt=simTime;
       if(c.dead||c.removed||m.pts.length<2)return 'fail';
       if(m.stage===0){m.target=[c.x,c.z];if(P.car===c){m.stage=1;m.cp=0;m.timer=120;m.hp0=c.health;m.route=m.pts;m.target=m.pts[0];
@@ -106,7 +114,7 @@ function radMission(){const [sx,sz]=roadSpot(POI.rathaus[0]-60,POI.rathaus[1]+20
       m.rings.forEach((g,i)=>{g.visible=i>=m.cp;});
       if(Math.hypot(c.x-m.target[0],c.z-m.target[1])<6){m.cp++;chime([880]);if(m.cp>=m.pts.length){G.fahrradSchein=true;say(m.ex,RAD_EXAM_LINES.win,4,'loud');return 'win';}
         m.target=m.pts[m.cp];m.route=m.pts.slice(m.cp);missionText(`Ring ${m.cp}/${m.pts.length} · ${RAD_EXAM_LINES.ring[(m.cp-1)%RAD_EXAM_LINES.ring.length]}`,1.6);}},
-    end(m){for(const g of m.rings||[])scene.remove(g);if(m.car)m.car.mission=false;if(m.ex&&!m.ex.removed){m.ex.mission=false;radToPed(m.ex);}},
+    end(m){for(const g of m.rings||[])scene.remove(g);if(m.car)m.car.mission=false;if(m.ex&&!m.ex.removed){m.ex.mission=false;if(m.ex.alive)radToPed(m.ex);}if(m.car){m.car.persist=false;}},
     reward:50,win:'Fahrradführerschein bestanden! Kein Polizist ruft dir mehr „Kek“ hinterher.'};}
 
 // --- Aufbau: geparkte Räder in Mainz und Wiesbaden, Mission + Startmarker ---

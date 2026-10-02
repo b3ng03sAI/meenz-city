@@ -304,7 +304,7 @@ function minPlayerDist(x,z){let d=1e9;for(const P of PLAYERS){if(!P.h)continue;c
 function managePopulation(dt,force=false){popT-=dt;if(popT>0&&!force)return;popT=0.5;
   for(let i=CARS.length-1;i>=0;i--){const c=CARS[i];if(isPlayerCar(c)||c.mission||c.persist)continue;const d=minPlayerDist(c.x,c.z);if(d>430||(c.dead&&d>140)||(c.T.police&&wanted===0&&d>260)){c.remove();}}
   for(let i=HUMANS.length-1;i>=0;i--){const h=HUMANS[i];if(playerOfHuman(h)||h.inCar||h.keeper||h.mission||h.state==='markt'||h.state==='roof'||h.state==='talk'||h.state==='venue'||h.room)continue;const d=minPlayerDist(h.x,h.z);if(d>290||(h.state==='dead'&&(h.timer<=0||d>90))||(h.kind==='cop'&&wanted===0&&d>150))h.remove();}
-  let traffic=0,parked=0,peds=0;for(const c of CARS){if(c.ai.mode==='traffic')traffic++;else if(c.ai.mode==='parked')parked++;}for(const h of HUMANS)if(h.kind==='ped'&&h.alive)peds++;
+  let traffic=0,parked=0,peds=0;for(const c of CARS){if(c.ai.mode==='traffic')traffic++;else if(c.ai.mode==='parked'&&!c.persist)parked++;}for(const h of HUMANS)if(h.kind==='ped'&&h.alive)peds++;
   const mul=G.split?1.3:1;
   for(const P of PLAYERS){if(!P.h||P.h.room&&!force)continue;const [px,pz]=ppos(P);const n=force?40:3;
     for(let k=0;k<n&&traffic<Q.traffic*mul;k++){const before=CARS.length;spawnTraffic(px,pz,force?25:110,330);if(CARS.length>before)traffic++;}

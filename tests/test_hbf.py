@@ -29,9 +29,11 @@ async def test(g):
     g.check('Treppe hoch: Spieler ist draußen auf dem Bahnsteig', not p['in'], p)
     g.check('Bahnsteig Gleis 4/5 auf Bahnsteighöhe', abs(p['y'] - PLAT_H) < 0.05 and p['step'] == PLAT_H, p['y'])
     g.check('neben dem Treppenaufgang 4/5 (< 8 m)', p['d'] < 8, round(p['d'], 1))
+    p0 = await g.js(f"()=>[{M}.P1.h.x,{M}.P1.h.z]")
     await g.key('KeyW', hold=2)
-    w = await g.js(f"()=>{{const M={M};const h=M.P1.h;return [h.y,M.stepAt(h.x,h.z)]}}")
-    g.check('Laufen auf dem Bahnsteig bleibt auf Bahnsteighöhe', abs(w[0] - PLAT_H) < 0.05 and w[1] == PLAT_H, w)
+    w = await g.js(f"()=>{{const M={M};const h=M.P1.h;return [h.y,M.stepAt(h.x,h.z),h.x,h.z]}}")
+    g.check('Laufen auf dem Bahnsteig bleibt auf Bahnsteighöhe', abs(w[0] - PLAT_H) < 0.05 and w[1] == PLAT_H, w[:2])
+    g.check('Spieler ist auf dem Bahnsteig gelaufen', ((w[2] - p0[0]) ** 2 + (w[3] - p0[1]) ** 2) ** 0.5 > 1, w[2:])
 
     # Fahrplan vorziehen: alle Züge kommen in 19–29 Spielminuten (1 min/s) und spawnen 18 min vorher
     await g.js(f"()=>{{const M={M};for(const e of M.HBF.sched)e.t=M.gameMin+19+Math.random()*10;}}")

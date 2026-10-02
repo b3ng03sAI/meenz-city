@@ -7,9 +7,13 @@ async def test(g):
     await g.start()
     M = '__MEENZ'
     # Fliegerdackel: Besuch + Vorbeiflug
+    # Parkplatz-Budget: persistente Fahrzeuge (Räder, Motorräder, Flugzeuge) dürfen es nicht aufbrauchen
+    parked = await g.js(f"()=>{M}.CARS.filter(c=>c.ai.mode==='parked'&&!c.persist).length")
+    g.check('normale geparkte Autos vorhanden', parked > 0, parked)
     await g.js(f"()=>{{{M}.DOGS[0].nextT=0}}"); await g.step(0.7)
+    g.check('Dackel startet Besuch', await g.js(f"()=>{M}.DOGS[0].mode") == 'visit')
     await g.js(f"()=>{{{M}.DOGS[0].buzz={{t:5,said:false,side:1}}}}"); await g.step(3)
-    g.check('Dackel aktiv', await g.js(f"()=>{M}.DOGS.length") > 0)
+    g.check('Dackel-Vorbeiflug mit Spruch', await g.js(f"()=>{M}.DOGS[0].buzz&&{M}.DOGS[0].buzz.said===true"))
 
     # Marktfrühstück: Brezel-Schalter (E), dann mit einem Gast trinken (G)
     await g.js(f"()=>{{const B={M}.BREZEL,h={M}.P1.h;h.x=B.x+1.2;h.z=B.z;}}"); await g.step(0.6)
@@ -57,5 +61,9 @@ async def test(g):
     # Lizenz: Quellcode-Link (AGPL §13) und OSM-Namensnennung im Startbildschirm
     lic = await g.js("()=>[!!document.querySelector('a[href=\"https://github.com/b3ng03sAI/meenz-city\"]'),!!document.querySelector('a[href=\"https://www.openstreetmap.org/copyright\"]'),document.documentElement.innerHTML.includes('AGPL-3.0')]")
     g.check('Quellcode-Link, OSM-Nennung und AGPL-Hinweis vorhanden', all(lic), lic)
+
+    # Spielstand-Anzeige zählt die echten Missionen (früher fest „/13“)
+    slots = await g.js(f"()=>{{const M={M};M.saveGame(1,true);return [document.getElementById('slots').textContent,M.MISSIONS.length]}}")
+    g.check('Slot zeigt /<Anzahl Missionen>', f'/{slots[1]} Missionen' in slots[0] and '/13 ' not in slots[0], slots)
 
 run(test)
