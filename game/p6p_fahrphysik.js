@@ -10,7 +10,7 @@ const FP={on:true,
   // pow/force: Motorleistung/-kraft relativ zu p3 (Höchstgeschwindigkeit bleibt T.max), brk: Bremskraft, coast: Motorbremse m/s²,
   // yawK/yawLim: Gierraten-Hilfe (Rate, Anteil der Haftgrenze), latK: Querschlupf-Dämpfung, inertia: Gierträgheit,
   // hand: Hinterachs-Haftung mit Handbremse, handBeta: max. Driftwinkel (Grad), lean: Schräglage nach Querbeschleunigung
-  BASE:{up:10,back:14,maxS:0.62,fall:0.022,pow:1.35,force:1.2,brk:1.12,coast:0.7,yawK:7,yawLim:1.0,latK:1.5,inertia:0.75,hand:0.38,handBeta:55,lean:0},
+  BASE:{up:10,back:14,maxS:0.62,fall:0.022,pow:1.35,force:1.2,brk:1.12,coast:0.25,yawK:7,yawLim:1.0,latK:1.5,inertia:0.75,hand:0.38,handBeta:55,lean:0},
   CLS:{
     klein:{maxS:0.66,pow:1.4},
     sport:{pow:1.45,force:1.25,brk:1.2,yawK:8},
