@@ -2,14 +2,37 @@
 // Synagoge Weisenau als Modell an der OSM-Position (Ruhezone, Gedenktafel), Zementwerk + Kalksteinbruch am Südrand
 // (generisch, ohne Firmennamen/Logos), Weisenauer Rheinufer (Promenade, Bänke, Strandkiosk als begehbarer Ort),
 // Großberg-Siedlung (Hecken, Garagenhöfe), Mundart-Szenen, Schnellreise-Ziele.
-// Layout + Kollision entstehen beim Boot (setupWeis), die Modelle erst, wenn man in die Nähe kommt (weisBuild).
-const WEIS={built:false,grp:null,center:[2050,2000],BUILD_R:1500,
+// Lazy (Vertrag Welle 8): setupWeis berechnet nur das Layout (Zahlen) und meldet drei Zonen an (Synagoge, Rheinufer,
+// Süd = Zementwerk + Steinbruch + Großberg). Meshes, Materialien, Texturen, NPCs und Kollision entstehen erst beim Bau
+// der Zone und werden beim Entsorgen exakt zurückgenommen (HG/ELEV über ein Journal).
+const WEIS={zones:{},blocks:{syn:[],ufer:[],sued:[]},J0:null,qOn:false,
   zement:{rect:[2392,2330,2530,2430],silos:[],tower:null,kiln:null,cooler:null,chimney:null,halls:[],crusher:null,belts:[],fence:0,gate:null,texts:[],emit:[]},
-  steinbruch:{rect:null,floor:null,rim:16,terraces:[],viewpoint:null,fence:0,fenceLines:[],excavators:[],truck:null,bushes:0},
+  steinbruch:{rect:null,floor:null,rim:16,terraces:[],viewpoint:null,fence:0,fenceCells:null,fenceLines:[],excavators:[],truck:null,bushes:0},
   synagoge:null,calm:null,kiosk:{venue:null,pos:null},ufer:{path:[],benches:[],lamps:[],chairs:[],sand:0},
   grossberg:{rect:[2060,2150,2390,2420],hedges:[],garages:[]},scenes:[],ft:[],texts:[],
-  stats:{meshes:0,inst:0,verts:0,tris:0},dustT:0,hintT:0,calmT:0,calmed:0,
+  stats:{},dustT:0,hintT:0,calmT:0,calmed:0,roomsFreed:0,
   BRAND_RX:/heidelberg|dyckerhoff|portland|holcim|cemex|lafarge|schwenk|buzzi|materials/i};
+
+// ---------- Kollisions-Journal: jede HG/ELEV-Änderung merkt den alten Wert, weisUndo stellt rückwärts exakt wieder her ----------
+function weisJ(){return {hg:[],el:[]};}
+function weisHg(J,i,v){if(i<0)return;const o=hgG(i);if(o===255||o>=v)return;J.hg.push(i,o);hgS(i,v);}
+// b: Kiste {x,z,w,d,rot,h} oder Kreis {x,z,r,h} (gleiche Rasterregeln wie rasterOBB/rasterCirc)
+function weisBlock(J,b){const {x,z,h}=b;
+  if(b.r!==undefined){const r=b.r;for(let iz=Math.floor(z-r);iz<=Math.ceil(z+r);iz++)for(let ix=Math.floor(x-r);ix<=Math.ceil(x+r);ix++){const dx=ix+0.5-x,dz=iz+0.5-z;if(dx*dx+dz*dz<=r*r)weisHg(J,idx(ix+0.5,iz+0.5),h);}return;}
+  const c=Math.cos(b.rot||0),s=Math.sin(b.rot||0),r=Math.hypot(b.w,b.d)/2+1;
+  for(let iz=Math.floor(z-r);iz<=Math.ceil(z+r);iz++)for(let ix=Math.floor(x-r);ix<=Math.ceil(x+r);ix++){const dx=ix+0.5-x,dz=iz+0.5-z;
+    if(Math.abs(dx*c-dz*s)<=b.w/2&&Math.abs(dx*s+dz*c)<=b.d/2)weisHg(J,idx(ix+0.5,iz+0.5),h);}}
+function weisElev(J,i,b,t){if(i<0)return;const e=ELEV.get(i);J.el.push(i,e?{b:e.b,t:e.t}:null);elevSetI(i,b,t);}
+function weisElevOBB(J,x,z,w,d,b,t){for(let iz=Math.floor(z-d/2-1);iz<=Math.ceil(z+d/2+1);iz++)for(let ix=Math.floor(x-w/2-1);ix<=Math.ceil(x+w/2+1);ix++){
+  if(Math.abs(ix+0.5-x)<=w/2&&Math.abs(iz+0.5-z)<=d/2)weisElev(J,idx(ix+0.5,iz+0.5),b,t);}}
+function weisUndo(J){if(!J)return;
+  for(let k=J.el.length-2;k>=0;k-=2){const i=J.el[k],e=J.el[k+1],c=ELEV.get(i);if(!e)ELEV.delete(i);else if(c){c.b=e.b;c.t=e.t;}else ELEV.set(i,{b:e.b,t:e.t});}
+  for(let k=J.hg.length-2;k>=0;k-=2)hgS(J.hg[k],J.hg[k+1]);J.hg.length=0;J.el.length=0;}
+// Beim Layout gilt die Kollision vorläufig (J0), damit spätere Elemente ausweichen; danach wird alles zurückgenommen
+function weisFixed(zone,b){WEIS.blocks[zone].push(b);weisBlock(WEIS.J0,b);}
+function weisProp(o,b){o.b=b;weisBlock(WEIS.J0,b);return o;}
+// Qualität „niedrig“: etwa die Hälfte der Requisiten und Figuren
+function weisKeep(list){return QS.lowLOD?list.filter((_,i)=>i%2===0):list;}
 
 // ---------- Steinbruch: Hang-Steinbruch mit Terrassen (Höhenfeld über STEP_FNS, Sohle auf Bodenhöhe) ----------
 // Sohle (fx0..fx1, z0..fz1) nach Norden offen, ringsum 4 Terrassen à 4 m, außen begehbarer Grashang, oben Plateau bis zum Kartenrand
@@ -65,7 +88,7 @@ const WEIS_GAST=['Do sitz isch jeden Daach. Mei Fraa denkt, isch bin im Turnvere
 WEIS.kiosk.venue={id:'weiskiosk',name:'Strandkiosk am Leinpfad',sub:'Weisenauer Rheinufer · Kiosk & Biergarten',W:12,D:9,H:3.8,wall:0xd9c7a3,ceil:0xb8946a,hemiI:0.75,exp:1.0,lampI:20,lampD:16,
   lights:[[-3,3,0],[3,3,0]],wp:[[-3,1.2],[3,1.2],[0,2.4],[-4,-1],[4,-1],[0,-1.5]],spawn:[0,2.8,Math.PI],exits:[{x:0,z:3.9,w:1.4,d:0.8,to:'door'}],
   hints:[{x:0,z:-2.6,r:2.2,t:'Theke vum Strandkiosk: Schoppe, Bier un Fleischworscht.'}],
-  build(r,B){r.grp.children[0].material=stdMat({color:0x9a7650,roughness:0.85});
+  build(r,B){const fl=r.grp.children[0];fl.material.dispose();fl.material=r.weisFloor=stdMat({color:0x9a7650,roughness:0.85});
     B.sbox('wood',0,0,-3,6,1.1,0.8,0x6b4426);B.box('wood',0,1.1,-3,6.3,0.08,0.95,0x8a5a30);                          // Theke
     B.box('wood',0,0.9,-4.25,8,1.9,0.35,0x5a3a22);for(let k=0;k<14;k++)B.box('glow',-3.4+k*0.52,1.55+(k%2)*0.45,-4.05,0.12,0.32,0.12,[0x2e7d32,0xc9a227,0x8d0801,0x1d3557][k%4]); // Flaschen
     B.box('metal',1.2,1.18,-3,0.12,0.42,0.12,0xcccccc);B.box('metal',1.6,1.18,-3,0.12,0.42,0.12,0xcccccc);                  // Zapfhähne
@@ -93,19 +116,18 @@ function weisSetupSynagoge(){const src=WEIS.synSrc;const poly=src?src.poly:[[176
   const door={x:x+ds.nx*ds.off,z:z+ds.nz*ds.off,face:Math.atan2(ds.nx,ds.nz)};
   const plaque={x:door.x+ds.nx*1.9+rx*2.6,z:door.z+ds.nz*1.9+rz*2.6,face:door.face,text:WEIS_PLAQUE[0]+' – '+WEIS_PLAQUE.slice(1).join(' ')};
   WEIS.synagoge={x,z,L,W,rot,H:7.2,roofH:4,door,plaque,doorSide:ds,osm:!!src,name:'Synagoge Weisenau'};WEIS.calm={x,z,r:28};
-  rasterOBB(HG,x,z,L,W,rot,12);label('Synagoge Weisenau',x,z);}
+  weisFixed('syn',{x,z,w:L,d:W,rot,h:12});label('Synagoge Weisenau',x,z);}
 
 function weisSetupQuarry(){const Q=WEIS_Q,S=WEIS.steinbruch;S.rect=[Q.x0,Q.z0,Q.x1,Q.z1];S.floor={x0:Q.fx0,x1:Q.fx1,z0:Q.z0,z1:Q.fz1,y:0};
   for(let k=1;k<=Q.tn;k++)S.terraces.push({level:k,y:k*Q.th});S.rim=Q.th*Q.tn;
-  WEIS.qOn=true;
-  // Zaun an der Abbruchkante der obersten Terrasse (ELEV-Streifen blockiert oben, die Terrasse darunter bleibt frei)
-  const rim=S.rim;let n=0;for(let iz=Math.floor(Q.z0);iz<Math.ceil(Q.z1);iz++)for(let ix=Math.floor(Q.x0);ix<Math.ceil(Q.x1);ix++){const x=ix+0.5,z=iz+0.5;
+  // Zaun an der Abbruchkante der obersten Terrasse (ELEV-Streifen blockiert oben, die Terrasse darunter bleibt frei; gesetzt erst beim Bau)
+  const rim=S.rim;const cells=[];for(let iz=Math.floor(Q.z0);iz<Math.ceil(Q.z1);iz++)for(let ix=Math.floor(Q.x0);ix<Math.ceil(Q.x1);ix++){const x=ix+0.5,z=iz+0.5;
     const hs=[weisQH(x,z),weisQH(x+1,z),weisQH(x-1,z),weisQH(x,z+1),weisQH(x,z-1)];const hi=Math.max(...hs),lo=Math.min(...hs);
-    if(hi>=rim-0.01&&lo<=rim-3.5&&lo>=rim-4.5){elevSetI(idx(x,z),rim,rim+1.15);n++;}}
-  S.fence=n;const fx=Q.fx0-Q.td*(Q.tn-1)-0.5,ex=Q.fx1+Q.td*(Q.tn-1)+0.5,sz=Q.fz1+Q.td*(Q.tn-1)+0.5,zs=Math.ceil(Q.z0+rim/Q.slope)+1;
+    if(hi>=rim-0.01&&lo<=rim-3.5&&lo>=rim-4.5&&idx(x,z)>=0)cells.push(idx(x,z));}
+  S.fenceCells=Int32Array.from(cells);S.fence=cells.length;const fx=Q.fx0-Q.td*(Q.tn-1)-0.5,ex=Q.fx1+Q.td*(Q.tn-1)+0.5,sz=Q.fz1+Q.td*(Q.tn-1)+0.5,zs=Math.ceil(Q.z0+rim/Q.slope)+1;
   S.fenceLines=[[[fx,zs],[fx,sz]],[[fx,sz],[ex,sz]],[[ex,sz],[ex,zs]]];
   // Aussichtskanzel hinter dem Zaun auf dem West-Plateau
-  const vp={x:fx-3.25,z:2540,y:rim+0.25,w:4.5,d:8,face:Math.PI/2};elevOBB(vp.x,vp.z,vp.w,vp.d,0,rim-0.4,vp.y);S.viewpoint=vp;
+  S.viewpoint={x:fx-3.25,z:2540,y:rim+0.25,w:4.5,d:8,face:Math.PI/2};
   S.excavators=[{x:2292,z:2526,y:0,rot:0.6,ph:0},{x:2306,z:2545,y:0,rot:-2.2,ph:2},{x:Q.fx0-3.4,z:2522,y:Q.th,rot:Math.PI/2,ph:4}];
   S.truck={x:2300,z:2508,rot:0.25};label('Steinbruch',(Q.fx0+Q.fx1)/2,(Q.z0+Q.fz1)/2);}
 
@@ -113,14 +135,15 @@ function weisSetupZement(){const Z=WEIS.zement;Z.silos=[2408,2421,2434,2447].map
   Z.kiln={a:[2482,9,2370],b:[2482,6.5,2419],r:2.4};Z.cooler={x:2482,z:2424,w:9,d:7,h:9};Z.chimney={x:2516,z:2345,r:2.2,h:72};
   Z.halls=[{x:2425,z:2400,w:44,d:20,h:10,rh:5},{x:2457,z:2416,w:14,d:12,h:18,rh:0}];Z.crusher={x:2318,z:2498,w:7,d:7,h:6};Z.belts=WEIS_BELTS;
   const [x0,z0,x1,z1]=Z.rect;Z.gate={x:2444,z:z0,w:14};
-  for(const s of Z.silos)rasterCirc(HG,s.x,s.z,s.r,s.h);rasterOBB(HG,Z.tower.x,Z.tower.z,Z.tower.w+6,Z.tower.w+6,0,Z.tower.top);
-  for(const t of [0.15,0.5,0.85]){const p=weisLerp3(Z.kiln.a,Z.kiln.b,t);rasterOBB(HG,p[0],p[2],3.4,2.2,0,7);}
-  rasterOBB(HG,Z.cooler.x,Z.cooler.z,Z.cooler.w,Z.cooler.d,0,Z.cooler.h);rasterCirc(HG,Z.chimney.x,Z.chimney.z,Z.chimney.r,Z.chimney.h);
-  for(const h of Z.halls)rasterOBB(HG,h.x,h.z,h.w,h.d,0,Math.ceil(h.h+h.rh));rasterOBB(HG,Z.crusher.x,Z.crusher.z,Z.crusher.w,Z.crusher.d,0,Z.crusher.h);
+  const B=b=>weisFixed('sued',b);
+  for(const s of Z.silos)B({x:s.x,z:s.z,r:s.r,h:s.h});B({x:Z.tower.x,z:Z.tower.z,w:Z.tower.w+6,d:Z.tower.w+6,h:Z.tower.top});
+  for(const t of [0.15,0.5,0.85]){const p=weisLerp3(Z.kiln.a,Z.kiln.b,t);B({x:p[0],z:p[2],w:3.4,d:2.2,h:7});}
+  B({x:Z.cooler.x,z:Z.cooler.z,w:Z.cooler.w,d:Z.cooler.d,h:Z.cooler.h});B({x:Z.chimney.x,z:Z.chimney.z,r:Z.chimney.r,h:Z.chimney.h});
+  for(const h of Z.halls)B({x:h.x,z:h.z,w:h.w,d:h.d,h:Math.ceil(h.h+h.rh)});B({x:Z.crusher.x,z:Z.crusher.z,w:Z.crusher.w,d:Z.crusher.d,h:Z.crusher.h});
   // Zaun mit Tor im Norden
   const g0=Z.gate.x-Z.gate.w/2,g1=Z.gate.x+Z.gate.w/2;
   for(const [a,b] of [[[x0,z0],[g0,z0]],[[g1,z0],[x1,z0]],[[x1,z0],[x1,z1]],[[x1,z1],[x0,z1]],[[x0,z1],[x0,z0]]]){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
-    rasterOBB(HG,(a[0]+b[0])/2,(a[1]+b[1])/2,L,1,Math.atan2(-(b[1]-a[1]),b[0]-a[0]),2);Z.fence+=L;}
+    B({x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,w:L,d:1,rot:Math.atan2(-(b[1]-a[1]),b[0]-a[0]),h:2});Z.fence+=L;}
   Z.emit=[...Z.silos.map(s=>[s.x,s.h+2,s.z,0xd8d2c4]),[Z.kiln.b[0],Z.kiln.b[1],Z.kiln.b[2]+2,0xcfc8b8],[Z.crusher.x,Z.crusher.h+0.5,Z.crusher.z,0xd6ccb4],[2404,13,2408,0xd8d2c4],[Z.chimney.x,Z.chimney.h+1,Z.chimney.z,0xf2f2f2]];
   label('Zementwerk',(x0+x1)/2,(z0+z1)/2);}
 function weisLerp3(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
@@ -140,11 +163,11 @@ function weisSetupUfer(){const U=WEIS.ufer;const A=[2060,1595],B=[2370,1885];con
   if(!K){const p=U.path[Math.floor(U.path.length/2)]||{bx:2215,bz:1745,sw:30,t:215};K={x:p.bx+n[0]*(p.sw-14),z:p.bz+n[1]*(p.sw-14),rot:fr,t:p.t,s:p.sw-14};}
   WEIS.kiosk.pos=K;const lf=weisLF(K.x,0,K.z,K.rot);const dp=lf.P(3.6,0,-0.4);const v=WEIS.kiosk.venue;v.door=[dp[0],dp[2],Math.atan2(Math.cos(K.rot),-Math.sin(K.rot))];
   if(!v.labeled){v.labeled=true;label(v.name+' (begehbar)',v.door[0],v.door[1],'small');}
-  rasterOBB(HG,K.x,K.z,6.2,4.2,K.rot,3);
+  weisFixed('ufer',{x:K.x,z:K.z,w:6.2,d:4.2,rot:K.rot,h:3});
   // Bänke (zum Wasser), Laternen, Liegestühle am Kiosk
   let lastB=-1e9,lastL=-1e9;for(const p of U.path){const nearK=Math.abs(p.t-K.t)<12;
-    if(!nearK&&p.t-lastB>=28){const x=p.x+n[0]*2.6,z=p.z+n[1]*2.6;if(weisFree(x,z)){U.benches.push({x,z,face:fr});lastB=p.t;rasterOBB(HG,x,z,1.9,0.6,fr,1);}}
-    if(p.t-lastL>=24){const x=p.x-n[0]*2.6,z=p.z-n[1]*2.6;if(weisFree(x,z)){U.lamps.push({x,z,face:fr});lastL=p.t;rasterCirc(HG,x,z,0.2,6);}}}
+    if(!nearK&&p.t-lastB>=28){const x=p.x+n[0]*2.6,z=p.z+n[1]*2.6;if(weisFree(x,z)){U.benches.push(weisProp({x,z,face:fr},{x,z,w:1.9,d:0.6,rot:fr,h:1}));lastB=p.t;}}
+    if(p.t-lastL>=24){const x=p.x-n[0]*2.6,z=p.z-n[1]*2.6;if(weisFree(x,z)){U.lamps.push(weisProp({x,z,face:fr},{x,z,r:0.2,h:6}));lastL=p.t;}}}
   for(const [lx,lz] of [[-6,6.5],[-3.6,6.8],[4,6.6],[6.4,6.3]]){const q=lf.P(lx,0,lz);if(weisFree(q[0],q[2]))U.chairs.push({x:q[0],z:q[2],face:K.rot});}
   label('Weisenauer Rheinufer',K.x,K.z,'small');}
 
@@ -158,13 +181,13 @@ function weisSetupGrossberg(){const GB_=WEIS.grossberg,[rx0,rz0,rx1,rz1]=GB_.rec
     for(const side of [1,-1]){const nn=[-d[1]*side,d[0]*side];const o=r.w/2+(r.sw||0)+4.2;const cx=(a[0]+b[0])/2+nn[0]*o,cz=(a[1]+b[1])/2+nn[1]*o;if(!inR(cx,cz))continue;
       const face=Math.atan2(-nn[0],-nn[1]);if(GB_.garages.some(g=>Math.hypot(g.x-cx,g.z-cz)<50))continue;if(!cells(cx,cz,12.8,6.4,face))continue;
       const lf=weisLF(cx,0,cz,face);const units=[];for(let k=0;k<4;k++){const p=lf.P(-4.65+k*3.1,0,0);units.push({x:p[0],z:p[2],face});}
-      GB_.garages.push({x:cx,z:cz,face,units});rasterOBB(HG,cx,cz,12.6,6.2,face,3);break;}}
+      GB_.garages.push({x:cx,z:cz,face,units});weisFixed('sued',{x:cx,z:cz,w:12.6,d:6.2,rot:face,h:3});break;}}
   // Hecken an den Vorgärten (Lücken = Einfahrten)
   const hash=new Set();for(const s of segs){const {a,b,L,r}=s;const d=[(b[0]-a[0])/L,(b[1]-a[1])/L];const face=Math.atan2(-d[1],d[0]);
     for(let t=3;t<L-3&&GB_.hedges.length<260;t+=4.2){for(const side of [1,-1]){if(R()<0.35)continue;const nn=[-d[1]*side,d[0]*side];const o=r.w/2+(r.sw||0)+1.0;
       const x=a[0]+d[0]*t+nn[0]*o,z=a[1]+d[1]*t+nn[1]*o;if(!inR(x,z))continue;const key=Math.floor(x/3)+','+Math.floor(z/3);if(hash.has(key))continue;
       if(!cells(x,z,3.4,0.8,face,0.85))continue;const bx=x+nn[0]*1.6,bz=z+nn[1]*1.6;const bi=idx(bx,bz);if(bi>=0&&hgG(bi)>0)continue;
-      hash.add(key);GB_.hedges.push({x,z,face,s:0.9+R()*0.2});rasterOBB(HG,x,z,3.4,0.8,face,2);}}}
+      hash.add(key);GB_.hedges.push(weisProp({x,z,face,s:0.9+R()*0.2},{x,z,w:3.4,d:0.8,rot:face,h:2}));}}}
   label('Großberg-Siedlung',(rx0+rx1)/2,(rz0+rz1)/2-40,'small');}
 
 // ---------- Mundart-Szenen (Figuren erscheinen erst in der Nähe) ----------
@@ -185,15 +208,16 @@ const WEIS_LINES={
   nachbar:['Samstags werd die Garaach gekehrt. Des is Gesetz hier owwe.','Vum Großberg sieht mer bis nach Wissbade. Leider.','Die Heck schneid isch mit de Nagelschere. Präzision!'],
   fuehrung:['Bitte e bissje leiser – des is en Ort der Erinnerung.','Die Tafel do vorne erklärt die Geschicht vum Haus.','Die Synagog erinnert an die jüdisch Gemeinde vun Weisenau.']};
 function weisSetupScenes(){const S=[],U=WEIS.ufer,K=WEIS.kiosk.pos,Q=WEIS.steinbruch,Z=WEIS.zement,Y=WEIS.synagoge,GBx=WEIS.grossberg;
-  const add=(id,name,x,z,npcs,o={})=>S.push(Object.assign({id,name,x,z,npcs,people:[],lineT:4,lines:WEIS_LINES[id]||[]},o));
+  const ZONE={bank:'ufer',angler:'ufer',wirt:'ufer',geo:'sued',arbeiter:'sued',nachbar:'sued',fuehrung:'syn'};
+  const add=(id,name,x,z,npcs,o={})=>S.push(Object.assign({id,name,x,z,npcs,zone:ZONE[id],people:[],lineT:4,lines:WEIS_LINES[id]||[]},o));
   const bench=U.benches.slice().sort((a,b)=>Math.hypot(a.x-K.x,a.z-K.z)-Math.hypot(b.x-K.x,b.z-K.z))[0];
   if(bench){const lf=weisLF(bench.x,0,bench.z,bench.face);const p0=lf.P(-0.45,0,-0.05),p1=lf.P(0.45,0,-0.05);
     add('bank','Rentner uff de Bank',bench.x,bench.z,[{x:p0[0],z:p0[2],y:0,face:bench.face,pose:'sit',name:'Hildegard vum Rheinufer',conv:'bank'},{x:p1[0],z:p1[2],y:0,face:bench.face,pose:'sit',name:'Erwin vum Rheinufer',conv:'bank'}]);}
   const ap=U.path.slice().sort((a,b)=>Math.abs(a.t-K.t-55)-Math.abs(b.t-K.t-55))[0];
-  if(ap){const s=ap.sw-1.4;const x=ap.bx+U.n[0]*s,z=ap.bz+U.n[1]*s;add('angler','Angler am Rhoi',x,z,[{x,z,y:0,face:Math.atan2(U.n[0],U.n[1]),pose:'rod',name:'Angler-Karl',conv:'angler'}]);}
+  if(ap){const s=ap.sw-1.4;const x=ap.bx+U.n[0]*s,z=ap.bz+U.n[1]*s;add('angler','Angler am Rhoi',x,z,[{x,z,y:0,face:Math.atan2(U.n[0],U.n[1]),pose:'rod',name:'Angler-Karl',conv:'angler'}],{extra:true});}
   {const lf=weisLF(K.x,0,K.z,K.rot);const p=lf.P(1.6,0,3.0),g=lf.P(-0.8,0,3.4);add('wirt','Strandkiosk',p[0],p[2],[{x:p[0],z:p[2],y:0,face:K.rot+Math.PI,pose:'stand',name:'Kiosk-Rosi',conv:'wirt'},{x:g[0],z:g[2],y:0,face:K.rot+Math.PI,pose:'stand',name:'Stammgast Helmut',conv:'bank'}]);}
   {const v=Q.viewpoint;add('geo','Aussichtspunkt Steinbruch',v.x,v.z,[{x:v.x+0.6,z:v.z-2.4,y:v.y,face:Math.PI/2,pose:'stand',name:'Hobby-Geologin Gisela',conv:'geo'}]);}
-  {const x=Z.gate.x,z=Z.gate.z-5;add('arbeiter','Werkstor Zementwerk',x,z,[{x:x-0.8,z,y:0,face:Math.PI/2,pose:'helmet',name:'Schichtarbeiter Dieter',conv:'arbeiter'},{x:x+0.8,z,y:0,face:-Math.PI/2,pose:'helmet',name:'Schichtarbeiterin Elke',conv:'arbeiter'}]);}
+  {const x=Z.gate.x,z=Z.gate.z-5;add('arbeiter','Werkstor Zementwerk',x,z,[{x:x-0.8,z,y:0,face:Math.PI/2,pose:'helmet',name:'Schichtarbeiter Dieter',conv:'arbeiter'},{x:x+0.8,z,y:0,face:-Math.PI/2,pose:'helmet',name:'Schichtarbeiterin Elke',conv:'arbeiter'}],{extra:true});}
   {const c=[(GBx.rect[0]+GBx.rect[2])/2,(GBx.rect[1]+GBx.rect[3])/2];const h=GBx.hedges.slice().sort((a,b)=>Math.hypot(a.x-c[0],a.z-c[1])-Math.hypot(b.x-c[0],b.z-c[1]))[0];
     if(h){const lf=weisLF(h.x,0,h.z,h.face);const p=lf.P(0,0,1.1),q=lf.P(0,0,-1.1);const pp=weisFree(p[0],p[2])?p:q;
       add('nachbar','Großberg-Siedlung',pp[0],pp[2],[{x:pp[0],z:pp[2],y:0,face:Math.atan2(h.x-pp[0],h.z-pp[2]),pose:'stand',name:'Nachbar Heinz vum Großberg',conv:'nachbar'}]);}}
@@ -210,15 +234,20 @@ ftDestinations=function(){const fresh=!FT.list;const L=_weisFtDest();if(fresh)fo
 const _weisStartTalk=startTalk;
 startTalk=function(P,npc){if(npc&&npc.weisConv)npc.forceConv=npc.weisConv;return _weisStartTalk(P,npc);};
 
-function setupWeis(){weisSetupSynagoge();weisSetupQuarry();weisSetupZement();weisSetupUfer();weisSetupGrossberg();weisSetupScenes();weisSetupFt();}
+// Zonenzentren: Synagoge, Mitte der Promenade, Mitte zwischen Großberg, Zementwerk und Steinbruch (alles < 350 m vom Zentrum)
+function setupWeis(){WEIS.J0=weisJ();
+  weisSetupSynagoge();weisSetupQuarry();weisSetupZement();weisSetupUfer();weisSetupGrossberg();weisSetupScenes();weisSetupFt();
+  weisUndo(WEIS.J0);WEIS.J0=null;
+  const Y=WEIS.synagoge,mk=(key,x,z)=>WEIS.zones[key]=lazyZone({name:'weis_'+key,key,x,z,build:weisZoneBuild,dispose:weisZoneDispose});
+  mk('syn',Y.x,Y.z);mk('ufer',2215,1740);mk('sued',2300,2390);}
 
 // ---------- Modelle (lazy) ----------
-let WEIS_MAT=null;
-function weisMats(){if(WEIS_MAT)return WEIS_MAT;
-  WEIS_MAT={conc:stdMat({vertexColors:true,roughness:0.9}),metal:stdMat({vertexColors:true,roughness:0.5,metalness:0.45}),
-    rock:stdMat({vertexColors:true,roughness:0.95,flatShading:true}),atlas:stdMat({map:weisAtlas(),roughness:0.75}),
-    hedge:stdMat({color:0x3d6b2a,roughness:0.95}),bush:stdMat({color:0x4f6f2c,roughness:0.95,flatShading:true}),
-    bench:stdMat({vertexColors:true,color:0x8a5a36,roughness:0.7}),pole:stdMat({color:0x2f3438,metalness:0.6,roughness:0.45}),garage:stdMat({vertexColors:true,roughness:0.75})};return WEIS_MAT;}
+// Materialien je Zone (lazyOwn): beim Entsorgen der Zone werden sie freigegeben, beim nächsten Bau neu erzeugt
+const WEIS_MSPEC={conc:{vertexColors:true,roughness:0.9},metal:{vertexColors:true,roughness:0.5,metalness:0.45},
+  rock:{vertexColors:true,roughness:0.95,flatShading:true},hedge:{color:0x3d6b2a,roughness:0.95},bush:{color:0x4f6f2c,roughness:0.95,flatShading:true},
+  bench:{vertexColors:true,color:0x8a5a36,roughness:0.7},pole:{color:0x2f3438,metalness:0.6,roughness:0.45},garage:{vertexColors:true,roughness:0.75}};
+function weisMat(Z,k){const C=Z.mats;if(C[k])return C[k];
+  return C[k]=lazyOwn(Z,stdMat(k==='atlas'?{map:lazyOwn(Z,weisAtlas()),roughness:0.75}:WEIS_MSPEC[k]));}
 function weisAtlas(){const c=document.createElement('canvas');c.width=WEIS_ATL.W;c.height=WEIS_ATL.H;const g=c.getContext('2d');const R=mulberry32(4042);
   const font=(w,s)=>`${w} ${s}px "Barlow Condensed", Arial Narrow, sans-serif`;
   // Fensterachse / Türachse der Synagoge: Putz, Sockel, Gesims, Rundbogen mit Sandsteingewände
@@ -243,8 +272,9 @@ function weisAtlas(){const c=document.createElement('canvas');c.width=WEIS_ATL.W
     g.textAlign='center';g.textBaseline='middle';g.fillStyle='#ffffff';g.font=font(700,50);g.fillText(WEIS_VIEW_SIGN[0],x0+w/2,y0+48);
     g.font=font(500,34);g.fillStyle='#e8e0c8';g.fillText(WEIS_VIEW_SIGN[1],x0+w/2,y0+108);g.fillStyle='#ffd23f';g.fillText(WEIS_VIEW_SIGN[2],x0+w/2,y0+152);}
   return freeAfterUpload(texFromCanvas(c,false));}
-function weisMesh(G,mat,cast=true){if(G.empty)return null;WEIS.stats.verts+=G.p.length/3;WEIS.stats.tris+=G.i.length/3;const m=new THREE.Mesh(G.geo(),mat);m.castShadow=cast;m.receiveShadow=true;WEIS.grp.add(m);staticMesh(m);WEIS.stats.meshes++;return m;}
-function weisInst(geo,mat,list,cast=true){const im=instGeo(geo,mat,list,cast);if(!im)return null;scene.remove(im);WEIS.grp.add(im);staticInst(im);WEIS.stats.inst++;return im;}
+function weisMesh(Z,G,mat,cast=true){if(G.empty)return null;const st=WEIS.stats[Z.o.key];st.verts+=G.p.length/3;st.tris+=G.i.length/3;
+  const m=new THREE.Mesh(lazyOwn(Z,G.geo()),mat);m.castShadow=cast&&!QS.noShadow;m.receiveShadow=true;Z.group.add(m);st.meshes++;if(m.castShadow)st.cast++;return m;}
+function weisInst(Z,geo,mat,list,cast=true){lazyOwn(Z,geo);const im=instGeo(geo,mat,list,cast&&!QS.noShadow);if(!im)return null;scene.remove(im);Z.group.add(im);const st=WEIS.stats[Z.o.key];st.inst++;st.props+=list.length;if(im.castShadow)st.cast++;return im;}
 
 function weisBuildSynagoge(Gs,Gt){const Y=WEIS.synagoge,{x,z,L,W,rot,H}=Y;const lf=weisLF(x,0,z,rot);const c=Math.cos(rot),s=Math.sin(rot);const ux=c,uz=-s,vx=s,vz=c;
   const SAND={r:0.66,g:0.43,b:0.34},LIGHT={r:0.86,g:0.81,b:0.71},TILE={r:0.5,g:0.25,b:0.19},DARK={r:0.25,g:0.22,b:0.2};
@@ -284,7 +314,7 @@ function weisBuildZement(Gc,Gm){const Z=WEIS.zement,[x0,z0,x1,z1]=Z.rect;const C
     for(let t=0;t<=L;t+=3)Gm.box(a[0]+dx*t,0,a[1]+dz*t,0.1,2.2,0.1,rot,DARK);for(const y of [1.0,2.05])Gm.box((a[0]+b[0])/2,y,(a[1]+b[1])/2,L,0.05,0.05,rot,STEEL);}
   for(const gx of [g0,g1])Gm.box(gx,0,z0,0.5,2.6,0.5,0,DARK);for(let k=0;k<6;k++)Gm.box(g0+0.5+k*2.1+1.05,1.1,z0,2.1,0.14,0.14,0,k%2?WH:RED);}
 
-function weisBuildQuarry(Gc,Gm,Gt){const Q=WEIS_Q,S=WEIS.steinbruch;const R=mulberry32(4041);
+function weisBuildQuarry(Z,Gc,Gm,Gt){const Q=WEIS_Q,S=WEIS.steinbruch;const R=mulberry32(4041);
   // Höhenfeld (1 m), Felswände geschichtet, Terrassen geschottert, Hang/Plateau grün
   const x0=Math.floor(Q.x0),x1=Math.ceil(Q.x1),z0=Math.floor(Q.z0),z1=Math.floor(Q.z1);const nx=x1-x0+1,nz=z1-z0+1;
   const pos=new Float32Array(nx*nz*3),col=new Float32Array(nx*nz*3);
@@ -298,7 +328,7 @@ function weisBuildQuarry(Gc,Gm,Gt){const Q=WEIS_Q,S=WEIS.steinbruch;const R=mulb
   const ind=new (nx*nz>65535?Uint32Array:Uint16Array)((nx-1)*(nz-1)*6);let q=0;
   for(let j=0;j<nz-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,b=a+1,c=a+nx,d=c+1;ind[q++]=a;ind[q++]=c;ind[q++]=b;ind[q++]=b;ind[q++]=c;ind[q++]=d;}
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.setIndex(new THREE.BufferAttribute(ind,1));geo.computeVertexNormals();geo.computeBoundingSphere();
-  const tm=new THREE.Mesh(geo,weisMats().rock);tm.castShadow=true;tm.receiveShadow=true;WEIS.grp.add(tm);staticMesh(tm);WEIS.stats.meshes++;WEIS.stats.verts+=nx*nz;WEIS.stats.tris+=ind.length/3;S.mesh={nx,nz};
+  const st=WEIS.stats.sued;const tm=new THREE.Mesh(lazyOwn(Z,geo),weisMat(Z,'rock'));tm.castShadow=!QS.noShadow;tm.receiveShadow=true;Z.group.add(tm);st.meshes++;if(tm.castShadow)st.cast++;st.verts+=nx*nz;st.tris+=ind.length/3;S.mesh={nx,nz};
   // Zaun an der Kante, Aussichtskanzel mit Bank, Fernrohr, Infotafel
   const DARKG={r:0.2,g:0.3,b:0.22},WOOD={r:0.55,g:0.38,b:0.22},STEEL={r:0.55,g:0.57,b:0.6},Y={r:0.93,g:0.66,b:0.1},D={r:0.18,g:0.18,b:0.19};const rim=S.rim;
   for(const [a,b] of S.fenceLines){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const dx=(b[0]-a[0])/L,dz=(b[1]-a[1])/L,rot=Math.atan2(-dz,dx);
@@ -310,18 +340,18 @@ function weisBuildQuarry(Gc,Gm,Gt){const Q=WEIS_Q,S=WEIS.steinbruch;const R=mulb
   {const t=S.truck,lf=weisLF(t.x,0,t.z,t.rot);lf.box(Gc,0,0.85,0,2.4,0.5,7.2,D);lf.box(Gc,0,1.35,2.6,2.4,1.9,1.5,Y);lf.box(Gc,0,1.9,2.6,2.3,0.7,1.52,{r:0.25,g:0.32,b:0.38});lf.box(Gc,0,1.4,-1.0,2.9,1.7,4.8,{r:0.85,g:0.6,b:0.1});
     for(const wz of [2.4,-1.3,-2.7])for(const sx of [-1,1])weisTube(Gc,lf.P(sx*1.05,0.78,wz),lf.P(sx*1.5,0.78,wz),0.78,D,10);}
   for(const e of S.excavators){const lf=weisLF(e.x,e.y,e.z,e.rot);for(const sx of [-1,1])lf.box(Gc,sx*1.15,0,0,0.75,0.8,4.2,D);lf.box(Gc,0,0.3,0,1.6,0.5,2.6,D);}
-  if(!WEIS_EXC_G)WEIS_EXC_G=weisExcGeo();for(const e of S.excavators){const m=new THREE.Mesh(WEIS_EXC_G,weisMats().conc);m.position.set(e.x,e.y+0.8,e.z);m.rotation.y=e.rot;m.castShadow=true;WEIS.grp.add(m);e.mesh=m;WEIS.stats.meshes++;}
+  const eg=lazyOwn(Z,weisExcGeo());for(const e of S.excavators){const m=new THREE.Mesh(eg,weisMat(Z,'conc'));m.position.set(e.x,e.y+0.8,e.z);m.rotation.y=e.rot;m.castShadow=!QS.noShadow;Z.group.add(m);e.mesh=m;st.meshes++;if(m.castShadow)st.cast++;}
   // Büsche auf Hang und Plateau
-  const B=[];for(let k=0;k<600&&B.length<90;k++){const x=lerp(Q.x0+2,Q.x1-2,R()),z=lerp(Q.z0+2,Q.z1-2,R());const dIn=Math.max(Q.fx0-x,x-Q.fx1,z-Q.fz1);if(dIn<Q.td*Q.tn+3)continue;
+  const nB=QS.lowLOD?45:90,B=[];for(let k=0;k<600&&B.length<nB;k++){const x=lerp(Q.x0+2,Q.x1-2,R()),z=lerp(Q.z0+2,Q.z1-2,R());const dIn=Math.max(Q.fx0-x,x-Q.fx1,z-Q.fz1);if(dIn<Q.td*Q.tn+3)continue;
     if(Math.hypot(x-v.x,z-v.z)<9)continue;B.push({x,y:weisQH(x,z)-0.2,z,s:0.7+R()*0.9,face:R()*TAU});}
-  S.bushes=B.length;weisInst(new THREE.IcosahedronGeometry(1.3,0).translate(0,0.9,0),weisMats().bush,B);}
-let WEIS_EXC_G=null;
+  S.bushes=B.length;weisInst(Z,new THREE.IcosahedronGeometry(1.3,0).translate(0,0.9,0),weisMat(Z,'bush'),B);
+  for(const i of S.fenceCells)weisElev(Z.J,i,S.rim,S.rim+1.15);weisElevOBB(Z.J,v.x,v.z,v.w,v.d,S.rim-0.4,v.y);}
 function weisExcGeo(){const G=new GB();const Y={r:0.93,g:0.66,b:0.1},D={r:0.18,g:0.18,b:0.19},GL={r:0.25,g:0.32,b:0.38},S={r:0.7,g:0.72,b:0.74};
   weisCyl(G,0,0,0,1.0,0.3,D,12,true);G.box(0,0.3,-0.4,2.6,1.2,3.0,0,Y);G.box(0,0.3,-2.05,2.6,1.0,0.6,0,D);G.box(0.7,1.5,0.5,1.1,1.5,1.3,0,GL);G.box(0.7,3.0,0.5,1.15,0.08,1.35,0,Y);
   G.beam([-0.3,1.2,0.9],[-0.3,4.2,3.4],0.5,0.6,Y);G.beam([-0.3,4.2,3.4],[-0.3,1.3,5.6],0.4,0.45,Y);G.beam([-0.6,1.4,1.2],[-0.6,3.4,2.9],0.16,0.16,S);G.box(-0.3,0.4,5.8,1.1,0.9,0.9,0,D);
-  WEIS.stats.verts+=G.p.length/3;WEIS.stats.tris+=G.i.length/3;return G.geo();}
+  WEIS.stats.sued.verts+=G.p.length/3;WEIS.stats.sued.tris+=G.i.length/3;return G.geo();}
 
-function weisBuildUfer(Gc,Gt){const U=WEIS.ufer,K=WEIS.kiosk.pos,n=U.n;const PAVE={r:0.74,g:0.7,b:0.62},EDGE={r:0.55,g:0.53,b:0.5},SAND={r:0.87,g:0.79,b:0.58};
+function weisBuildUfer(Z,Gc,Gt){const U=WEIS.ufer;U.sand=0;const K=WEIS.kiosk.pos,n=U.n;const PAVE={r:0.74,g:0.7,b:0.62},EDGE={r:0.55,g:0.53,b:0.5},SAND={r:0.87,g:0.79,b:0.58};
   for(let i=1;i<U.path.length;i++){const a=U.path[i-1],b=U.path[i];if(b.t-a.t>4.5)continue;
     const Q=(p,o,y)=>[p.x+n[0]*o,y,p.z+n[1]*o];Gc.quad(Q(a,-1.8,0.075),Q(b,-1.8,0.075),Q(b,1.8,0.075),Q(a,1.8,0.075),[0,0],[1,0],[1,1],[0,1],PAVE);
     for(const o of [-1.95,1.95])Gc.quad(Q(a,o-0.15,0.09),Q(b,o-0.15,0.09),Q(b,o+0.15,0.09),Q(a,o+0.15,0.09),[0,0],[1,0],[1,1],[0,1],EDGE);
@@ -333,55 +363,64 @@ function weisBuildUfer(Gc,Gt){const U=WEIS.ufer,K=WEIS.kiosk.pos,n=U.n;const PAV
   lf.box(Gc,0,3.15,1.9,4.2,0.8,0.08,DW);{const p=lf.P(-2,3.2,1.95);const rx=Math.cos(K.rot),rz=-Math.sin(K.rot);weisTexQuad(Gt,p[0],p[2],rx,rz,4,3.2,0.7,weisUV(WEIS_ATL.kiosk));}
   // Sonnenschirme + Liegestühle
   for(const [lx,lz] of [[-4.8,7.6],[5.2,7.4]]){const p=lf.P(lx,0,lz);weisCyl(Gc,p[0],0,p[2],0.05,2.4,DW,6,false);weisCyl(Gc,p[0],2.2,p[2],1.6,0.6,{r:0.85,g:0.2,b:0.15},10,true,0.05);}
-  for(const c of U.chairs){const l2=weisLF(c.x,0,c.z,c.face);l2.box(Gc,0,0.25,0,0.6,0.06,1.0,{r:0.9,g:0.5,b:0.15});l2.box(Gc,0,0.3,-0.55,0.6,0.7,0.06,{r:0.9,g:0.5,b:0.15});for(const sx of [-0.28,0.28])l2.box(Gc,sx,0,0,0.04,0.25,1.0,DW);}
+  for(const c of weisKeep(U.chairs)){const l2=weisLF(c.x,0,c.z,c.face);l2.box(Gc,0,0.25,0,0.6,0.06,1.0,{r:0.9,g:0.5,b:0.15});l2.box(Gc,0,0.3,-0.55,0.6,0.7,0.06,{r:0.9,g:0.5,b:0.15});for(const sx of [-0.28,0.28])l2.box(Gc,sx,0,0,0.04,0.25,1.0,DW);}
   // Bänke + Laternen (instanziert)
   const bg=new GB();for(const zz of [-0.2,0,0.2])bg.box(0,0.45,zz,1.8,0.04,0.12,0,WHITE,1);bg.box(0,0.55,-0.27,1.8,0.12,0.04,0,WHITE,1);bg.box(0,0.72,-0.29,1.8,0.12,0.04,0,WHITE,1);
-  for(const x of [-0.75,0.75])bg.box(x,0,0,0.08,0.45,0.5,0,{r:0.15,g:0.15,b:0.16},1);weisInst(bg.geo(),weisMats().bench,U.benches);
-  weisInst(new THREE.CylinderGeometry(0.07,0.09,4.2,8).translate(0,2.1,0),weisMats().pole,U.lamps);weisInst(new THREE.SphereGeometry(0.26,10,8).translate(0,4.3,0),lampMat,U.lamps,false);}
+  const benches=weisKeep(U.benches),lamps=weisKeep(U.lamps);for(const o of benches)weisBlock(Z.J,o.b);for(const o of lamps)weisBlock(Z.J,o.b);
+  for(const x of [-0.75,0.75])bg.box(x,0,0,0.08,0.45,0.5,0,{r:0.15,g:0.15,b:0.16},1);weisInst(Z,bg.geo(),weisMat(Z,'bench'),benches);
+  weisInst(Z,new THREE.CylinderGeometry(0.07,0.09,4.2,8).translate(0,2.1,0),weisMat(Z,'pole'),lamps);weisInst(Z,new THREE.SphereGeometry(0.26,10,8).translate(0,4.3,0),lampMat,lamps,false);}
 
-function weisBuildGrossberg(){const GBx=WEIS.grossberg;weisInst(new THREE.BoxGeometry(3.4,1.3,0.8).translate(0,0.65,0),weisMats().hedge,GBx.hedges);
+function weisBuildGrossberg(Z){const GBx=WEIS.grossberg,hedges=weisKeep(GBx.hedges);for(const o of hedges)weisBlock(Z.J,o.b);
+  weisInst(Z,new THREE.BoxGeometry(3.4,1.3,0.8).translate(0,0.65,0),weisMat(Z,'hedge'),hedges);
   const units=GBx.garages.flatMap(g=>g.units);if(!units.length)return;const G=new GB();const C={r:0.78,g:0.76,b:0.72},R={r:0.42,g:0.43,b:0.45},D={r:0.56,g:0.62,b:0.68};
   G.box(0,0,0,3.0,2.6,6.0,0,C);G.box(0,2.6,0.1,3.1,0.15,6.3,0,R);G.box(0,0.05,3.02,2.5,2.1,0.06,0,D);for(let k=1;k<7;k++)G.box(0,k*0.3,3.06,2.4,0.04,0.03,0,{r:0.45,g:0.5,b:0.55});
-  weisInst(G.geo(),weisMats().garage,units);}
+  weisInst(Z,G.geo(),weisMat(Z,'garage'),units);}
 
-function weisBuild(){if(WEIS.built)return;WEIS.built=true;
-  WEIS.grp=new THREE.Group();scene.add(WEIS.grp);const M=weisMats();
-  const Gs=new GB(),Gst=new GB();weisBuildSynagoge(Gs,Gst);weisMesh(Gs,M.conc);weisMesh(Gst,M.atlas);
-  const Zc=new GB(),Zm=new GB();weisBuildZement(Zc,Zm);weisMesh(Zc,M.conc);weisMesh(Zm,M.metal);
-  const Qc=new GB(),Qm=new GB(),Qt=new GB();weisBuildQuarry(Qc,Qm,Qt);weisMesh(Qc,M.conc);weisMesh(Qm,M.metal);weisMesh(Qt,M.atlas,false);
-  const Uc=new GB(),Ut=new GB();weisBuildUfer(Uc,Ut);weisMesh(Uc,M.conc);weisMesh(Ut,M.atlas,false);
-  weisBuildGrossberg();
-  WEIS.drawCalls=weisDrawCalls;}
-WEIS.build=weisBuild;
-// Draw-Calls der Weisenau-Modelle (nur echtes Rendering): mit/ohne Gruppe rendern
-function weisDrawCalls(){if(!WEIS.built)return null;const I=renderer.info;const ar=I.autoReset;I.autoReset=false;I.reset();renderFrame();const a=I.render.calls;
-  WEIS.grp.visible=false;I.reset();renderFrame();const b=I.render.calls;WEIS.grp.visible=true;I.autoReset=ar;return {with:a,without:b,delta:a-b};}
+const WEIS_BUILD={
+  syn(Z){const Gs=new GB(),Gt=new GB();weisBuildSynagoge(Gs,Gt);weisMesh(Z,Gs,weisMat(Z,'conc'));weisMesh(Z,Gt,weisMat(Z,'atlas'));},
+  ufer(Z){const Uc=new GB(),Ut=new GB();weisBuildUfer(Z,Uc,Ut);weisMesh(Z,Uc,weisMat(Z,'conc'));weisMesh(Z,Ut,weisMat(Z,'atlas'),false);},
+  sued(Z){WEIS.qOn=true;const Zc=new GB(),Zm=new GB();weisBuildZement(Zc,Zm);weisMesh(Z,Zc,weisMat(Z,'conc'));weisMesh(Z,Zm,weisMat(Z,'metal'));
+    const Qc=new GB(),Qm=new GB(),Qt=new GB();weisBuildQuarry(Z,Qc,Qm,Qt);weisMesh(Z,Qc,weisMat(Z,'conc'));weisMesh(Z,Qm,weisMat(Z,'metal'));weisMesh(Z,Qt,weisMat(Z,'atlas'),false);
+    weisBuildGrossberg(Z);}};
+function weisZoneBuild(Z){const k=Z.o.key;WEIS.stats[k]={meshes:0,inst:0,props:0,cast:0,verts:0,tris:0};Z.J=weisJ();Z.mats={};
+  for(const b of WEIS.blocks[k])weisBlock(Z.J,b);WEIS_BUILD[k](Z);
+  for(const sc of WEIS.scenes)if(sc.zone===k)weisSpawnScene(Z,sc);}
+function weisZoneDispose(Z){const k=Z.o.key;for(const sc of WEIS.scenes)if(sc.zone===k)sc.people=[];
+  if(k==='ufer')weisFreeRoom();
+  if(k==='sued'){WEIS.qOn=false;for(const e of WEIS.steinbruch.excavators)e.mesh=null;}
+  weisUndo(Z.J);Z.J=null;Z.mats=null;}
+// Kiosk-Innenraum nur freigeben, wenn niemand drin ist (sonst holt updateWeis das nach)
+function weisFreeRoom(){const v=WEIS.kiosk.venue,r=v.room;if(!r||INDOOR===r||PLAYERS.some(P=>P.h&&P.h.room===r))return;
+  for(const o of r.people)if(!o.removed)o.remove();r.people=[];scene.remove(r.grp);
+  r.grp.traverse(m=>{if(m.geometry)m.geometry.dispose();});if(r.weisFloor)r.weisFloor.dispose();v.room=null;WEIS.roomsFreed++;}
+WEIS.drawCalls=k=>lazyDrawCalls(WEIS.zones[k]);
 
 // ---------- Laufzeit ----------
-let WEIS_ROD_G=null,WEIS_HELM_G=null;
-function weisSpawnScene(sc){for(const o of sc.npcs){const h=new Human('ped');h.x=o.x;h.z=o.z;h.y=o.y||0;h.facing=o.face;h.state='roof';h.weisScene=sc;h.weisPose=o.pose;h.walkSpeed=1;
+// Szenenfiguren entstehen mit der Zone (lazyNpc); bei „niedrig“ ohne Zusatzszenen und nur die erste Figur je Szene
+function weisSpawnScene(Z,sc){if(QS.lowLOD&&sc.extra)return;for(const o of (QS.lowLOD?sc.npcs.slice(0,1):sc.npcs)){const h=lazyNpc(Z,new Human('ped'));h.x=o.x;h.z=o.z;h.y=o.y||0;h.facing=o.face;h.state='roof';h.weisScene=sc;h.weisPose=o.pose;h.walkSpeed=1;
     h.npcName=o.name;h.weisConv=WEIS_CONV[o.conv]||null;
     if(o.pose==='sit'){h.hips.position.y=0.55;h.legL.rotation.x=-1.5;h.legR.rotation.x=-1.5;}
-    if(o.pose==='rod'){if(!WEIS_ROD_G)WEIS_ROD_G=new THREE.CylinderGeometry(0.012,0.03,3.2,5).translate(0,1.6,0);const r=new THREE.Mesh(WEIS_ROD_G,cmat(0x3b2a1a,0.6));r.position.set(0,-0.6,0);r.rotation.x=1.86;h.armR.add(r);h.armR.rotation.x=-0.9;}
-    if(o.pose==='helmet'){if(!WEIS_HELM_G)WEIS_HELM_G=new THREE.SphereGeometry(0.15,10,6,0,TAU,0,Math.PI/2);const m=new THREE.Mesh(WEIS_HELM_G,cmat(0xf2c200,0.5));m.position.set(0,0.84,0);h.hips.add(m);}
+    if(o.pose==='rod'){const g=Z.mats.rodG||(Z.mats.rodG=lazyOwn(Z,new THREE.CylinderGeometry(0.012,0.03,3.2,5).translate(0,1.6,0)));const r=new THREE.Mesh(g,cmat(0x3b2a1a,0.6));r.position.set(0,-0.6,0);r.rotation.x=1.86;h.armR.add(r);h.armR.rotation.x=-0.9;}
+    if(o.pose==='helmet'){const g=Z.mats.helmG||(Z.mats.helmG=lazyOwn(Z,new THREE.SphereGeometry(0.15,10,6,0,TAU,0,Math.PI/2)));const m=new THREE.Mesh(g,cmat(0xf2c200,0.5));m.position.set(0,0.84,0);h.hips.add(m);}
     if(sc.calm)h.setExpr('neutral');h.sync();sc.people.push(h);}}
-function weisDespawn(sc){for(const h of sc.people)if(!h.removed)h.remove();sc.people=[];}
-function updateWeis(dt){const P=P1;if(!P||!P.h)return;const [px,pz]=ppos(P);
-  if(!WEIS.built){if(Math.hypot(px-WEIS.center[0],pz-WEIS.center[1])<WEIS.BUILD_R)weisBuild();else return;}
-  const indoor=!!P.h.room;if(WEIS.grp)WEIS.grp.visible=!indoor;
-  for(const sc of WEIS.scenes){const d=Math.hypot(sc.x-px,sc.z-pz);
-    if(!sc.people.length){if(d<130&&!indoor)weisSpawnScene(sc);continue;}
-    if(d>220){weisDespawn(sc);continue;}
+function updateWeis(dt){const P=P1;if(!P||!P.h)return;const Zs=WEIS.zones;
+  if(WEIS.kiosk.venue.room&&!Zs.ufer.built)weisFreeRoom();
+  if(!Zs.syn.built&&!Zs.ufer.built&&!Zs.sued.built)return;
+  const [px,pz]=ppos(P);const indoor=!!P.h.room;
+  for(const k in Zs)if(Zs[k].group)Zs[k].group.visible=!indoor;
+  for(const sc of WEIS.scenes){if(!sc.people.length)continue;const d=Math.hypot(sc.x-px,sc.z-pz);
     for(const h of sc.people){if(h.removed||!h.alive||h.state!=='roof')continue;
       if(h.weisPose!=='sit'&&h.weisPose!=='rod'){const dx=P.h.x-h.x,dz=P.h.z-h.z;if(dx*dx+dz*dz<49)faceTo(h,dx,dz,dt,2);}
       if(h.fx&&h.face.visible)h.updateFace();h.g.position.set(h.x,h.y,h.z);h.g.rotation.y=h.facing;}
     sc.lineT-=dt;if(sc.lineT<=0){sc.lineT=8+Math.random()*7;if(d<24&&sc.lines.length){const c=sc.people.filter(h=>!h.removed&&h.alive&&h.state==='roof'&&!h.bubble);if(c.length)say(mpick(c),mpick(sc.lines),3.6,sc.calm?'quiet':'');}}}
-  // Gedenktafel: Hinweistext in der Nähe
-  const Y=WEIS.synagoge;WEIS.hintT-=dt;if(!P.car&&!indoor&&WEIS.hintT<=0&&Math.hypot(P.h.x-Y.plaque.x,P.h.z-Y.plaque.z)<3.2){WEIS.hintT=1;hint('<b>'+WEIS_PLAQUE[0]+'</b> · '+WEIS_PLAQUE.slice(1).join(' '),1.3,P);}
-  // Ruhezone an der Synagoge: keine Prügeleien
-  WEIS.calmT-=dt;if(WEIS.calmT<=0){WEIS.calmT=0.25;const C=WEIS.calm;if(Math.hypot(px-C.x,pz-C.z)<C.r+60)for(const o of HUMANS){if(o.state!=='brawl'||!o.alive)continue;if(Math.hypot(o.x-C.x,o.z-C.z)>C.r)continue;
-    o.state='walk';o.walkSpeed=1.3;o.setExpr('neutral');say(o,'… Nee, net hier. Des is kää Ort fer Streit.',3);WEIS.calmed++;}}
-  // Zementstaub, Bagger schwenken
-  const Z=WEIS.zement,zc=[(Z.rect[0]+Z.rect[2])/2,(Z.rect[1]+Z.rect[3])/2];
-  if(Math.hypot(px-zc[0],pz-zc[1])<280){WEIS.dustT-=dt;if(WEIS.dustT<=0){WEIS.dustT=0.12;const e=mpick(Z.emit);Z.dust=(Z.dust||0)+1;spawnPart(e[0]+mr(-2,2),e[1],e[2]+mr(-2,2),{color:e[3],size:mr(1.5,3.2),vx:mr(0.3,1.2),vz:mr(-0.4,0.4),vy:mr(0.3,0.9),life:mr(3,5),grow:1.6,alpha:0.28});}}
-  const Q=WEIS_Q;if(Math.hypot(px-(Q.x0+Q.x1)/2,pz-(Q.z0+Q.z1)/2)<320)for(const e of WEIS.steinbruch.excavators)if(e.mesh)e.mesh.rotation.y=e.rot+Math.sin(simTime*0.35+e.ph)*0.8;}
+  if(Zs.syn.built){
+    // Gedenktafel: Hinweistext in der Nähe
+    const Y=WEIS.synagoge;WEIS.hintT-=dt;if(!P.car&&!indoor&&WEIS.hintT<=0&&Math.hypot(P.h.x-Y.plaque.x,P.h.z-Y.plaque.z)<3.2){WEIS.hintT=1;hint('<b>'+WEIS_PLAQUE[0]+'</b> · '+WEIS_PLAQUE.slice(1).join(' '),1.3,P);}
+    // Ruhezone an der Synagoge: keine Prügeleien
+    WEIS.calmT-=dt;if(WEIS.calmT<=0){WEIS.calmT=0.25;const C=WEIS.calm;if(Math.hypot(px-C.x,pz-C.z)<C.r+60)for(const o of HUMANS){if(o.state!=='brawl'||!o.alive)continue;if(Math.hypot(o.x-C.x,o.z-C.z)>C.r)continue;
+      o.state='walk';o.walkSpeed=1.3;o.setExpr('neutral');say(o,'… Nee, net hier. Des is kää Ort fer Streit.',3);WEIS.calmed++;}}}
+  if(Zs.sued.built){
+    // Zementstaub, Bagger schwenken
+    const Z=WEIS.zement,zc=[(Z.rect[0]+Z.rect[2])/2,(Z.rect[1]+Z.rect[3])/2];
+    if(Math.hypot(px-zc[0],pz-zc[1])<280){WEIS.dustT-=dt;if(WEIS.dustT<=0){WEIS.dustT=0.12;const e=mpick(Z.emit);Z.dust=(Z.dust||0)+1;spawnPart(e[0]+mr(-2,2),e[1],e[2]+mr(-2,2),{color:e[3],size:mr(1.5,3.2),vx:mr(0.3,1.2),vz:mr(-0.4,0.4),vy:mr(0.3,0.9),life:mr(3,5),grow:1.6,alpha:0.28});}}
+    const Q=WEIS_Q;if(Math.hypot(px-(Q.x0+Q.x1)/2,pz-(Q.z0+Q.z1)/2)<320)for(const e of WEIS.steinbruch.excavators)if(e.mesh)e.mesh.rotation.y=e.rot+Math.sin(simTime*0.35+e.ph)*0.8;}}
