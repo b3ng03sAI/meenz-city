@@ -2,11 +2,11 @@
   "name": "meenz-city",
   "private": true,
   "license": "AGPL-3.0-only",
-  "version": "31.0.0",
+  "version": "33.0.0",
   "description": "GTA-artiges Browserspiel in Mainz und Wiesbaden (three.js)",
   "scripts": {
     "build": "cd game && python3 build.py",
-    "serve": "python3 -m http.server 8765",
+    "serve": "python3 -m http.server 8765 --bind 127.0.0.1",
     "test": "python3 tests/run.py"
   },
   "devDependencies": {

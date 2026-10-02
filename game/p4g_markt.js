@@ -112,9 +112,9 @@ function updateMarktPerson(h,dt){const mk=h.mk;
   // leichtes Schwanken um den Platz
   const sx=mk.home[0]+Math.sin(t*0.6)*0.12*d,sz=mk.home[1]+Math.cos(t*0.45)*0.12*d;h.x+=(sx-h.x)*Math.min(1,dt*2);h.z+=(sz-h.z)*Math.min(1,dt*2);
   if(mk.act==='puke'&&mk.actT>0){const k=Math.min(1,(2.6-mk.actT)*3)*Math.min(1,mk.actT*2);h.hips.rotation.x=0.85*k;h.armL.rotation.x=-0.6*k;h.armR.rotation.x=-0.6*k;}
-  else if(mk.act==='prost'&&mk.actT>0){h.armR.rotation.x=-3.05;h.armR.rotation.z=0.12;}
+  else if(mk.act==='prost'&&mk.actT>0){h.armR.rotation.x=-0.95;h.armR.rotation.z=0.45;}
   else if(mk.act==='laugh'&&mk.actT>0){h.hips.rotation.x=-0.12+Math.sin(t*22)*0.05;h.hips.position.y=0.92+Math.abs(Math.sin(t*20))*0.02;if(mk.glass)h.armR.rotation.x=-0.5;}
-  else if(mk.act==='shout'&&mk.actT>0){h.armL.rotation.x=-3.05;h.armL.rotation.z=-0.12;h.armR.rotation.x=-3.05;h.armR.rotation.z=0.12;}
+  else if(mk.act==='shout'&&mk.actT>0){h.armL.rotation.x=-2.2;h.armL.rotation.z=0.75;h.armR.rotation.x=-2.2;h.armR.rotation.z=-0.75;}
   else{if(mk.actT<=0&&mk.act!=='stand'){mk.act='stand';h.setExpr(mk.drunk>0.7?'cringe':'smile');}
     if(mk.glass){const dp=mk.drinkT<0?Math.min(1,-mk.drinkT*3,(1.5+mk.drinkT)*3):0;h.armR.rotation.x=-0.45-0.6*dp;h.armR.rotation.z=-0.06+0.75*dp;if(mk.drinkT<-1.5){mk.drinkT=mr(4,10);mk.drunk+=0.04;}}}
   if(mk.evT<=0){mk.evT=mr(6,16)*(mk.role==='vendor'?1.4:1)/(0.7+d*0.6);if(minPlayerDist(h.x,h.z)<70)marktEvent(h);}

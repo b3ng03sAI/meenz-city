@@ -36,18 +36,23 @@ async def test(g):
     g.check('Spieler ist auf dem Bahnsteig gelaufen', ((w[2] - p0[0]) ** 2 + (w[3] - p0[1]) ** 2) ** 0.5 > 1, w[2:])
 
     # Fahrplan vorziehen: alle Züge kommen in 19–29 Spielminuten (1 min/s) und spawnen 18 min vorher
-    await g.js(f"()=>{{const M={M};for(const e of M.HBF.sched)e.t=M.gameMin+19+Math.random()*10;}}")
+    # Gleis 4 gehört der S8 (Paket 30, SBAHN): sie steht dort im Fahrplan, Deko-Züge bekommen die übrigen 5 Gleise
+    s8 = await g.js(f"""()=>{{const M={M},S=M.SBAHN;S.fn.station(1,90);const e=M.HBF.sched.filter(q=>q.sbahn);const p=S.fn.pos(S.sMz),st=M.HBF.plats.find(q=>q.n==='4/5').stair;
+        return {{e:e.map(q=>q.gleis+' '+q.line),deco:M.HBF.sched.filter(q=>!q.sbahn).map(q=>q.gleis),d:Math.hypot(p[0]-st[0],p[1]-st[1]),st:S.train.state}}}}""")
+    g.check('S8 auf Gleis 4 im Fahrplan und am Bahnsteig 4/5', s8['e'] == ['4 S8'] and s8['d'] < 60 and s8['st'] == 'dwell', s8)
+    g.check('Deko-Züge nicht auf Gleis 4', '4' not in s8['deco'], s8['deco'])
+    await g.js(f"()=>{{const M={M};for(const e of M.HBF.sched)if(!e.sbahn)e.t=M.gameMin+19+Math.random()*10;}}")
     await g.step(22)
     tr = await g.js(f"()=>{M}.HBF.trains.map(t=>({{k:t.k,stage:t.stage,u:t.u,stopU:t.stopU,v:t.v}}))")
-    g.check('6 Züge eingefahren', len(tr) == 6, [t['k'] for t in tr])
-    g.check('Züge auf 6 verschiedenen Gleisen', len({t['k'] for t in tr}) == 6)
+    g.check('5 Deko-Züge eingefahren', len(tr) == 5, [t['k'] for t in tr])
+    g.check('Züge auf 5 verschiedenen Gleisen, keiner auf Gleis 4', len({t['k'] for t in tr}) == 5 and '4' not in {t['k'] for t in tr})
     g.check('Züge in Einfahrt oder am Halt, nicht über den Halt hinaus',
             all(t['stage'] in ('in', 'dwell') and t['u'] <= t['stopU'] + 0.01 for t in tr),
             [(t['k'], t['stage'], round(t['u']), round(t['stopU'])) for t in tr])
     await g.step(25)
     tr2, n = await g.js(f"()=>[{M}.HBF.trains.map(t=>({{k:t.k,stage:t.stage,u:t.u,stopU:t.stopU}})),{M}.HBF.sched.length]")
     # Haltezeit ist zufällig 18–28 s: ein früh eingefahrener Zug darf schon wieder ausfahren ('out')
-    g.check('nach 47 s haben alle 6 Züge ihren Halt erreicht', len(tr2) == 6 and all(t['stage'] in ('dwell', 'out') and t['u'] >= t['stopU'] - 0.01 for t in tr2),
+    g.check('nach 47 s haben alle 5 Deko-Züge ihren Halt erreicht', len(tr2) == 5 and all(t['stage'] in ('dwell', 'out') and t['u'] >= t['stopU'] - 0.01 for t in tr2),
             [(t['k'], t['stage'], round(t['u'])) for t in tr2])
     g.check('die meisten Züge stehen noch am Bahnsteig', sum(t['stage'] == 'dwell' for t in tr2) >= 4, [t['stage'] for t in tr2])
     g.check('Fahrplan weiter mit 6 Einträgen', n == 6, n)
