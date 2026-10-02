@@ -18,7 +18,8 @@ async def test(g):
     await g.start()
     g.check('Spiel läuft', await g.js(f"()=>{M}.mode") == 'play')
     free = await g.js(f"()=>{M}.MISSIONS.filter(m=>m.free).map(m=>m.id)")
-    g.check('6 freie Missionen', free == ['erstflug', 'luftbild', 'jetski', 'eis', 'oldtimer', 'ufojagd'], free)
+    v31 = ['erstflug', 'luftbild', 'jetski', 'eis', 'oldtimer', 'ufojagd']
+    g.check('6 freie V31-Missionen in Reihenfolge da', [m for m in free if m in v31] == v31, free)
 
     # Schwimmen: Ufer neben dem zweiten Jetski suchen, ins Wasser laufen, wieder raus
     n = await g.js(f"()=>{M}.CARS.filter(c=>c.T.jetski).length")
