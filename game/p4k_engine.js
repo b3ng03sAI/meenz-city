@@ -36,7 +36,7 @@ function engHiss(vol){const ctx=AUD.ctx;const t=ctx.currentTime;const s=ctx.crea
 let engLastT=0;
 function updateEngines(){const ctx=AUD.ctx;if(!ctx)return;const t=ctx.currentTime;const dt=clamp(t-engLastT,0.001,0.1);engLastT=t;
   PLAYERS.forEach((P,i)=>{const c=P.car;let E=ENGINES[i];
-    if(!c||P.gameOver||c.dead||mode!=='play'&&mode!=='map'){if(E){engStop(E);E.active=false;}return;}
+    if(!c||c.T.pedal||P.gameOver||c.dead||mode!=='play'&&mode!=='map'){if(E){engStop(E);E.active=false;}return;}
     const key=engProfile(c);if(!E||E.key!==key){if(E){engStop(E);try{E.src.stop();}catch(e){}}E=ENGINES[i]=makeEngine(ctx,key);E.rpm=E.p.idle;}E.active=true;const p=E.p;
     const sp=Math.abs(c.speed||0),thr=clamp(c.inp.throttle||0,0,1),brk=c.inp.brake||0;const mul=G.split?0.7:1;let target;
     if(!p.gears){target=p.idle+thr*(p.red-p.idle)*0.85+sp*25;E.gear=1;}

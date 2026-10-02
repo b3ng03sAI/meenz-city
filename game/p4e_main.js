@@ -21,7 +21,7 @@ function update(dt){simTime+=dt;updateSky(dt);
     if(h.state==='shout'||h.state==='approach'||h.state==='brawl'){updateActivePed(h,dt);continue;}
     if(h.kind==='cop')updateCop(h,dt);else if(h.kind==='gang')updateGang(h,dt);else updatePed(h,dt);}
   updateProjectiles(dt);updateFires(dt);updatePolice(dt);updateMissions(dt);updatePickups(dt);updateShops(dt);updateParts(dt);updateTracers(dt);updateShips(dt);managePopulation(dt);updateZone(dt);
-  for(const P of PLAYERS){lackiererei(P);shoeEffects(P,dt);}updateTalk(dt);updateAmbient(dt);updateMarkt(dt);updateDogs(dt);updateDrunk(dt);updateUI();updateRoofs(dt);updateTrip(dt);updateBuses(dt);updateHbf(dt);updateRhein(dt);humanShadowLOD();perfGovernor(dt);updatePoliticians(dt);updatePowerups(dt);updateEgg(dt);updateFlug(dt);updateRockets(dt);updateBurning(dt);updateUfo(dt);updateKart(dt);
+  for(const P of PLAYERS){lackiererei(P);shoeEffects(P,dt);}updateTalk(dt);updateAmbient(dt);updateMarkt(dt);updateDogs(dt);updateDrunk(dt);updateUI();updateRoofs(dt);updateTrip(dt);updateBuses(dt);updateHbf(dt);updateRhein(dt);humanShadowLOD();perfGovernor(dt);updatePoliticians(dt);updatePowerups(dt);updateEgg(dt);updateFlug(dt);updateRockets(dt);updateBurning(dt);updateUfo(dt);updateKart(dt);updateRad(dt);
   talkHintT-=dt;if(talkHintT<=0){talkHintT=0.6;if(!TALK&&!P1.car&&P1.h&&(!P1.h.room||P1.h.room.venue)&&!SHOP_UI.open){const c=talkCandidate(P1);if(c&&!shopNear(P1.h.x,P1.h.z,1.9))hint('<b>E</b>: ansprechen',0.8);}}
   for(const P of PLAYERS)updateCamera(P,dt);
   {const pts=PLAYERS.filter(P=>P.h).map(P=>P.h.room?[P.h.room.shop.doorX,P.h.room.shop.doorZ]:[P.camera.position.x,P.camera.position.z]);updateCityLOD(0,0,1,false,pts);if(pts[0])updateStaticLOD(pts[0][0],pts[0][1]);updateGround(0,0,false,1,pts);}
@@ -31,7 +31,7 @@ function update(dt){simTime+=dt;updateSky(dt);
   const cams=PLAYERS.map(P=>P.camera.position);
   for(const h of HUMANS){if(h.inCar)continue;if(playerOfHuman(h)){const PP=playerOfHuman(h);h.g.visible=!(PP&&PP.morph);continue;}if(h.keeper){h.g.visible=!!(INDOOR&&INDOOR.keeper===h);continue;}let v=false,fv=false;for(const c of cams){const dx=Math.abs(h.x-c.x),dz=Math.abs(h.z-c.z);if(dx<160&&dz<160)v=true;if(dx<28&&dz<28)fv=true;}h.g.visible=v&&!INDOOR;if(h.face)h.face.visible=fv;}
   for(const c of CARS){let v=false;for(const cp of cams)if(Math.abs(c.x-cp.x)<380&&Math.abs(c.z-cp.z)<380){v=true;break;}c.g.visible=v&&!INDOOR;}
-  PLAYERS.forEach((P,i)=>{const L=headLights[i];if(P.car&&nightF>0.25&&!P.car.T.boat){const c=P.car;const fx=Math.sin(c.h),fz=Math.cos(c.h);L.position.set(c.x+fx*c.T.L*0.5,c.y+0.8,c.z+fz*c.T.L*0.5);L.target.position.set(c.x+fx*30,c.y,c.z+fz*30);L.intensity=60*nightF;}else L.intensity=0;});
+  PLAYERS.forEach((P,i)=>{const L=headLights[i];if(P.car&&nightF>0.25&&!P.car.T.boat&&!P.car.T.pedal){const c=P.car;const fx=Math.sin(c.h),fz=Math.cos(c.h);L.position.set(c.x+fx*c.T.L*0.5,c.y+0.8,c.z+fz*c.T.L*0.5);L.target.position.set(c.x+fx*30,c.y,c.z+fz*30);L.intensity=60*nightF;}else L.intensity=0;});
   autoSaveT-=dt;if(autoSaveT<=0){autoSaveT=120;if(!activeMission&&wanted===0&&PLAYERS.every(P=>!P.gameOver))autoSave();}}
 let lastT=performance.now();let talkHintT=0;
 function resizeAll(){const W=innerWidth,H=innerHeight;renderer.setSize(W,H);if(composer)composer.setSize(W,H);if(G.split){for(const P of PLAYERS){P.camera.aspect=(W/2)/H;P.camera.updateProjectionMatrix();}}else{camera.aspect=W/H;camera.updateProjectionMatrix();}}
@@ -54,7 +54,7 @@ const SAVE_KEY='meenz-save-';
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
 function snapshot(){const P=P1;const [x,z]=P.h.room?[P.h.room.shop.doorX,P.h.room.shop.doorZ]:ppos(P);
-  return {v:2,t:Date.now(),money:G.money,stats:G.stats,done:G.done,mapSchoppen:!!G.mapSchoppen,phone:!!G.phone,superShoes:!!G.superShoes,schoppen:SCHOPPEN.map(s=>s.got?1:0),gameMin,weather:WEATHER.kind,
+  return {v:2,t:Date.now(),money:G.money,stats:G.stats,done:G.done,mapSchoppen:!!G.mapSchoppen,phone:!!G.phone,superShoes:!!G.superShoes,fahrradSchein:!!G.fahrradSchein,schoppen:SCHOPPEN.map(s=>s.got?1:0),gameMin,weather:WEATHER.kind,
     p:{x,z,yaw:P.cam.yaw,health:P.h.health,armor:P.armor,owned:P.owned,ammo:P.ammo,mag:P.mag,weapon:P.weapon},zone:zoneAt(x,z)};}
 function saveGame(slot,quick=false){if(mode!=='play'&&mode!=='pause')return false;if(P1.gameOver){hint('Jetzt nicht speichern.',2);return false;}const ok=lsSet(SAVE_KEY+slot,JSON.stringify(snapshot()));
   const msg=ok?`Gespeichert in ${slot===0?'Autosave':'Slot '+slot}.`:'Speichern nicht möglich – der Browser blockiert den Speicher.';if(quick||mode==='play')hint(msg,2.5);$('savemsg').textContent=msg;renderSlots();return ok;}
@@ -63,7 +63,7 @@ function readSave(slot){const s=lsGet(SAVE_KEY+slot);if(!s)return null;try{retur
 function latestSave(){let best=null,bs=-1;for(const k of [0,1,2,3]){const d=readSave(k);if(d&&d.t>(best?best.t:0)){best=d;bs=k;}}return bs;}
 function applySave(d){if(!d)return false;
   if(activeMission)endMission('fail');clearWanted();
-  G.money=d.money??G.money;Object.assign(G.stats,d.stats||{});G.done=Object.assign({},d.done||{});G.mapSchoppen=!!d.mapSchoppen;G.phone=!!d.phone;G.superShoes=!!d.superShoes;
+  G.money=d.money??G.money;Object.assign(G.stats,d.stats||{});G.done=Object.assign({},d.done||{});G.mapSchoppen=!!d.mapSchoppen;G.phone=!!d.phone;G.superShoes=!!d.superShoes;G.fahrradSchein=!!d.fahrradSchein;
   (d.schoppen||[]).forEach((v,i)=>{const s=SCHOPPEN[i];if(!s)return;if(v){s.got=true;s.g.visible=false;}else{s.got=false;s.g.visible=true;}});
   gameMin=d.gameMin??gameMin;envDirty=true;setWeather(d.weather||'klar');
   const P=P1,p=d.p||{};P.owned=Object.assign({fist:true},p.owned||{});P.ammo=Object.assign({},p.ammo||{});P.mag=Object.assign({},p.mag||{});P.armor=p.armor||0;
@@ -110,14 +110,14 @@ async function boot(){
   try{
     await generateWorld((f,t)=>{bar.style.width=Math.round(f*100)+'%';lt.textContent=t+' …';});
     lt.textContent='Missionen …';await nextFrame();
-    buildRoadSegHash();setupLackiererei();defineMissions();setupPickups();buildHeli();setupVehicles();setupJetskis();extraMissions();setupNewWeapons();
+    buildRoadSegHash();setupLackiererei();defineMissions();setupPickups();buildHeli();setupVehicles();setupJetskis();setupRad();extraMissions();setupNewWeapons();
     P1.h=new Human('player');attachJetpack(P1);const [sx,sz]=freeSpot(POI.start[0],POI.start[1],0.5);P1.h.x=sx;P1.h.z=sz;P1.h.facing=Math.PI/2;P1.h.sync();P1.cam.yaw=Math.PI/2;
     {const r=roadSpot(POI.start[0]+10,POI.start[1]);const c=new Car('sport',r[0],r[1],r[2]||0,{ctrl:'none',color:0xc8102e,plate:'MZ-MZ 1105'});if(c.collides()){const [x,z]=freeSpot(r[0],r[1],1.6);c.x=x;c.z=z;}c.ai={mode:'parked'};}
     managePopulation(0,true);
     await setupPost();updateSky(0);updateEnv(true);bar.style.width='100%';
     lt.textContent=`${BUILDINGS.length.toLocaleString('de-DE')} Gebäude · ${ROADS.length.toLocaleString('de-DE')} Straßen · ${SHOPS.length.toLocaleString('de-DE')} Geschäfte · ${TREES.length.toLocaleString('de-DE')} Bäume · bereit`;
     $('btn-play').disabled=false;$('btn-play').textContent='Neues Spiel';$('btn-split').disabled=false;if(latestSave()>=0)$('btn-continue').hidden=false;mode='menu';setupTouch();
-    window.__MEENZ={Car,kartRoute,swimBlocked,get activeMission(){return activeMission},FLUG,UFO,KART,kartOffer,ufoStart,enterCar,exitCar,swimHere,CHEAT,WEAPONS,ROCKETS,playerFire:(P,I)=>playerFire(P,I),flugP,mfG,idx,MAT,GROUND,CITY,SIGN_ATLASES:()=>SIGN_ATLASES,EGG,AREAS,ROADSx:ROADS,mkHuman:(k)=>new Human(k||"ped"),snap:(n=3,hide)=>{for(let i=0;i<n;i++)update(0.016);updateHUD(0.016);if(hide)P1.h.g.visible=false;renderFrame();return renderer.domElement.toDataURL('image/jpeg',0.88);},PU,puActivate,FT,fastTravel,ftDestinations,POL,spawnPolitician,ELEV,groundYFn:(x,z,y)=>groundY(x,z,y),blockedFn:(x,z,y)=>blocked(x,z,y),RHEIN,HBF,hbfToPlatform,stepAt,exitShop,VENUES,enterVenue,exitVenue,venueNear,Car,BUS_STOPS,TRIP,get mushT(){return mushT},set mushT(v){mushT=v},ROOF,ENGINES,MAPV,DOGS,BRIDGES,MARKT,BREZEL,marktPuke,startTalk,chooseTalk,get TALK(){return TALK;},setWeather,WEATHER,get gameMin(){return gameMin;},set gameMin(v){gameMin=v;envDirty=true;},BUILDINGS,ROADS,NODES,EDGES,CARS,HUMANS,P1,PLAYERS,TREES,LAMPS,SHOPS,OVERVIEW,HG,keys,update,startGame,tryEnterExit,get wanted(){return wanted;},setWanted,get mode(){return mode;},MISSIONS,startMission,get activeMission(){return activeMission;},crime,ppos,gridH,blocked,spawnPolice,damagePlayer,busted,enterShop,exitShop,shopNear,saveGame,loadGame,applySave,snapshot,G,POI,giveWeapon,makeRoom,enableSplit,INDOOR:()=>INDOOR};
+    window.__MEENZ={Car,RAD,radSpawnCop,kartRoute,swimBlocked,get activeMission(){return activeMission},FLUG,UFO,KART,kartOffer,ufoStart,enterCar,exitCar,swimHere,CHEAT,WEAPONS,ROCKETS,playerFire:(P,I)=>playerFire(P,I),flugP,mfG,idx,MAT,GROUND,CITY,SIGN_ATLASES:()=>SIGN_ATLASES,EGG,AREAS,ROADSx:ROADS,mkHuman:(k)=>new Human(k||"ped"),snap:(n=3,hide)=>{for(let i=0;i<n;i++)update(0.016);updateHUD(0.016);if(hide)P1.h.g.visible=false;renderFrame();return renderer.domElement.toDataURL('image/jpeg',0.88);},PU,puActivate,FT,fastTravel,ftDestinations,POL,spawnPolitician,ELEV,groundYFn:(x,z,y)=>groundY(x,z,y),blockedFn:(x,z,y)=>blocked(x,z,y),RHEIN,HBF,hbfToPlatform,stepAt,exitShop,VENUES,enterVenue,exitVenue,venueNear,Car,BUS_STOPS,TRIP,get mushT(){return mushT},set mushT(v){mushT=v},ROOF,ENGINES,MAPV,DOGS,BRIDGES,MARKT,BREZEL,marktPuke,startTalk,chooseTalk,get TALK(){return TALK;},setWeather,WEATHER,get gameMin(){return gameMin;},set gameMin(v){gameMin=v;envDirty=true;},BUILDINGS,ROADS,NODES,EDGES,CARS,HUMANS,P1,PLAYERS,TREES,LAMPS,SHOPS,OVERVIEW,HG,keys,update,startGame,tryEnterExit,get wanted(){return wanted;},setWanted,get mode(){return mode;},MISSIONS,startMission,get activeMission(){return activeMission;},crime,ppos,gridH,blocked,spawnPolice,damagePlayer,busted,enterShop,exitShop,shopNear,saveGame,loadGame,applySave,snapshot,G,POI,giveWeapon,makeRoom,enableSplit,INDOOR:()=>INDOOR};
   }catch(err){showErr(err);lt.textContent='Fehler beim Laden: '+err.message;}
 }
 function setupLackiererei(){const cand=SHOPS.filter(s=>/car_repair|car|motorcycle/.test(s.kind)&&rhineSide(s.x,s.z)>0);let best=null,bd=1e9;for(const s of cand){const d=Math.hypot(s.x-700,s.z+760);if(d<bd){bd=d;best=s;}}

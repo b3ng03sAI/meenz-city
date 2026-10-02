@@ -8,7 +8,7 @@ function enterCar(P,c){const h=P.h;
   if(c.driver==='npc'){const [dx,dz]=doorPos(c,1);const d=new Human('ped');d.x=dx;d.z=dz;d.y=groundY(dx,dz);d.side=1;d.walkSpeed=1.4;pedFlee(d,c.x,c.z,10);crime('carjack',c.x,c.z);}
   if(c.copsIn>0){for(let i=0;i<c.copsIn;i++){const [dx,dz]=doorPos(c,i?-1:1);spawnCop(dx,dz,c);}c.copsIn=0;crime('carjackCop',c.x,c.z);}
   c.driver=h;c.ctrl='player';c.ai={mode:'player'};c.sirenOn=false;c.persist=false;P.car=c;h.inCar=true;h.aiming=false;h.g.visible=!!(c.T.bike||c.T.jetski||c.T.kart);P.swim=false;
-  hint(`<b>${c.T.name}</b>${c.T.boat?'':' · '+c.plateText}`,3);
+  hint(`<b>${c.T.name}</b>${c.T.boat||c.T.pedal?'':' · '+c.plateText}`,3);
   if(activeMission&&activeMission.onEnter)activeMission.onEnter(c,P);
   if(c.T.police&&!(activeMission&&activeMission.id==='blau'))crime('stealCop',c.x,c.z);}
 function exitCar(P,force=false){const c=P.car;if(!c)return;const airborne=c.T.plane&&c.alt>6;if(!force&&Math.abs(c.speed)>7&&!c.T.bike&&!c.T.jetski&&!c.T.kart&&!airborne){hint('Zu schnell zum Aussteigen!',1.5);return;}const h=P.h;let x,z;
@@ -16,7 +16,7 @@ function exitCar(P,force=false){const c=P.car;if(!c)return;const airborne=c.T.pl
   let toWater=false;if(c.T.boat){const s=landSpotNear(c.x,c.z,c.T.jetski?6:14);if(!s){const lx=Math.cos(c.h),lz=-Math.sin(c.h);x=c.x+lx*(c.T.W/2+1.2);z=c.z+lz*(c.T.W/2+1.2);toWater=true;}else [x,z]=s;}
   else{[x,z]=doorPos(c,1);if(blocked(x,z))[x,z]=doorPos(c,-1);if(blocked(x,z))[x,z]=freeSpot(c.x,c.z,0.4);}
   h.x=x;h.z=z;h.y=toWater?SWIM_Y:groundY(x,z);if(toWater){P.swim=true;splash(x,z,1);}h.facing=c.h;h.inCar=false;h.g.visible=true;h.stand();for(const l of [h.legL,h.legR,h.armL,h.armR])l.rotation.set(0,0,0);h.g.rotation.z=0;
-  if(c.T.bike&&Math.abs(c.speed)>7){knockHuman(h,c.vx*0.6,c.vz*0.6,3,0,false);damagePlayer(P,Math.abs(c.speed)*1.5);h.state='walk';}
+  if(c.T.bike&&!c.T.pedal&&Math.abs(c.speed)>7){knockHuman(h,c.vx*0.6,c.vz*0.6,3,0,false);damagePlayer(P,Math.abs(c.speed)*1.5);h.state='walk';}
   c.driver=null;c.ctrl='none';c.ai={mode:c.T.boat?'docked':'none'};c.inp={throttle:0,brake:c.T.boat?0:1,steer:0,hand:false};P.car=null;h.sync();updateWeaponModel(P);}
 function vehicleInput(P,I){const c=P.car;const i=c.inp;i.throttle=I.throttle;i.brake=I.brake;i.steer=clamp(I.steer,-1,1);i.hand=I.hand;
   if(c.T.kart&&P.h){const h=P.h;const fx=Math.sin(c.h),fz=Math.cos(c.h);h.x=c.x-fx*0.2;h.z=c.z-fz*0.2;h.y=c.y-0.38;h.facing=c.h;h.g.rotation.order='YXZ';h.g.rotation.set(c.g.rotation.x,c.h,c.g.rotation.z);

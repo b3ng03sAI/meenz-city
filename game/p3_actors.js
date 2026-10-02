@@ -111,6 +111,7 @@ const CAR_TYPES={
   transporter:{name:'Transporter',L:5.3,W:2.0,H:2.35,van:true,max:36,acc:6.5,grip:6.5,mass:2.2,wb:3.4,wr:0.36,cab:[1.5,1.5]},
   taxi:{name:'Taxi',base:'limo',color:0xebe4c8,taxi:true},
   polizei:{name:'Funkstreifenwagen',base:'kombi',color:0xeef1f3,police:true,max:60,acc:13},
+  fahrrad:{name:'Fahrrad',L:1.75,W:0.6,H:1.1,bike:true,pedal:true,max:9,acc:3.5,grip:8.5,mass:0.09,wb:1.05,wr:0.34,cab:[0,0]},
   motorrad:{name:'Motorrad',L:2.15,W:0.8,H:1.2,bike:true,max:66,acc:15,grip:9.5,mass:0.45,wb:1.45,wr:0.32,cab:[0,0]},
   boot:{name:'Motorboot',L:6.2,W:2.3,H:1.5,boat:true,max:27,acc:7.5,grip:1.4,mass:1.6,wb:3.2,wr:0,cab:[0,0]},
   kleinwagen:{name:'Kleinwagen',L:3.55,W:1.66,H:1.5,belt:0.92,hood:0.7,ws:0.75,rear:'hatch',rr:0.2,max:40,acc:8,grip:7.8,mass:0.95,wb:2.35,wr:0.29,cab:[1.7,-0.1]},
@@ -241,7 +242,7 @@ class Car{
       const rim=new THREE.Mesh(RIM_G,RIM_M);rim.scale.set(sx,wr,wr);w.add(tire);w.add(rim);pv.add(w);this.g.add(pv);this.wheels.push({pv,w,front:sz>0});}
     const blob=new THREE.Mesh(BLOB_G,BLOB_MAT);blob.scale.set(T.W*1.5,1,T.L*1.25);blob.position.y=0.04;blob.renderOrder=1;if(!T.boat&&!T.plane)this.g.add(blob);
     this.plateText=o.plate||plateText(o.region||'MZ');this.plateTex=plateTex(this.plateText);const pm=stdMat({map:this.plateTex,roughness:0.5});
-    for(const s of (T.boat||T.plane?[]:T.bike?[-1]:[1,-1])){const p=new THREE.Mesh(new THREE.PlaneGeometry(T.bike?0.3:0.52,T.bike?0.16:0.12),pm);p.position.set(0,T.bike?0.62:0.5,s*(T.L/2+0.1));p.rotation.y=s>0?0:Math.PI;this.g.add(p);}
+    for(const s of (T.boat||T.plane||T.pedal?[]:T.bike?[-1]:[1,-1])){const p=new THREE.Mesh(new THREE.PlaneGeometry(T.bike?0.3:0.52,T.bike?0.16:0.12),pm);p.position.set(0,T.bike?0.62:0.5,s*(T.L/2+0.1));p.rotation.y=s>0?0:Math.PI;this.g.add(p);}
     if(T.police){this.sirens=[];for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.14,0.26),SIREN_OFF);m.position.set(s*0.26,T.H+0.06,T.cab[1]-0.3);this.g.add(m);this.sirens.push(m);}
       for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.28),stdMat({map:polizeiTex}));p.position.set(s*(T.W/2+0.015),0.62,0.1);p.rotation.y=s*Math.PI/2;this.g.add(p);}}
     if(T.ice){const cone=new THREE.Group();const w=new THREE.Mesh(new THREE.ConeGeometry(0.35,1.0,14),stdMat({color:0xd9a35b,roughness:0.8}));w.rotation.x=Math.PI;w.position.y=0.5;cone.add(w);for(const [cl,y] of [[0xf7e7c8,1.1],[0xe86b9a,1.45]]){const b=new THREE.Mesh(new THREE.SphereGeometry(0.36,14,10),stdMat({color:cl,roughness:0.6}));b.position.y=y;cone.add(b);}cone.position.set(0,T.H,-0.3);this.g.add(cone);
