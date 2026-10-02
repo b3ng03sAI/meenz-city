@@ -57,11 +57,19 @@ async def test(g):
     f = await g.js(f"()=>{A}.fountain")
     await goto(g, f['x'] + 6, f['z'] + 4)
     await g.step(10)
-    sc = await g.js(f"""()=>{{const s={A}.scenes.find(s=>s.key==='fastnacht');const t=s.people.map(h=>h.bubble?h.bubble.textContent:'').filter(Boolean);
+    sc = await g.js(f"""()=>{{const s={A}.scenes.find(s=>s.key==='fastnacht');const t=s.said;
         return {{a:s.active,n:s.people.length,wait:s.people.every(h=>h.state==='wait'),said:t,t:s.t}}}}""")
     g.check('Fastnachter-Szene aktiv (3 Leute, stehen)', sc['a'] and sc['n'] == 3 and sc['wait'], sc)
     g.check('Fastnachter-Szene läuft (Schunkel-Uhr)', sc['t'] > 5, sc['t'])
     g.check('Fastnachter sagen was auf Meenzerisch (Sprechblase)', len(sc['said']) > 0, sc['said'])
+
+    # Haltungsregel schon in den eigenen Posen (nicht erst durch die globale Sperre): rechter Arm nie über −1,0 rad
+    pose = await g.js(f"""()=>{{const A={A},M={M};const h=M.mkHuman('ped');let worst=0,both=false;
+        for(const [key,D] of Object.entries(A.sceneDefs))for(let k=0;k<D.n;k++)for(let t=0;t<12;t+=0.05){{
+            h.armR.rotation.set(0,0,0);h.armL.rotation.set(0,0,0);if(D.sit)A.sitPose(h);D.anim(h,k,t);
+            worst=Math.min(worst,h.armR.rotation.x);if(h.armR.rotation.x<-1&&h.armL.rotation.x<-1)both=true;}}
+        h.remove();return {{worst,both,lim:M.HALTUNG.RMAX}}}}""")
+    g.check('Szenen-Posen halten die Haltungsregel ein (rechter Arm ≥ −1,0 rad, nie beide hoch)', pose['worst'] >= pose['lim'] and not pose['both'], pose)
 
     # 4. Weinstube in der Augustinerstraße
     door = await g.js(f"()=>{A}.weinstube.door")

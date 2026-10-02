@@ -220,14 +220,14 @@ const ALTST_SCENE_DEFS={
     anim(h,k,t){h.g.rotation.z=Math.sin(t*2.2)*0.1;h.armL.rotation.z=0.35;h.armR.rotation.z=-0.35;h.armL.rotation.x=-0.2;h.armR.rotation.x=-0.2;}},
   weinprobe:{n:3,lines:['Des is en Silvaner aus Rheinhesse – riech emol, des is Sommer im Glas!','Ich schmeck … Holz. Un Hoffnung.','Noch e Schlückche – fer die Wissenschaft!','Spucke? Ei, des wär ja Verschwendung!','Mineralisch, sacht die Fraa. Ich sach: lecker.'],
     who:['Winzerin Anneliese','Herr Hebestreit (Weinprobe)','Frau Kuhnert (Weinprobe)'],
-    dress(h,k){altstGlass(h);},anim(h,k,t){if(k)h.armR.rotation.x=-0.9-Math.max(0,Math.sin(t*0.9+k))*0.6;else h.armR.rotation.x=-0.9;}},
+    dress(h,k){altstGlass(h);},anim(h,k,t){h.armR.rotation.x=k?-0.6-Math.max(0,Math.sin(t*0.9+k))*0.35:-0.8;h.armR.rotation.z=0.4;}},
   stammtisch:{n:3,sit:true,lines:['Guck emol, de Dom – steht immer noch.','Noch e Schoppe, Gerda!','Früher war mehr Lametta. Un billischer Woi.','Vun hier sieht mer de Dom am schönste.','Mer sin de Stammtisch vum Leichhof, seit 1972.'],
     who:['Gerda (Stammtisch)','Willi (Stammtisch)','Karl-Heinz (Stammtisch)'],
-    dress(h,k){altstGlass(h);},anim(h,k,t){h.armR.rotation.x=-0.55-Math.max(0,Math.sin(t*0.7+k*2))*0.9;}}};
+    dress(h,k){altstGlass(h);},anim(h,k,t){h.armR.rotation.x=-0.55-Math.max(0,Math.sin(t*0.7+k*2))*0.4;h.armR.rotation.z=0.4;}}};
 // Szenen-Leute ersetzen ferne Passanten, damit das Passanten-Budget gleich bleibt
 function altstMakeRoom(n,px,pz){const far=HUMANS.filter(h=>h.kind==='ped'&&h.alive&&h.state==='walk'&&!h.mission&&!h.room&&!h.keeper&&!h.inCar&&Math.hypot(h.x-px,h.z-pz)>60)
     .sort((a,b)=>Math.hypot(b.x-px,b.z-pz)-Math.hypot(a.x-px,a.z-pz));for(const h of far.slice(0,n))h.remove();}
-function altstScene(key,x,z,face){const s={key,x,z,face,people:[],active:false,sayT:mr(2,5),t:0};ALTST.scenes.push(s);return s;}
+function altstScene(key,x,z,face){const s={key,x,z,face,people:[],said:[],active:false,sayT:mr(2,5),t:0};ALTST.scenes.push(s);return s;}
 function altstSpawnScene(s){const D=ALTST_SCENE_DEFS[s.key];s.people=[];s.active=true;
   for(let k=0;k<D.n;k++){let x,z,f;
     if(D.sit){const T=ALTST.cafe.length?ALTST.cafe[0]:{x:s.x,z:s.z,face:s.face};const a=T.face+Math.PI+(k-1)*0.9;x=T.x+Math.sin(a)*0.85;z=T.z+Math.cos(a)*0.85;f=Math.atan2(T.x-x,T.z-z);}
@@ -243,7 +243,7 @@ function altstUpdateScene(s,dt,px,pz){const d=Math.hypot(s.x-px,s.z-pz);
   // Wer erschreckt wegläuft oder umgefahren wurde, gehört nicht mehr zur Szene
   s.people=s.people.filter(h=>{const ok=!h.removed&&h.alive&&(h.state==='wait'||h.state==='talk');if(!ok){h.altstScene=null;h.altstSit=false;h.g.rotation.z=0;}return ok;});
   s.people.forEach((h,k)=>{if(h.state==='wait')D.anim(h,k,s.t);});
-  s.sayT-=dt;if(s.sayT<=0&&d<28){s.sayT=mr(4,8);const o=s.people.filter(h=>h.state==='wait'&&!h.bubble);if(o.length)say(mpick(o),mpick(D.lines),3.4);}}
+  s.sayT-=dt;if(s.sayT<=0&&d<28){s.sayT=mr(4,8);const o=s.people.filter(h=>h.state==='wait'&&!h.bubble);if(o.length){const h=mpick(o),l=mpick(D.lines);say(h,l,3.4);if(h.bubble&&h.bubble.textContent===l){s.said.push(l);if(s.said.length>8)s.said.shift();}}}}
 
 // ---------- Schnellreise: Ziele im Altstadt-Abschnitt (keine „besonderen Orte“) ----------
 const _altstFtSpecials=ftSpecials;
@@ -281,5 +281,6 @@ function updateAltst(dt){if(mode!=='play')return;
   if(ALTST.on&&ALTST.lh&&!P.car&&!P.h.room&&ALTST_DOMHINT<=0&&pip(P.h.x,P.h.z,ALTST.lh.poly)){ALTST_DOMHINT=40;hint('<b>Leichhof</b> · Domblick: Vun hier gucke die Domtürm üwwer die Dächer.',3,P);}}
 // Test-Hooks: Bevölkerung neu verteilen, Draw-Calls eines Bilds zählen (Haupt-Pass + Schatten + Post)
 ALTST.populate=()=>managePopulation(0,true);
+ALTST.sceneDefs=ALTST_SCENE_DEFS;ALTST.sitPose=altstSitPose;
 ALTST.pedCap=()=>Q.peds*(G.split?1.3:1);
 ALTST.drawCalls=()=>{const I=renderer.info;I.autoReset=false;I.reset();renderFrame();const n=I.render.calls;I.autoReset=true;return n;};
