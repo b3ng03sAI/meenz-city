@@ -11,7 +11,7 @@ const SPIELBANK={MIN:5,MAX:100,STAKES:[5,10,20,50,100],stake:10,seat:null,menu:n
   SPIN_T:3.2,DEAL_STEP:0.7,BREAK_N:12,SEAT_R:1.7,
   // local hall coordinates (inside WIWAHR.hall); seat = where the player sits, facing the table (-z)
   TABLES:{roul:{x:-6,z:-10,w:4.2,d:1.8,seat:[-5.3,-8.55],name:'Roulette'},bj:{x:6,z:-10,w:3.0,d:1.6,seat:[6,-8.65],name:'Black Jack'}},
-  DOOR:{x0:-5,x1:5,z0:9,z1:13.5}};
+  DOOR:{x0:-5,x1:5,z0:8,z1:12}};
 
 // European wheel order (pocket i sits at angle i*TAU/37 on the wheel texture)
 const SPIELBANK_WHEEL=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
@@ -80,10 +80,10 @@ function spielbankLayoutTex(){return freeAfterUpload(canvasTex(512,256,g=>{g.fil
     if(col!=='#f1e6c8'){g.fillRect(x+12,y+10,bw-24,32);g.fillStyle='#f1e6c8';}g.font='700 20px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText(t,x+bw/2,y+26);});
   g.font='italic 700 16px "Barlow Condensed",Arial Narrow,sans-serif';g.fillStyle='#e9d9a8';g.fillText('Einsatz € 5 – 100 · nur Spielgeld',256,244);},false));}
 function spielbankBjFeltTex(){return freeAfterUpload(canvasTex(512,256,g=>{g.fillStyle='#0f4f3a';g.fillRect(0,0,512,256);g.strokeStyle='#e9d9a8';g.lineWidth=3;
-  g.beginPath();g.arc(256,-150,330,0.25*Math.PI,0.75*Math.PI);g.stroke();g.textAlign='center';g.fillStyle='#e9d9a8';
-  g.font='800 34px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText('BLACK JACK ZAHLT 3 : 2',256,70);
-  g.font='italic 700 22px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText('Die Bank zieht bis 16 un bleibt ab 17',256,104);
-  g.strokeRect(206,150,100,70);g.font='700 18px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText('EINSATZ',256,190);},false));}
+  // text band sits between the dealer's cards (top) and the player's cards (bottom)
+  g.beginPath();g.arc(256,-160,300,0.25*Math.PI,0.75*Math.PI);g.stroke();g.textAlign='center';g.fillStyle='#e9d9a8';
+  g.font='800 30px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText('BLACK JACK ZAHLT 3 : 2',256,94);
+  g.font='italic 700 20px "Barlow Condensed",Arial Narrow,sans-serif';g.fillText('Die Bank zieht bis 16 un bleibt ab 17',256,122);},false));}
 // card atlas: 14 columns (A..K + back) x 4 suits, 73x128 px each
 function spielbankCardTex(){return freeAfterUpload(canvasTex(1024,512,g=>{g.fillStyle='#222';g.fillRect(0,0,1024,512);g.textAlign='center';g.textBaseline='middle';
   for(let s=0;s<4;s++)for(let r=1;r<=14;r++){const x=(r-1)*73,y=s*128;
@@ -100,7 +100,7 @@ function spielbankRes(){if(SPIELBANK_RES.cardMat)return SPIELBANK_RES;const R=SP
   R.ballMat=new THREE.MeshStandardMaterial({color:0xf8f8f4,roughness:0.2});
   R.bowlMat=new THREE.MeshStandardMaterial({color:0x4a2c16,roughness:0.5,metalness:0.1});
   R.vest=stdMat({color:0x5a0f1a,roughness:0.7});R.shirt=stdMat({color:0xf2f0ea,roughness:0.8});R.portier=stdMat({color:0x1b2a1f,roughness:0.7});
-  R.tieMat=stdMat({color:0x7a0f1a,roughness:0.6});R.tieWing=new THREE.ConeGeometry(0.03,0.06,4).rotateZ(Math.PI/2);R.tieKnot=new THREE.SphereGeometry(0.014,6,4);
+  R.tieMat=stdMat({color:0x111111,roughness:0.4});R.tieWing=new THREE.ConeGeometry(0.03,0.06,4).rotateZ(Math.PI/2);R.tieKnot=new THREE.SphereGeometry(0.014,6,4);
   R.cardGeo={};return R;}
 function spielbankCardGeo(c){const R=spielbankRes();const k=c?c.s*13+c.r-1:'back';if(R.cardGeo[k])return R.cardGeo[k];
   const geo=new THREE.PlaneGeometry(0.15,0.24).rotateX(-Math.PI/2);const col=c?c.r-1:13,row=c?c.s:0;
@@ -144,17 +144,20 @@ WIWAHR.venue.build=function(r,B){const _tt=textTex;
 WIWAHR.venue.sub='Foyer unter der Kuppel · Großer Saal · Spielbank';
 for(const k of WIWAHR.venue.hints)if(k.t.includes('bald die Spielbank'))k.t='Die Spielbank: Roulette links, Black Jack rechts. Hin un <b>E</b> drücke.';
 
-function spielbankDressCroupier(h,vest){const R=spielbankRes();h.g.traverse(m=>{const G2=m.geometry;if(!G2)return;
-  if(G2===BODY.torsoM||G2===BODY.torsoF)m.material=vest;else if(G2===BODY.armM||G2===BODY.armF||G2===SG.shoulder)m.material=R.shirt;});}
+// uniform: vest + white sleeves, no random cap or beanie
+function spielbankDressCroupier(h,vest){const R=spielbankRes();const hats=[SG.capTop,SG.visor,SG.beanie,SG.bobble];h.g.traverse(m=>{const G2=m.geometry;if(!G2)return;
+  if(G2===BODY.torsoM||G2===BODY.torsoF)m.material=vest;else if(G2===BODY.armM||G2===BODY.armF||G2===SG.shoulder)m.material=R.shirt;else if(hats.includes(G2))m.visible=false;});}
 const spielbankNpcsKurhaus=WIWAHR.venue.npcs;
 WIWAHR.venue.npcs=function(r){spielbankNpcsKurhaus.call(this,r);const R=spielbankRes();const T=SPIELBANK.TABLES;
   for(const o of r.people)if(o.vlines&&o.vlines.some(l=>l.includes('mache mer grad schee')))o.vlines=['Gude! Willkommen im Kurhaus.','Die Spielbank is im große Saal. Dresscode! Mehr odder weniger.','Bitte die Schuh abputze, des is Parkett.','Aus Meenz? Ei, des sieht mer.'];
   const mk=(lx,lz,face,vest,lines)=>{const h=vPerson(r,lx,lz,face,{role:'stand',lines});h.vpose='spielbank';h.mission=true;h.health=1e5;spielbankDressCroupier(h,vest);return h;};
   SPIELBANK.croupiers={roul:mk(T.roul.x-0.4,T.roul.z-1.3,0,R.vest,SPIELBANK_SAY.idle),bj:mk(T.bj.x,T.bj.z-1.25,0,R.vest,SPIELBANK_SAY.idle)};
   SPIELBANK.croupiers.roul.spielbankName='Frau Hildegard Bernsdorf';SPIELBANK.croupiers.bj.spielbankName='Herr Erwin Schnorrbusch';
-  SPIELBANK.doorman=mk(3.6,11.4,0,R.portier,['Gude. Spielbank is do hinne.','Dresscode, gell? Ich guck genau.']);SPIELBANK.doorman.spielbankName='Portier Pfeiffer';
+  SPIELBANK.doorman=mk(2.6,8.9,0,R.portier,['Gude. Spielbank is do hinne.','Dresscode, gell? Ich guck genau.']);SPIELBANK.doorman.spielbankName='Portier Pfeiffer';
   const G1=['Ich setz immer uff Rot. Ich bin halt Meenzer.','Psst, ich zähl Karte. Bis drei.','Mei Glückssocke wirkt heut net.','Ei, des is spannender wie Fernsehe.'];
-  vPerson(r,T.roul.x+1.8,T.roul.z+1.35,Math.PI,{pose:'sit',lines:G1});vPerson(r,T.bj.x-1.0,T.bj.z+1.3,Math.PI,{pose:'sit',lines:G1});};
+  // two of the Kurhaus strollers take a seat as guests: no extra figures (each one costs ~30 draw calls)
+  const guests=r.people.filter(o=>o.vrole==='walk'&&!o.vpose).slice(0,2);[[T.roul.x+1.8,T.roul.z+1.35],[T.bj.x-1.0,T.bj.z+1.3]].forEach(([lx,lz],i)=>{const o=guests[i];if(!o)return;
+    o.x=r.ox+lx;o.z=r.oz+lz;o.y=r.oy;o.facing=Math.PI;o.vpose='sit';o.vlines=G1;o.hips.position.y=0.55;o.legL.rotation.x=-1.5;o.legR.rotation.x=-1.5;o.sync();});};
 
 // ---------- money & croupier talk ----------
 function spielbankSay(key,who){const h=who||null;const line=mpick(SPIELBANK_SAY[key]);if(h&&!h.removed)say(h,line,3.4);return line;}
@@ -213,7 +216,7 @@ function spielbankBjFinish(result){const J=SPIELBANK.bj;const s=J.stake;
 function spielbankBjUpdate(dt){const J=SPIELBANK.bj;if(J.phase==='dealer'){J.dealT-=dt;if(J.dealT<=0){J.dealT=SPIELBANK.DEAL_STEP;spielbankBjDealerStep();}}
   const V=SPIELBANK.vis;if(!V)return;const t=SPIELBANK.TABLES.bj;let k=0;
   const place=(hand,z,hide)=>hand.forEach((c,i)=>{const m=V.cards[k++];if(!m)return;m.visible=true;m.geometry=spielbankCardGeo(hide&&i===1?null:c);m.position.set(t.x-0.3+i*0.17,0.9+i*0.002,t.z+z);});
-  if(J.phase!=='idle'){place(J.player,0.3,false);place(J.dealer,-0.3,J.phase==='player');}
+  if(J.phase!=='idle'){place(J.player,0.36,false);place(J.dealer,-0.46,J.phase==='player');}
   for(;k<V.cards.length;k++)V.cards[k].visible=false;}
 
 // ---------- seat, menu, keys ----------
@@ -265,7 +268,8 @@ talkCandidate=function(P){if(P===P1&&(SPIELBANK.seat||spielbankTableNear(P)))ret
 const spielbankCamPos=new THREE.Vector3(),spielbankCamTgt=new THREE.Vector3();
 const spielbankTalkCamera=talkCamera;
 talkCamera=function(P,dt){if(P===P1&&SPIELBANK.seat){const r=spielbankRoom();if(r){const T=SPIELBANK.TABLES[SPIELBANK.seat.t];
-    spielbankCamPos.set(r.ox+T.seat[0]+0.4,r.oy+2.3,r.oz+T.seat[1]+1.5);spielbankCamTgt.set(r.ox+T.x+(SPIELBANK.seat.t==='roul'?-0.4:0),r.oy+0.9,r.oz+T.z);
+    // three-quarter view past the player's shoulder so the wheel/cards are not hidden behind the head
+    spielbankCamPos.set(r.ox+T.seat[0]+1.6,r.oy+2.6,r.oz+T.seat[1]+1.2);spielbankCamTgt.set(r.ox+T.x+(SPIELBANK.seat.t==='roul'?-0.3:0),r.oy+0.9,r.oz+T.z+0.1);
     const cam=P.camera;cam.position.lerp(spielbankCamPos,1-Math.exp(-dt*5));cam.lookAt(spielbankCamTgt);return true;}}
   return spielbankTalkCamera(P,dt);};
 
@@ -276,7 +280,7 @@ function spielbankDressCheck(P){const h=P.h;const kind=spielbankDressKind({shoes
   if(SPIELBANK.doorman&&!SPIELBANK.doorman.removed)say(SPIELBANK.doorman,line,5);hint('Portier Pfeiffer leiht dir e <b>Fliege</b>. Jetzt bisde salonfähig.',3.5,P);chime([784,988]);
   spielbankBowtie(h,true);}
 function spielbankBowtie(h,on){const R=spielbankRes();if(on&&!SPIELBANK.bowtie){const g=new THREE.Group();g.position.set(0,0.635,0.11);
-    for(const s of [-1,1]){const w=new THREE.Mesh(R.tieWing,R.tieMat);w.position.x=s*0.03;w.rotation.z=s>0?Math.PI:0;g.add(w);}g.add(new THREE.Mesh(R.tieKnot,R.tieMat));h.hips.add(g);SPIELBANK.bowtie={g,h};}
+    for(const s of [-1,1]){const w=new THREE.Mesh(R.tieWing,R.tieMat);w.position.x=s*0.03;w.rotation.z=s>0?Math.PI:0;g.add(w);}g.add(new THREE.Mesh(R.tieKnot,R.tieMat));g.scale.setScalar(1.5);h.hips.add(g);SPIELBANK.bowtie={g,h};}
   else if(!on&&SPIELBANK.bowtie){const b=SPIELBANK.bowtie;b.h.hips.remove(b.g);SPIELBANK.bowtie=null;}}
 
 // ---------- croupier gestures (arms stay low and forward, see p3c_haltung.js) ----------
@@ -290,6 +294,9 @@ function spielbankLeave(){const R=SPIELBANK.roul,J=SPIELBANK.bj;if(R.phase==='sp
   if(J.phase==='player')spielbankBjStand();while(J.phase==='dealer')spielbankBjDealerStep();if(J.phase==='done')J.phase='idle';
   SPIELBANK.seat=null;spielbankMenuClose();if(SPIELBANK.bowtie)spielbankBowtie(null,false);
   SPIELBANK.visit=false;SPIELBANK.dress.checked=false;SPIELBANK.rounds=0;SPIELBANK.breakSaid=false;}
+// update() hides every non-player human while INDOOR; show the Kurhaus guests, croupiers and doorman again before drawing
+const spielbankRenderFrame=renderFrame;
+renderFrame=function(){const r=INDOOR;if(r&&r.venue&&r.venue.id==='kurhaus')for(const o of r.people)if(!o.removed)o.g.visible=true;spielbankRenderFrame();};
 function setupSpielbank(){}
 function updateSpielbank(dt){const r=spielbankRoom();if(!r){if(SPIELBANK.visit)spielbankLeave();return;}
   const P=P1,h=P.h;SPIELBANK.visit=true;const lx=h.x-r.ox,lz=h.z-r.oz;const D=SPIELBANK.DOOR;
