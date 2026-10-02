@@ -41,6 +41,8 @@ async def board(g, i, ticket, control):
 
 async def test(g):
     await g.start()
+    # Revier (Paket aus Welle 1) zahlt periodisch Geld aus und startet Bandenkriege – beides verfälscht Geld/Gesundheit hier
+    await g.js(f"()=>{{const R={M}.REVIER;if(R){{R.incomeT=R.attackT=1e9;if(R.war&&R.endWar)R.endWar(false);}}}}")
     await g.js(f"()=>{{const M={M};M.setWanted(0);M.G.money=500}}")
 
     # 1. Linien aus den Gleisen
