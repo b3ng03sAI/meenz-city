@@ -57,8 +57,9 @@ VENUES.push({id:'gutenberg',name:'Gutenberg-Museum',sub:'Weltmuseum der Druckkun
     coupWall(r,B,'wood',0,-15.6,3.4,0.6,1.6,0x4a2f1a);for(const x of [-1.4,1.4])B.box('wood',x,0.6,-15.6,0.3,3.2,0.3,0x4a2f1a);
     B.box('wood',0,3.8,-15.6,3.4,0.4,0.5,0x4a2f1a);B.box('metal',0,1.6,-15.6,0.2,2.2,0.2,0x8a8f96);B.box('metal',0,1.4,-15.6,1.6,0.12,1.0,0x5a5f66);
     // wall cases with open books
+    const caseGlass=new THREE.BoxGeometry(1.1,0.7,2.4);
     for(const s of [-1,1])for(const z of [-12,-6,0,6]){B.sbox('dark',s*11.8,0,z,1.1,0.95,2.4,0x2a2a2e);B.box('cloth',s*11.8,0.95,z,0.9,0.05,2.1,0x6e1a22);
-      B.box('floor',s*11.8,1.0,z,0.7,0.05,1.0,0xf3ead2);const gl=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.7,2.4),R.glass);gl.position.set(s*11.8,1.32,z);r.grp.add(gl);}
+      B.box('floor',s*11.8,1.0,z,0.7,0.05,1.0,0xf3ead2);const gl=new THREE.Mesh(caseGlass,R.glass);gl.position.set(s*11.8,1.32,z);r.grp.add(gl);}
     // posters
     const P1=coupPoster([['DRUCKKUNST','700 44px Georgia,serif',70],['seit 1450','italic 30px Georgia,serif',120],['Bleisatz','600 34px Georgia,serif',220],['Lettern','600 34px Georgia,serif',270],['Druckerpress','600 34px Georgia,serif',320]],'#efe4cc','#3a2412');
     const P2=coupPoster([['DE','700 40px Georgia,serif',80],['DRUCKSTOCK','700 40px Georgia,serif',130],['DER 42 ZEILEN','700 32px Georgia,serif',180],['– Nachbildung –','italic 26px Georgia,serif',240],['Bitte nix anfasse!','600 26px Georgia,serif',320]],'#2a1c14','#e8c46a');
