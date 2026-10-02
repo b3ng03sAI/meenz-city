@@ -1,4 +1,4 @@
-import sys
+import sys,os
 import gzip,base64
 def part(f):
     t=open(f).read()
@@ -13,9 +13,17 @@ shell=open('shell.html').read()
 for n,f in (('01','cover/01_dom_rhein.jpg'),('02','cover/02_dom_abend.jpg'),('03','cover/03_rhein_luft.jpg')):
     shell=shell.replace('/*__COVER_'+n+'__*/','data:image/jpeg;base64,'+base64.b64encode(open(f,'rb').read()).decode())
 out=shell.replace('/*__GAME__*/',code)
-open('meenz-city.html','w').write(out)
-# test variant with local stub
+# test variant with local stub (three-Stub, keine Schriften)
 open('test.html','w').write(out.replace('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js','./three-stub.js').replace('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/','./addons/').replace('https://fonts.googleapis.com/css2','data:text/css,'))
-print(len(out))
-
-open('real.html','w').write(out.replace('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js','/node_modules/three/build/three.module.js').replace('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/','/node_modules/three/examples/jsm/').replace('https://fonts.googleapis.com/css2','data:text/css,'))
+# Release + echte Tests: three.js, Addons und Schriften eingebettet → keine Anfragen an Dritte (Security-Audit X01/X02)
+import embed
+if os.path.exists(embed.THREE_DIR):
+    rel=embed.rewrite_shell(shell).replace('/*__GAME__*/',embed.bundle()+embed.rewrite_game(code))
+    for bad in ('cdn.jsdelivr.net','fonts.googleapis.com','fonts.gstatic.com'):
+        assert bad not in rel, 'Release enthält noch '+bad
+    print('Release: three.js + Schriften eingebettet')
+else:
+    rel=out;print('WARNUNG: node_modules/three fehlt (npm install) – Release lädt three.js/Schriften per CDN')
+open('meenz-city.html','w').write(rel)
+open('real.html','w').write(rel)
+print(len(rel))
