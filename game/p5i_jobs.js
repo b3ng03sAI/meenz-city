@@ -16,7 +16,7 @@ const JOBS_DECO=new Map();
 function jobsDecoGeo(id){if(JOBS_DECO.has(id))return JOBS_DECO.get(id);const T=CAR_TYPES[id],hf=T.L/2,W=T.W,H=T.H,gb=new GB();
   const red={r:0.78,g:0.06,b:0.06},orange={r:1,g:0.5,b:0.04},white={r:0.95,g:0.95,b:0.93},alu={r:0.66,g:0.68,b:0.71},dark={r:0.12,g:0.12,b:0.13};
   if(T.ambulance){for(const s of [-1,1]){gbox(gb,s*(W/2+0.006),0.98,-0.25,0.012,0.2,T.L-0.6,red);gbox(gb,s*(W/2+0.006),2.15,-0.75,0.012,0.12,T.L-2.2,orange);}
-    gbox(gb,0,H+0.12,-1.2,1.0,0.24,1.3,{r:0.8,g:0.8,b:0.8});gbox(gb,0,1.15,-hf-0.01,W*0.9,0.14,0.02,red);gbox(gb,0,1.9,-hf-0.012,0.03,1.3,0.02,dark);}
+    gbox(gb,0,H+0.12,-1.2,1.0,0.24,1.3,{r:0.8,g:0.8,b:0.8});gbox(gb,0,1.15,-hf-0.08,W*0.9,0.14,0.02,red);gbox(gb,0,1.9,-hf-0.082,0.03,1.3,0.02,dark);}
   else{for(const s of [-1,1]){const x=s*(W/2+0.008);gbox(gb,x,1.0,-0.2,0.014,0.14,T.L-0.5,white);
       for(const zc of [-2.75,-1.3,0.15]){gbox(gb,x,1.85,zc,0.016,1.45,1.3,alu);for(let k=0;k<8;k++)gbox(gb,x+s*0.006,1.22+k*0.18,zc,0.012,0.025,1.28,{r:0.45,g:0.47,b:0.5});}}
     for(const s of [-1,1])gb.beam([s*0.45,H+0.3,-3.6],[s*0.45,H+0.3,1.3],0.07,0.09,alu);
@@ -34,7 +34,7 @@ function jobsDecorate(c){const T=c.T,hf=T.L/2,W=T.W,H=T.H,amb=!!T.ambulance;
   const d=new THREE.Mesh(jobsDecoGeo(c.id),DET_MAT);d.castShadow=true;c.g.add(d);
   const S=jobsSign(amb?'rettung':'feuer');
   for(const s of [-1,1]){const p=new THREE.Mesh(S.geo,S.mat);p.position.set(s*(W/2+0.02),amb?1.6:2.82,amb?-0.7:-1.3);p.rotation.y=s*Math.PI/2;c.g.add(p);}
-  if(amb){const p=new THREE.Mesh(S.geo,S.mat);p.scale.set(0.7,0.7,1);p.position.set(0,2.45,-hf-0.02);p.rotation.y=Math.PI;c.g.add(p);}
+  if(amb){const p=new THREE.Mesh(S.geo,S.mat);p.scale.set(0.7,0.7,1);p.position.set(0,2.45,-hf-0.09);p.rotation.y=Math.PI;c.g.add(p);}
   JOBS_LIGHT_G=JOBS_LIGHT_G||new THREE.BoxGeometry(0.55,0.16,0.3);
   c.sirens=[-1,1].map(s=>{const m=new THREE.Mesh(JOBS_LIGHT_G,SIREN_OFF);m.position.set(s*0.42,H+0.08,hf-1.3);c.g.add(m);return m;});}
 const _jobsSync=Car.prototype.sync;
@@ -109,12 +109,12 @@ function jobsNewTask(A){const c=A.car,L=A.level,n=jobsCount(L);A.items=[];A.stag
     for(let i=0;i<n;i++){const s=jobsSpotNear(px,pz,150,450,false);dist+=Math.hypot(s.x-px,s.z-pz);px=s.x;pz=s.z;A.items.push({h:jobsHuman(s.x,s.z,'jobHurt'),spot:s,k:i});}
     const K=jobsKlinik();dist+=Math.hypot(K.x-px,K.z-pz);A.timer=jobsTime('rettung',L,dist,n);A.target=[A.items[0].spot.lx,A.items[0].spot.lz];
     A.label=`Notfall: ${A.items[0].spot.street||districtAt(px,pz)}`;missionText(`<b>Notruf!</b> ${n>1?n+' Verletzte':'En Verletzter'} – hol ${n>1?'se':'ihn'} ab un bring ${n>1?'se':'ihn'} in die <b>Uniklinik</b>.`,5);}
-  else{let fs=null,road=null;for(let k=0;k<12&&!fs;k++){const a=Math.random()*TAU,r=mr(200,600);const f=facadeSpot(c.x+Math.cos(a)*r,c.z+Math.sin(a)*r,45);
-      if(!f)continue;const rd=jobsRoadside(f.x+f.nx*8,f.z+f.nz*8,false);if(rd&&Math.hypot(rd.lx-f.x,rd.lz-f.z)<40){fs=f;road=rd;}}
+  else{let fs=null,road=null;for(let k=0;k<25&&!fs;k++){const a=Math.random()*TAU,r=mr(200,600);const f=facadeSpot(c.x+Math.cos(a)*r,c.z+Math.sin(a)*r,45);
+      if(!f)continue;const rd=jobsRoadside(f.x+f.nx*8,f.z+f.nz*8,false);if(rd&&Math.hypot(rd.lx-f.x,rd.lz-f.z)<22){fs=f;road=rd;}}
     if(!fs){road=jobsSpotNear(c.x,c.z,200,600,false);fs={x:road.x,z:road.z,nx:0,nz:0,len:8};}
     const tx=-fs.nz,tz=fs.nx,step=Math.min(4.5,Math.max(2.5,fs.len/n));
     for(let i=0;i<n;i++){const off=(i-(n-1)/2)*step;let x=fs.x+tx*off+fs.nx*1.3,z=fs.z+tz*off+fs.nz*1.3;if(blocked(x,z)){x+=fs.nx*1.2;z+=fs.nz*1.2;}
-      const f={x,z,y:groundY(x,z)+(i%2?2.6:0),r:2.4,t:1e6,owner:null,job:true,hp:3.5+0.25*L,hp0:3.5+0.25*L};FIRES.push(f);A.items.push({fire:f,k:i});}
+      const f={x,z,y:groundY(x,z)+(i%2?2.6:0),r:2.4,t:1e6,owner:null,job:true,hp:3.5+0.25*L,hp0:3.5+0.25*L,tx,tz,nx:fs.nx,nz:fs.nz};FIRES.push(f);A.items.push({fire:f,k:i});}
     const st=road.street||streetNameAt(fs.x,fs.z)||districtAt(fs.x,fs.z);A.fireAt=[fs.x,fs.z];A.target=[road.lx,road.lz];A.stage='fire';
     A.timer=jobsTime('feuer',L,Math.hypot(road.lx-c.x,road.lz-c.z),n);A.label=`Brand: ${st}`;missionText(jobsLine('fireStart',{s:`<b>${st}</b>`})+(n>1?` (${n} Brandherde)`:''),5);}
   A.timer0=A.timer;chime([660,880]);}
@@ -154,12 +154,18 @@ function jobsUpdateTask(A,dt){const c=A.car,P=A.P;
 // --- Löschen: Strahl in Blickrichtung, trifft Brände nahe der Strahlachse ---
 function jobsSpray(P,c,dt){const T=c.T,fx=Math.sin(P.cam.yaw),fz=Math.cos(P.cam.yaw),o=T.L/2-1.0;
   const ox=c.x+Math.sin(c.h)*o,oz=c.z+Math.cos(c.h)*o,oy=c.y+T.H+0.5,R=JOBS.SPRAY_RANGE;
-  for(let k=0;k<Math.ceil(dt*50);k++){const s=Math.random(),d=s*R;
-    spawnPart(ox+fx*d+mr(-0.2,0.2),oy+d*0.3-d*d*0.016,oz+fz*d+mr(-0.2,0.2),{color:0xd4ecff,size:0.3+s*1.1,vx:fx*2,vz:fz*2,vy:-1.2,life:0.35,grow:1.6,alpha:0.55});}
+  for(let k=0;k<Math.ceil(dt*110);k++){const s=Math.random(),d=s*R;
+    spawnPart(ox+fx*d+mr(-0.2,0.2),oy+d*0.3-d*d*0.016,oz+fz*d+mr(-0.2,0.2),{color:mpick([0x5fa8f0,0x8cc4ff,0xe8f4ff]),size:0.6+s*1.6,vx:fx*2,vz:fz*2,vy:-1.2,life:0.35,grow:1.4,alpha:0.9});}
   JOBS.hissT=(JOBS.hissT||0)-dt;if(JOBS.hissT<=0){JOBS.hissT=0.12;noiseHit(0.05,0.14,3200);}
   for(const f of FIRES){if(f.out)continue;const dx=f.x-ox,dz=f.z-oz,al=dx*fx+dz*fz;if(al<1||al>R||Math.abs(dx*fz-dz*fx)>JOBS.SPRAY_WIDTH)continue;
     if(Math.random()<dt*12)spawnPart(f.x+mr(-1,1),f.y+1,f.z+mr(-1,1),{color:0xeeeeee,size:mr(1,2),vy:2,life:1.2,grow:1.5,alpha:0.4});
     if(f.job){f.hp-=dt;if(f.hp<=0){f.out=true;f.t=Math.min(f.t,1);chime([1046]);}}else f.t-=dt*3;}}
+
+// Gebäudebrand sichtbar machen: breite Flammen an der Fassade und eine Rauchsäule (Basis-Feuer aus p4b ist nur Bodenfeuer)
+function jobsFireFx(A,dt){const fires=A.items.filter(it=>it.fire&&!it.fire.out),k=1/Math.sqrt(Math.max(1,fires.length));
+  for(const {fire:f} of fires){const s=clamp(f.hp/f.hp0,0.25,1);
+    if(Math.random()<dt*45*k){const o=mr(-1.6,1.6);spawnPart(f.x+f.tx*o,f.y+mr(0.2,2.2),f.z+f.tz*o,{color:mpick([0xff5a10,0xff8a20,0xffc040]),size:mr(1.2,2.6)*s,vy:mr(2,3.5),vx:0,vz:0,life:mr(0.4,0.8),grow:1,add:true});}
+    if(Math.random()<dt*6*k)spawnPart(f.x+f.nx*3+mr(-1,1),f.y+3.5,f.z+f.nz*3+mr(-1,1),{color:0x2a2a2a,size:mr(2,3)*s,vy:mr(2.5,4),vx:f.nx*0.8,vz:f.nz*0.8,life:mr(2.5,3.5),grow:1.6,alpha:0.5});}}
 
 // --- Start / Ende ---
 function jobsStart(P){const c=P.car,kind=jobsKindOf(c);
@@ -229,5 +235,7 @@ function updateJobs(dt){const jp=keysP.KeyJ;keysP.KeyJ=false;const P=P1;
   const r=jobsCheck(A,dt);if(r){jobsEnd(r);return;}
   jobsUpdateTask(A,dt);
   if(JOBS.active!==A)return;
-  if(A.target){setBeacon(JOBS.beacon,A.target[0],A.target[1]);JOBS.beacon.userData.arrow.position.y=3+Math.sin(simTime*3)*0.4;}else JOBS.beacon.visible=false;
+  if(A.kind==='feuer')jobsFireFx(A,dt);
+  const near=A.target&&Math.hypot(A.car.x-A.target[0],A.car.z-A.target[1])<(A.kind==='feuer'?30:12);
+  if(A.target&&!near){setBeacon(JOBS.beacon,A.target[0],A.target[1]);JOBS.beacon.userData.arrow.position.y=3+Math.sin(simTime*3)*0.4;}else JOBS.beacon.visible=false;
   jobsDrawHud(A);}
