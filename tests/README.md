@@ -1,7 +1,9 @@
 # Tests
-Voraussetzungen: `pip install playwright` (+ `playwright install chromium`, oder `CHROME=/pfad/zu/chromium` setzen),
-`npm install` im Repo-Wurzelverzeichnis (für `real.html`) und ein Webserver im Repo-Wurzelverzeichnis:
-`python3 -m http.server 8765`. Vorher `cd game && python3 build.py`.
+`npm test` (= `python3 tests/run.py`) baut das Spiel, startet einen Server und führt alle `test_*.py` aus – Exit-Code 0
+nur, wenn alles grün ist. Einzelne Tests: `python3 tests/run.py <name> [--no-build]`.
 
-Stub-Tests (schnell): all, ven, hbf, rh, ft, egg, nods, new5. Render-Tests/Screenshots (SwiftShader, langsam): shot3, shot4, fly, mob9.
-Ausgaben landen in `tests/out/`.
+- `lib/harness.py` – Test-Bibliothek (Schritt-Modus, Checks, Fehlerkanäle); Doku im Modulkopf.
+- `test_*.py` – automatische Tests mit Asserts gegen `game/test.html` (three-Stub, kein Rendering).
+- `manual/` – Screenshots, Handy-Speicher, Ladeprofil; ohne Asserts, Ergebnis selbst ansehen. Server auf Port 8765 nötig.
+
+Voraussetzung: `.venv` mit Playwright (siehe CLAUDE.md, Abschnitt Testen). Ausgaben landen in `tests/out/` (nicht versioniert).
