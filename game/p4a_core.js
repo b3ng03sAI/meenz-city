@@ -63,7 +63,7 @@ addEventListener('mouseup',e=>{if(e.button===0)mouse.left=false;if(e.button===2)
 addEventListener('mousemove',e=>{if(mode!=='play')return;if(mouse.locked||mouse.drag){mouse.dx+=e.movementX;mouse.dy+=e.movementY;}});
 document.addEventListener('pointerlockchange',()=>{const was=mouse.locked;mouse.locked=document.pointerLockElement===cvs;if(was&&!mouse.locked&&mode==='play'&&!SHOP_UI.open)hint('Maus frei – ins Bild klicken zum Weiterspielen, <b>P</b> für Pause.',3);});
 addEventListener('wheel',e=>{if(mode==='play'){P1.cam.zoom=clamp(P1.cam.zoom+Math.sign(e.deltaY)*0.12,0.6,1.8);}},{passive:true});
-function setupTouch(){if(!IS_TOUCH)return;$('touch').hidden=false;const pad=$('tpad'),knob=$('tknob');let pid=null,cx=0,cy=0;
+function setupTouch(force){if(!IS_TOUCH&&!force)return;if(setupTouch.done)return;setupTouch.done=true;$('touch').hidden=false;const pad=$('tpad'),knob=$('tknob');let pid=null,cx=0,cy=0;
   pad.addEventListener('pointerdown',e=>{pid=e.pointerId;const r=pad.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;pad.setPointerCapture(pid);mv(e);});
   const mv=e=>{if(e.pointerId!==pid)return;let dx=e.clientX-cx,dy=e.clientY-cy;const L=Math.hypot(dx,dy),Mx=50;if(L>Mx){dx*=Mx/L;dy*=Mx/L;}knob.style.transform=`translate(${dx}px,${dy}px)`;touch.mx=dx/Mx;touch.mz=-dy/Mx;touch.active=true;};
   pad.addEventListener('pointermove',mv);const up=e=>{if(e.pointerId!==pid)return;pid=null;knob.style.transform='';touch.mx=touch.mz=0;touch.active=false;};pad.addEventListener('pointerup',up);pad.addEventListener('pointercancel',up);

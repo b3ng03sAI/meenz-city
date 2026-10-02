@@ -206,6 +206,17 @@ body.playing #keystip{display:block}
 #splash .go{position:absolute;right:4vw;top:4vh;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(14px,1.6vw,20px);letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.45);border:2px solid #f6c142;padding:.35em .8em;border-radius:4px;opacity:0;transition:opacity .4s}
 #splash.ready .go{opacity:1;cursor:pointer}
 @media (prefers-reduced-motion:reduce){#splash .sl{animation:none}#splash .tip i{animation:none}}
+
+html.touchmode #zone{right:auto;left:50%;transform:translate(-50%,6px);bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));text-align:center}
+html.touchmode #zone.show{transform:translate(-50%,0)}
+html.touchmode #keystip{display:none}
+/* Touch-Modus (Paket 51): Kontext-Knöpfe und Touch-Hilfe */
+.tctx{position:absolute;right:16px;bottom:calc(230px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
+.tctx button{min-width:86px;height:46px;padding:0 12px;border-radius:12px;border:2px solid rgba(246,193,66,.7);background:rgba(10,12,14,.6);color:#f6c142;font-weight:800;font-size:14px;letter-spacing:.05em;touch-action:none}
+.tctx button[hidden]{display:none}
+.tkeys{display:none}
+html.touchmode .tkeys{display:grid;gap:4px;margin:10px 0;font-size:15px}
+html.touchmode .keys{display:none}
 </style>
 
 <div id="stage"></div>
@@ -293,6 +304,16 @@ body.playing #keystip{display:block}
     </div>
     <h1>Meenz<br><em>City</em></h1>
     <p class="lede">Vom Dom zum Hauptbahnhof, über die Theodor-Heuss-Brücke nach Kastel. Klau dir ein Auto, erledige Aufträge und häng die Polizei ab, bevor alle fünf Mainzer Räder leuchten.</p>
+    <div class="tkeys">
+      <div><b>Linker Kreis</b> Laufen, Fahren</div>
+      <div><b>Rechte Bildhälfte wischen</b> Umsehen</div>
+      <div><b>EIN/AUS</b> Einsteigen, Aussteigen, Läden</div>
+      <div><b>SPRUNG</b> halten: Jetpack · im Auto Handbremse · im Flieger HOCH</div>
+      <div><b>FEUER</b> Schlagen, Schießen · <b>WAFFE</b> wechseln</div>
+      <div><b>AKTION</b> Ansprechen, Schalter, Brunnen, Lehrlinge …</div>
+      <div>Im Fahrzeug erscheinen <b>RADIO</b>, <b>HUPE</b>, <b>JOB</b>, <b>RUNTER</b> – je nach Lage</div>
+      <div><b>KARTE</b> mit Schnellreise</div>
+    </div>
     <div class="keys">
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Laufen, Fahren</div>
       <div><kbd>Maus</kbd> Umsehen</div>
