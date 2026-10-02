@@ -1,6 +1,6 @@
 // ===================== HILFEN, MATERIALIEN =====================
 function noiseFill(g,w,h,amt,n){for(let i=0;i<n;i++){g.fillStyle=Math.random()<0.5?`rgba(0,0,0,${amt})`:`rgba(255,255,255,${amt})`;g.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1+Math.random()*2);}}
-const LOWMEM=IS_TOUCH||((navigator.deviceMemory||8)<=4);
+const LOWMEM=IS_MOBILE||((navigator.deviceMemory||8)<=4);
 // Canvas-Speicher nach dem Hochladen auf die GPU freigeben (iOS begrenzt den gesamten Canvas-Speicher)
 function freeAfterUpload(t){t.onUpdate=()=>{const c=t.image;if(c&&c.getContext){t.userData.w=c.width;t.userData.h=c.height;c.width=1;c.height=1;}t.onUpdate=null;};return t;}
 function shrinkCanvas(c,max){if(c.width<=max&&c.height<=max)return c;const k=max/Math.max(c.width,c.height);const d=document.createElement('canvas');d.width=Math.max(1,Math.round(c.width*k));d.height=Math.max(1,Math.round(c.height*k));const g=d.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(c,0,0,d.width,d.height);c.width=1;c.height=1;return d;}
