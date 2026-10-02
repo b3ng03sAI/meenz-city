@@ -46,7 +46,7 @@ function frame(now){requestAnimationFrame(frame);const rdt=Math.min(0.05,(now-la
     else if(mode==='menu'&&!window.__MANUAL){updateSky(rdt*0.4);updateShips(rdt);menuCamera(rdt);}
     if(mode!=='loading'&&!window.__NORENDER){if(G.split&&mode!=='menu')renderSplit();else renderFrame();}
   }catch(e){showErr(e);}}
-function showErr(e){console.error(e);const b=$('errbox');if(b&&!b.dataset.n){b.hidden=false;b.textContent=(e&&e.stack||String(e)).slice(0,1200);b.dataset.n=1;}}
+function showErr(e){console.error(e);if(window.__splashHide)window.__splashHide();const b=$('errbox');if(b&&!b.dataset.n){b.hidden=false;b.textContent=(e&&e.stack||String(e)).slice(0,1200);b.dataset.n=1;}}
 
 // ===================== SPIELSTÄNDE =====================
 let autoSaveT=120;
@@ -116,7 +116,7 @@ async function boot(){
     managePopulation(0,true);
     await setupPost();updateSky(0);updateEnv(true);bar.style.width='100%';
     lt.textContent=`${BUILDINGS.length.toLocaleString('de-DE')} Gebäude · ${ROADS.length.toLocaleString('de-DE')} Straßen · ${SHOPS.length.toLocaleString('de-DE')} Geschäfte · ${TREES.length.toLocaleString('de-DE')} Bäume · bereit`;
-    $('btn-play').disabled=false;$('btn-play').textContent='Neues Spiel';$('btn-split').disabled=false;if(latestSave()>=0)$('btn-continue').hidden=false;mode='menu';setupTouch();
+    $('btn-play').disabled=false;$('btn-play').textContent='Neues Spiel';$('btn-split').disabled=false;if(latestSave()>=0)$('btn-continue').hidden=false;mode='menu';setupTouch();if(window.__splashReady)window.__splashReady();
     window.__MEENZ={HALTUNG,updateHUD:(dt)=>updateHUD(dt),drawMinimaps:()=>{drawMinimap(P1,$('mini'));if(P2)drawMinimap(P2,$('mini2'));},Car,RAD,radSpawnCop,RADIO,STUNT,GAUTSCH,HUBI,WIWAHR,JOBS,STRABA,ROSENMO,NERO,REVIER,COUP,ALTST,NEUST,OBERST,BRETZ,GONS,MOMB,WEIS,EICH,SPRUNG,OMA,NESSIE,JGA,kartRoute,swimBlocked,get activeMission(){return activeMission},FLUG,UFO,KART,kartOffer,ufoStart,enterCar,exitCar,swimHere,CHEAT,WEAPONS,ROCKETS,playerFire:(P,I)=>playerFire(P,I),flugP,mfG,idx,MAT,GROUND,CITY,SIGN_ATLASES:()=>SIGN_ATLASES,EGG,AREAS,ROADSx:ROADS,mkHuman:(k)=>new Human(k||"ped"),snap:(n=3,hide)=>{for(let i=0;i<n;i++)update(0.016);updateHUD(0.016);if(hide)P1.h.g.visible=false;renderFrame();return renderer.domElement.toDataURL('image/jpeg',0.88);},PU,puActivate,FT,fastTravel,ftDestinations,POL,spawnPolitician,ELEV,groundYFn:(x,z,y)=>groundY(x,z,y),blockedFn:(x,z,y)=>blocked(x,z,y),RHEIN,HBF,hbfToPlatform,stepAt,exitShop,VENUES,enterVenue,exitVenue,venueNear,Car,BUS_STOPS,TRIP,get mushT(){return mushT},set mushT(v){mushT=v},ROOF,ENGINES,MAPV,DOGS,BRIDGES,MARKT,BREZEL,marktPuke,startTalk,chooseTalk,get TALK(){return TALK;},setWeather,WEATHER,get gameMin(){return gameMin;},set gameMin(v){gameMin=v;envDirty=true;},BUILDINGS,ROADS,NODES,EDGES,CARS,HUMANS,P1,PLAYERS,TREES,LAMPS,SHOPS,OVERVIEW,HG,keys,update,startGame,tryEnterExit,get wanted(){return wanted;},setWanted,get mode(){return mode;},MISSIONS,startMission,get activeMission(){return activeMission;},crime,ppos,gridH,blocked,spawnPolice,damagePlayer,busted,enterShop,exitShop,shopNear,saveGame,loadGame,applySave,snapshot,G,POI,giveWeapon,makeRoom,enableSplit,INDOOR:()=>INDOOR};
   }catch(err){showErr(err);lt.textContent='Fehler beim Laden: '+err.message;}
 }
