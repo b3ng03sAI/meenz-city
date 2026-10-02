@@ -17,7 +17,7 @@ function lazyOwn(Z,x){if(x)Z.owned.push(x);return x;}
 function lazyNpc(Z,h){if(h)Z.npcs.push(h);return h;}
 function lazyBuild(Z){
   if(Z.built)return;
-  Z.group=new THREE.Group();Z.group.name='lazy_'+Z.name;scene.add(Z.group);
+  Z.group=new THREE.Group();scene.add(Z.group);// kein .name setzen: im three-stub ist name schreibgeschützt
   Z.built=true;Z.builds++;
   Z.o.build(Z);}
 function lazyDispose(Z){
