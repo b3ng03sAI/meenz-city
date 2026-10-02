@@ -41,7 +41,7 @@ python3 tests/run.py rad hbf     # nur test_rad.py + test_hbf.py;  --no-build ü
 - `real.html` rendert echt (SwiftShader); `run(test, real=True)` bzw. `g.snap(name)` → JPEG nach `tests/out/`.
 - **Manuell (ohne Asserts)** in `tests/manual/`: `shot3.py hoch <prefix>` / `shot4.py` / `fly.py` (Screenshots),
   `mob9.py m` (Handy-Speicher, Ziel s. u.), `prof.py` (Ladezeit je Phase), `scan2.py` (Analyse). Brauchen einen Server
-  auf Port 8765 (`npm run serve`). Screenshots nach dem Lauf selbst ansehen.
+  auf Port 8765 (`npm run serve`, nur auf 127.0.0.1). Screenshots nach dem Lauf selbst ansehen.
 
 ## Architektur (Kurzfassung)
 | Datei | Inhalt |
