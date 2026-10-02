@@ -29,7 +29,7 @@ function update(dt){simTime+=dt;updateSky(dt);
   updateAudio();skidV*=0.9;
   // Sichtbarkeit nach Entfernung zur nächsten Kamera
   const cams=PLAYERS.map(P=>P.camera.position);
-  for(const h of HUMANS){if(h.inCar)continue;if(playerOfHuman(h)){const PP=playerOfHuman(h);h.g.visible=!(PP&&PP.morph);continue;}if(h.keeper){h.g.visible=!!(INDOOR&&INDOOR.keeper===h);continue;}let v=false,fv=false;for(const c of cams){const dx=Math.abs(h.x-c.x),dz=Math.abs(h.z-c.z);if(dx<160&&dz<160)v=true;if(dx<28&&dz<28)fv=true;}h.g.visible=v&&!INDOOR;if(h.face)h.face.visible=fv;}
+  for(const h of HUMANS){if(h.inCar)continue;if(playerOfHuman(h)){const PP=playerOfHuman(h);h.g.visible=!(PP&&PP.morph);continue;}if(h.keeper){h.g.visible=!!(INDOOR&&INDOOR.keeper===h);continue;}let v=false,fv=false;for(const c of cams){const dx=Math.abs(h.x-c.x),dz=Math.abs(h.z-c.z);if(dx<160&&dz<160)v=true;if(dx<28&&dz<28)fv=true;}h.g.visible=v&&(!INDOOR||h.room===INDOOR);if(h.face)h.face.visible=fv;}
   for(const c of CARS){let v=false;for(const cp of cams)if(Math.abs(c.x-cp.x)<380&&Math.abs(c.z-cp.z)<380){v=true;break;}c.g.visible=v&&!INDOOR;}
   PLAYERS.forEach((P,i)=>{const L=headLights[i];if(P.car&&nightF>0.25&&!P.car.T.boat&&!P.car.T.pedal){const c=P.car;const fx=Math.sin(c.h),fz=Math.cos(c.h);L.position.set(c.x+fx*c.T.L*0.5,c.y+0.8,c.z+fz*c.T.L*0.5);L.target.position.set(c.x+fx*30,c.y,c.z+fz*30);L.intensity=60*nightF;}else L.intensity=0;});
   autoSaveT-=dt;if(autoSaveT<=0){autoSaveT=120;if(!activeMission&&wanted===0&&PLAYERS.every(P=>!P.gameOver))autoSave();}}
