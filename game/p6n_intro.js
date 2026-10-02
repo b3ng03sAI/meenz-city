@@ -38,8 +38,10 @@ function introMayor(x,z){let h=null;for(let i=0;i<14;i++){const c=new Human('ped
 
 // ---------- Dialog-Oberfläche (#talk) ----------
 let introLine='',introShown=0,introT=0,introWait=0,introDrinkT=0;
-function introUI(){const el=$('talk');el.hidden=false;el.innerHTML=`<div class="who">Bürgermeisterin ${INTRO_NAME}</div><div class="line" id="introline"></div><div class="opts" id="introopts"></div><div class="hint2" id="introhint"></div>`;
-  el.onclick=e=>{if(e.target.closest('button'))return;introNext();};}
+function introUI(){const el=$('talk');el.hidden=false;el.innerHTML=`<div class="who">Bürgermeisterin ${INTRO_NAME}</div><div class="line" id="introline"></div><div class="opts" id="introopts"></div><div class="hint2" id="introhint"></div><button id="introskip" type="button">Überspringen ▸▸</button>`;
+  el.onclick=e=>{if(e.target.closest('button'))return;introNext();};
+  // Touch hat kein Esc: eigener Knopf, beendet die Einleitung wie Esc
+  $('introskip').addEventListener('click',e=>{e.stopPropagation();introEnd();});}
 function introSet(text){introLine=text;introShown=0;introT=0;$('introopts').innerHTML='';$('introhint').textContent=INTRO.touch()?'Tippen: weiter':'Leertaste / Klick: weiter · Esc: überspringen';if(INTRO.h)say(INTRO.h,text,Math.min(6,1.6+text.length*0.05));}
 function introAsk(s){introSet(s.ask);const o=$('introopts');s.opts.forEach((txt,i)=>{const b=document.createElement('button');b.className='opt';b.innerHTML=`<kbd>${i+1}</kbd>${txt}`;b.onclick=()=>introAnswer(i);o.appendChild(b);});$('introhint').textContent='';}
 function introAnswer(i){const s=introScript()[INTRO.step];if(!s||!s.ask)return;INTRO.answers.push(s.opts[i]);introNext(true);}
