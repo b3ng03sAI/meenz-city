@@ -94,6 +94,15 @@ Notion-Projektseite: https://app.notion.com/p/3ec1486f8cd98101b24fcdb037261cfa
 Pakete stehen in der Roadmap-Datenbank auf dieser Seite (https://app.notion.com/p/89da640a014e4cf6a195976b15068c93,
 Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Arbeit → Fertig, „Pausiert“ bewusst angehalten).
 
+## Reihenfolge: durcharbeiten ohne Pause
+- **Nächstes Paket** = erst alle mit Status **In Arbeit**, dann **Geplant** nach aufsteigender Spalte „Reihenfolge“
+  (Pakete ohne Reihenfolge zuletzt). „Pausiert“ wird übersprungen, bis der Nutzer es wieder freigibt.
+- Nach einem fertigen Paket **direkt das nächste beginnen** – keine Rückfrage, kein Warten auf Freigabe zwischen Paketen.
+  Alles läuft auf **einem** Arbeits-Branch; nach jedem Paket committen und pushen, der offene PR wächst mit.
+- Unterbrechen nur für: Artifact-Veröffentlichung/Release-Tag, eine echte Produktentscheidung, die die Notizen nicht
+  beantworten, oder einen roten Test, dessen Ursache sich nicht klären lässt. Dann kurz fragen, sonst weiter.
+- Querbezüge in den Notizen beachten (z. B. „baut auf Paket 7 auf“): Voraussetzung zuerst.
+
 ## Ablauf je Roadmap-Paket
 1. Notion: Paket auf **In Arbeit** (Status-Schreibzugriffe über den `tickets`-Agent).
 2. Plan in `.claude/plans/YYYY-MM-DD-<thema>.md` – mit Spec der unklaren Punkte und **wie verifiziert wird**.
