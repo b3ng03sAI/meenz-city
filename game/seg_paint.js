@@ -71,7 +71,7 @@ async function buildGround(progress){
   progress&&progress(0.3);await nextFrame();
   updateGround(POI.start[0],POI.start[1],true,99);progress&&progress(1);
 }
-let OVERVIEW=null;const OV_SC=Math.min(0.35,(LOWMEM?1800:3000)/Math.max(WW,WH));
+let OVERVIEW=null;const OV_SC=Math.min(0.35,(QS.lowLOD?1400:LOWMEM?1800:3000)/Math.max(WW,WH));
 function buildOverview(){
   const sc=OV_SC;const c=document.createElement('canvas');c.width=Math.ceil(WW*sc);c.height=Math.ceil(WH*sc);const g=c.getContext('2d');
   g.setTransform(sc,0,0,sc,-MINX*sc,-MINZ*sc);paintWorld(g,sc,true);

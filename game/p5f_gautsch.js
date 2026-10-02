@@ -85,7 +85,7 @@ function gautschHuman(x,z,face,role){const h=new Human('ped');h.x=x;h.z=z;h.y=gr
   h.ga={role,home:[x,z],face,act:'idle',actT:0,evT:mr(2,10),dodge:0,side:Math.random()<0.5?1:-1};h.sync();return h;}
 function gautschSpot(cx,cz,r0,r1,minGap,list){for(let k=0;k<40;k++){const a=Math.random()*TAU,r=mr(r0,r1),x=cx+Math.sin(a)*r,z=cz+Math.cos(a)*r;
   if(blocked(x,z,0.5)||GAUTSCH.obst.some(o=>Math.hypot(o.x-x,o.z-z)<o.r+0.4))continue;if(list.some(h=>Math.hypot(h.ga.home[0]-x,h.ga.home[1]-z)<minGap))continue;return [x,z];}return null;}
-function gautschCrowdSize(){return LOWMEM||QUALITY==='mittel'?7:12;}
+function gautschCrowdSize(){return LOWMEM||QUALITY==='mittel'||QUALITY==='niedrig'?7:12;}
 function gautschSpawn(){if(!GAUTSCH.built)gautschBuild();const T=GAUTSCH.tub,S=GAUTSCH.stage;
   for(const s of GAUTSCH.stands){const fx=Math.sin(s.a),fz=Math.cos(s.a);const h=gautschHuman(s.x-fx*0.2,s.z-fz*0.2,s.a,'vendor');h.ga.stand=s;h.npcName=mpick(NPC_NAMES)+' vom Johannisfest';GAUTSCH.vendors.push(h);}
   for(let i=0;i<gautschCrowdSize();i++){const p=gautschSpot(T.x,T.z,4.2,7.5,1.1,GAUTSCH.crowd);if(!p)continue;const h=gautschHuman(p[0],p[1],Math.atan2(T.x-p[0],T.z-p[1]),'crowd');GAUTSCH.crowd.push(h);}
