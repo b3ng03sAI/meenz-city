@@ -212,6 +212,8 @@ async def test(g):
     await put(g, *sp)
     await g.step(0.3)
     g.check('Party am Rheinufer läuft', await g.js(f"()=>{M}.JGA.party"))
+    # Revier-Einnahmen (alle 60 s, 5 € je Gebiet) würden die Belohnungsprüfung verfälschen
+    await g.js(f"()=>{{const R={M}.REVIER;if(R)R.incomeT=1e9}}")
     money0 = await g.js(f"()=>{M}.G.money")
     worst = -9
     for _ in range(10):
