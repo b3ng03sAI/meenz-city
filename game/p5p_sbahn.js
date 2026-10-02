@@ -276,6 +276,11 @@ const _sbahnFoot=updatePlayerFoot;
 updatePlayerFoot=function(P,I,dt){if(sbahnRideOf(P)){sbahnSeat(P);return;}_sbahnFoot(P,I,dt);};
 const _sbahnFire=playerFire;
 playerFire=function(P,I){if(sbahnRideOf(P))return;_sbahnFire(P,I);};
+// Im Abteil ist man vor Schüssen und Schaden von draußen sicher (Banden, Polizei, Explosionen am Gleis)
+const _sbahnNpcShoot=npcShoot;
+npcShoot=function(n,P,d){if(sbahnRideOf(P))return;return _sbahnNpcShoot(n,P,d);};
+const _sbahnDamage=damagePlayer;
+damagePlayer=function(P,d){if(sbahnRideOf(P))return;return _sbahnDamage(P,d);};
 const _sbahnPed=updatePed;
 updatePed=function(p,dt){if(p.state!=='sbahn')_sbahnPed(p,dt);};
 const _sbahnFastTravel=fastTravel;
