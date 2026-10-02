@@ -147,8 +147,8 @@ function buildChunkGroup(c,det){DET=det;CHUNK_TARGET=new Map();try{for(const b o
   CHUNK_TARGET=CHUNKS;scene.add(g);return g;}
 function dropCPU(geo){geo.computeBoundingSphere();geo.computeBoundingBox();const f=function(){this.array=new this.array.constructor(0);};for(const k in geo.attributes)geo.attributes[k].onUpload(f);if(geo.index)geo.index.onUpload(f);}
 function disposeGroup(g){scene.remove(g);g.traverse(o=>{if(o.geometry)o.geometry.dispose();});}
-const CITY_RH=()=>LOWMEM?360:QS.detail>=2?620:480;
-const CITY_LOW_R=LOWMEM?1700:3200;
+const CITY_RH=()=>QS.lowLOD?280:LOWMEM?360:QS.detail>=2?620:480;
+const CITY_LOW_R=QS.lowLOD?1300:LOWMEM?1700:3200;
 function updateCityLOD(px,pz,maxBuild=1,force=false,pts=null){pts=pts||[[px,pz]];CITY.t-=1;if(CITY.t>0&&!force)return;CITY.t=8;const RH=CITY_RH();let built=0;
   const list=[];for(const c of CITY.chunks.values()){let d=1e9;for(const p of pts)d=Math.min(d,Math.hypot(c.cx-p[0],c.cz-p[1]));list.push([d,c]);}list.sort((a,b)=>a[0]-b[0]);
   let lowBuilt=0;for(const [d,c] of list){if(d<CITY_LOW_R&&!c.low&&lowBuilt<2){c.low=buildChunkGroup(c,-1);if(c.high)c.low.visible=false;lowBuilt++;}else if(d>CITY_LOW_R+900&&c.low){disposeGroup(c.low);c.low=null;}

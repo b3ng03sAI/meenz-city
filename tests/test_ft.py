@@ -8,7 +8,10 @@ SPECIALS = ['Brezel-Schalter (Marktfrühstück)', 'Hoher Dom St. Martin – Eing
             'Hbf – Bahnsteig Gleis 2 / 3', 'Hbf – Bahnsteig Gleis 4 / 5', 'Hbf – Bahnsteig Gleis 6 / 8',
             'Hbf – Bahnsteig Gleis 1', 'Rheintreppe 1', 'Rheintreppe 2', 'Rheintreppe 3', 'Dach des Taubenkönigs',
             'Dach-Grillparty', 'Alu-Hut-Dach', 'Gartenzwerg-Dach', 'Dach-Sofa', 'Badewannen-Dach', 'Dach-Minigolf',
-            'Dach-Yoga', 'Grillparzerstraße', 'Flugplatz Großer Sand']
+            'Dach-Yoga', 'Grillparzerstraße', 'Flugplatz Großer Sand',
+            # Paket 36 (p6c_oberst.js) hängt fünf Oberstadt-Ziele per ftSpecials-Wrapper an
+            'Zitadelle – Bastion Drusus (Wall)', 'Zitadelle – Stadthistorisches Museum', 'Volkspark – Spielplatz',
+            'Universitätsmedizin – Besuchereingang', 'Hartenberg-Münchfeld – Wohnstraßen']
 
 
 async def arrived(g, d):
@@ -40,7 +43,7 @@ async def test(g):
     g.check('am Ziel Alu-Hut-Dach auf dem Dach', abs(p[2] - sel['y']) < 0.05 and sel['y'] > 5, [round(v, 1) for v in p])
 
     sp = await g.js(f"()=>{M}.ftDestinations().filter(d=>d.special).map(d=>d.n)")
-    g.check('23 besondere Orte', len(sp) == len(SPECIALS), len(sp))
+    g.check(f'{len(SPECIALS)} besondere Orte', len(sp) == len(SPECIALS), len(sp))
     missing = [s for s in SPECIALS if s not in sp]
     g.check('alle besonderen Orte mit richtigem Namen in der Liste', not missing, missing)
 
