@@ -21,29 +21,27 @@ Laden per `DecompressionStream` (Fallback `gunzip_small.js` für alte iPhones) e
 **Neue Datei?** In die Liste in `build.py` eintragen (vor `p4e_main.js`).
 
 `meenz-city.html`, `test.html` und `real.html` sind **Build-Ausgaben** – nie direkt bearbeiten, sondern die Teil-Dateien
-in `game/` ändern und neu bauen. Kurzformen: `npm run build`, `npm run serve`, `npm test` (= `tests/all.py`).
+in `game/` ändern und neu bauen. Kurzformen: `npm run build`, `npm run serve`, `npm test` (= `tests/run.py`).
 
 ## Testen (Playwright, headless Chromium)
 ```bash
-npm install                      # three@0.160.0 für real.html
-pip install playwright && playwright install chromium   # oder CHROME=/pfad/zu/chromium setzen
-cd game && python3 build.py && cd ..   # Tests laden game/test.html bzw. game/real.html – vorher bauen!
-python3 -m http.server 8765      # im Repo-Wurzelverzeichnis starten
-python3 tests/all.py             # Stub-Regressionstest (schnell, ohne echtes Rendering)
+python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium   # einmalig
+npm install                      # three@0.160.0, nur für real.html / tests/manual
+npm test                         # = python3 tests/run.py: baut, startet Server, alle tests/test_*.py, Exit 0/1
+python3 tests/run.py rad hbf     # nur test_rad.py + test_hbf.py;  --no-build überspringt den Build
 ```
-- `test.html` nutzt `three-stub.js` (Proxy, rendert nichts) → schnelle Logiktests. Neue THREE-Klassen ggf. im Stub ergänzen.
+- **Test schreiben:** `tests/test_<thema>.py` mit `from harness import run` (`tests/lib/harness.py`, Vorlage
+  `tests/test_all.py`). `g.start()`, `g.step(sek)` (Spielzeit), `g.key('KeyE', hold, after)`, `g.js("()=>…")`,
+  `g.check(name, bedingung, detail)`. Jeder Test scheitert zusätzlich an `#errbox`, `pageerror` und Konsolenfehlern.
+- **Deterministisch:** Die Harness setzt `window.__MANUAL=true` (rAF-Schleife ruft `update()` nicht mehr auf, Zeit nur über
+  `g.step`), `__NORENDER=true` und seedet `Math.random` (`MEENZ_SEED`). Keine Sleeps, keine `wait_for_timeout`.
+- Neue Feature-Zustände über `window.__MEENZ` (in `p4e_main.js`) zugänglich machen – Tests prüfen Zustand, keine Pixel.
+- `test.html` nutzt `three-stub.js` (Proxy, rendert nichts). Neue THREE-Klassen ggf. im Stub ergänzen.
   Achtung: im Stub ist `group.children` kein echtes Array → mit `Array.isArray` absichern.
-- `real.html` rendert echt (SwiftShader: `--use-angle=swiftshader --enable-unsafe-swiftshader`). Mit
-  `window.__NORENDER=true` läuft keine Render-Schleife; `__MEENZ.snap(n)` rendert einmal und liefert ein JPEG (dataURL).
-- **Die Tests haben keine Asserts** und keinen Exit-Code für Fehlschlag: sie geben je Schritt eine Zeile aus
-  (Name, Messwerte, Inhalt von `#errbox`). Ausgabe lesen – nicht-leerer errbox-Text oder `PAGEERROR` = Fehler.
-  Einzelner Test: `python3 tests/<name>.py`.
-- **Immer `#errbox` prüfen** – die Hauptschleife fängt Fehler ab und schreibt sie dorthin.
-- `window.__MEENZ` (in `p4e_main.js`) stellt Test-Hooks bereit (update, P1, CARS, HUMANS, MISSIONS, FLUG, UFO, KART, …).
-- Tests: `all.py` (Regression), `ven.py` (Innenräume), `hbf.py`, `rh.py` (Rhein), `ft.py` (Schnellreise), `egg.py`,
-  `nods.py` (ohne DecompressionStream), `new5.py` (Jetski/Schwimmen/Waffen/UFO/Kart), `mob9.py m` (Handy-Speicher),
-  `shot3.py hoch new` / `shot4.py` / `fly.py` (Screenshots nach `tests/out/`), `prof.py` (Ladezeit je Phase), `scan2.py` (Analyse-Skript).
-  Langsam (SwiftShader/`real.html`): `shot3`, `shot4`, `fly`, `mob9`. Chromium-Pfad optional über `CHROME=…`.
+- `real.html` rendert echt (SwiftShader); `run(test, real=True)` bzw. `g.snap(name)` → JPEG nach `tests/out/`.
+- **Manuell (ohne Asserts)** in `tests/manual/`: `shot3.py hoch <prefix>` / `shot4.py` / `fly.py` (Screenshots),
+  `mob9.py m` (Handy-Speicher, Ziel s. u.), `prof.py` (Ladezeit je Phase), `scan2.py` (Analyse). Brauchen einen Server
+  auf Port 8765 (`npm run serve`). Screenshots nach dem Lauf selbst ansehen.
 
 ## Architektur (Kurzfassung)
 | Datei | Inhalt |
@@ -73,7 +71,7 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
   Setup → in `boot()` nach `setupVehicles()`.
 - `GB.geo()` gibt die JS-Arrays danach frei – vorher alles anhängen.
 - Handy (`LOWMEM`): Canvas-Texturen nach GPU-Upload freigeben (`freeAfterUpload`), statische Meshes über
-  `staticMesh()/staticInst()` registrieren (Distanz-LOD), Speicherbudget mit `tests/mob9.py m` prüfen
+  `staticMesh()/staticInst()` registrieren (Distanz-LOD), Speicherbudget mit `tests/manual/mob9.py m` prüfen
   (Ziel: JS-Heap < ~700 MB im iPhone-Emulator, keine Canvas > 16 Mio. Pixel).
 - Spielerbezogene Bodenhöhe: `playerGroundY()` (Wasser → Schwimmhöhe), sonst `groundY(x,z,y)`.
 
@@ -90,12 +88,26 @@ OSM_SRC=/pfad/mainz-osm-gross.json.gz OSM_SRC2="/pfad/wiesbaden-osm.json.gz" \
 OSM_BOUNDS=-7808,-10752,11008,13376 python3 osm_prep.py   # → p1_osm.js
 ```
 
-## Roadmap
-Notion-Datenbank „Roadmap“ (Paket/Status/Phase/Bereich/Notizen). Nächstes geplantes Paket:
-**Fahrräder + Fahrradführerschein** (Stern ohne Führerschein, Polizist rennt hinterher und ruft
-„Ey du Kek, du hast kein Fahrradführerschein!“, Führerschein-Mission).
+## Roadmap & Notion
+Notion-Projektseite: https://app.notion.com/p/3ec1486f8cd98101b24fcdb037261cfa
+
+Pakete stehen in der Roadmap-Datenbank auf dieser Seite (https://app.notion.com/p/89da640a014e4cf6a195976b15068c93,
+Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Arbeit → Fertig, „Pausiert“ bewusst angehalten).
+
+## Ablauf je Roadmap-Paket
+1. Notion: Paket auf **In Arbeit** (Status-Schreibzugriffe über den `tickets`-Agent).
+2. Plan in `.claude/plans/YYYY-MM-DD-<thema>.md` – mit Spec der unklaren Punkte und **wie verifiziert wird**.
+3. Branch `feat/<paket>` von `main`; Checkliste in `tasks/todo.md`.
+4. Umsetzung in eigener Datei (Präfix je Feature), in den konfliktträchtigen Dateien nur Einzeiler.
+5. `web-tester` schreibt/erweitert `tests/test_<paket>.py`; Bugfix → Regressionstest, der ohne Fix rot ist.
+6. `npm test` grün; visuelle Änderungen per `tests/manual/shot3.py`, Handy-Budget per `tests/manual/mob9.py m`.
+7. PR → `reviewer` und `adversarial-reviewer`; Findings beheben, Tests erneut.
+8. Merge; Release nur nach Rückfrage: Version in `package.json`, Tag `vNN.0.0`, Artifact-Update (URL oben, Stand-Version
+   anpassen).
+9. Notion: **Fertig** + Notizen (Version, was drin ist, Teststand); Lessons in `tasks/lessons.md`.
 
 ## Parallel arbeiten (Agent-Team)
 - Ein Feature = eine eigene Datei + eigener Branch/Worktree. Konfliktträchtig sind nur `build.py`, `p4e_main.js`
   (Schleife/Boot/`__MEENZ`), `p3_actors.js` (Fahrzeugtypen) und `p4c_player.js` – Änderungen dort klein halten.
-- Ein Integrations-Agent baut, lässt `tests/all.py` + Feature-Tests laufen und macht Screenshots, bevor veröffentlicht wird.
+- Integration in der Hauptsession: mergen, dann `npm test` im Haupt-Tree – zwei grüne Branches sind nicht automatisch
+  zusammen grün.
