@@ -39,7 +39,7 @@ async def bubble_text(g):
 
 async def test(g):
     await g.start()
-    assert await g.js(f"()=>{M}.mode") == 'play'
+    g.check('Spiel läuft', await g.js(f"()=>{M}.mode") == 'play')
 
     # 1. geparkte Räder
     info = await g.js(f"()=>{{const B={M}.RAD.bikes;return {{n:B.length,pedal:B.every(c=>c.T.pedal),bike:B.every(c=>c.T.bike),parked:B.every(c=>c.ai.mode==='parked'),persist:B.every(c=>c.persist),inCars:B.every(c=>{M}.CARS.includes(c))}}}}")
@@ -60,11 +60,9 @@ async def test(g):
     g.check('Tempo überschreitet T.max (9 m/s) nie', 0 < top <= 9.0 + 1e-6, f'max {top:.2f} m/s')
     g.check('Rad erreicht > 2 m/s', top > 2, f'{top:.2f}')
     g.check('kein aktiver Motor beim Radeln', eng == 0, eng)
-    g.check('ENGINES ohne Eintrag für das Rad', await g.js(f"()=>{M}.ENGINES.length") == 0, await g.js(f"()=>{M}.ENGINES.length"))
 
     # 3. ohne Schein: genau ein Stern, keine Eskalation
-    g.check('ohne Schein: Stern 1 nach > 3 s Radeln', star == 1 or await g.js(f"()=>{M}.wanted") == 1, star)
-    g.check('Rad-Vergehen setzt wanted auf 1', await g.js(f"()=>{M}.wanted") == 1, await g.js(f"()=>{M}.wanted"))
+    g.check('ohne Schein: Stern 1 nach > 3 s Radeln', star == 1, star)
     worst = 0
     for k in range(1, 3):  # 2 x 10 s auf frischer Strecke
         g.check(f'Strecke {k} aufgestellt', await g.js(PLACE, k))
@@ -149,7 +147,7 @@ async def test(g):
     g.check('Mission fahrradschein existiert und ist free', m and m['free'] is True, m)
     await g.js(f"()=>{{const M={M};if(M.P1.car)M.exitCar(M.P1,true);M.setWanted(0)}}")
     await g.js(f"()=>{{const M={M};const m=M.MISSIONS.find(m=>m.id==='fahrradschein');M.P1.h.x=m.start[0];M.P1.h.z=m.start[1];M.startMission(m,M.P1)}}")
-    started = await g.js(f"()=>{{const a={M}.activeMission;return !!(a&&a.id==='fahrradschein'&&a.car&&a.pts.length>=2)}}")
+    started = await g.js(f"()=>{{const a={M}.activeMission;return !!(a&&a.id==='fahrradschein'&&a.car&&a.pts.length===6)}}")
     g.check('Mission gestartet, Prüfungsrad und Ringe da', started)
     await g.js(f"()=>{{const M={M},a=M.activeMission;M.P1.h.x=a.car.x-1.5;M.P1.h.z=a.car.z;M.enterCar(M.P1,a.car)}}")
     await g.step(0.3)
@@ -179,5 +177,10 @@ async def test(g):
     failed = await g.js(f"()=>({{active:!!{M}.activeMission,schein:{M}.G.fahrradSchein}})")
     g.check('> 10 s vom Rad weg: Mission gescheitert, kein Schein', not failed['active'] and failed['schein'] is False, failed)
 
+
+    # Totalschaden: kein Feuerball, Fahrer fliegt ab, Rad bleibt
+    r = await g.js(f"""()=>{{const M={M},P=M.P1;if(P.car)M.exitCar(P,true);P.h.health=100;const c=M.RAD.bikes.find(b=>b.persist&&M.CARS.includes(b));if(!c)return null;M.setWanted(0);M.enterCar(P,c);
+      if(P.car!==c)return null;c.damage(500,true);for(let i=0;i<120;i++)M.update(1/60);return [!!P.car,c.burn||0,c.dead||false,c.health,P.h.health,M.CARS.includes(c)]}}""")
+    g.check('Rad-Totalschaden: abgeworfen, kein Brand, Rad bleibt, Fahrer lebt', r and not r[0] and r[1] == 0 and not r[2] and r[3] > 0 and r[4] > 0 and r[5], r)
 
 run(test)

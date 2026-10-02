@@ -43,21 +43,26 @@ def main(argv):
     srv = None
     if not (env.get('MEENZ_URL') and up(env['MEENZ_URL'])):
         port = free_port()
-        srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1'],
+        srv = subprocess.Popen([sys.executable, os.path.join(TESTS, 'lib', 'serve.py'), str(port), ROOT],
                                cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         env['MEENZ_URL'] = f'http://127.0.0.1:{port}'
         for _ in range(50):
             if up(env['MEENZ_URL']): break
             time.sleep(0.1)
+        else:
+            srv.terminate(); print('Webserver startet nicht: ' + env['MEENZ_URL']); return 1
     env['PYTHONPATH'] = os.path.join(TESTS, 'lib') + os.pathsep + env.get('PYTHONPATH', '')
     failed = []
     try:
         for f in files:
             print(f'== {f}', flush=True)
             t0 = time.time()
-            r = subprocess.run([PY, os.path.join(TESTS, f)], env=env)
-            print(f'== {f}: {"OK" if r.returncode == 0 else "FEHLER"} ({time.time() - t0:.0f}s)\n', flush=True)
-            if r.returncode: failed.append(f)
+            try:
+                rc = subprocess.run([PY, os.path.join(TESTS, f)], env=env, timeout=600).returncode
+            except subprocess.TimeoutExpired:
+                rc = 'Zeitüberschreitung (600 s)'
+            print(f'== {f}: {"OK" if rc == 0 else "FEHLER " + str(rc)} ({time.time() - t0:.0f}s)\n', flush=True)
+            if rc != 0: failed.append(f)
     finally:
         if srv: srv.terminate()
     print(f'{len(files) - len(failed)}/{len(files)} Testdateien grün' + (': rot sind ' + ', '.join(failed) if failed else ''))
