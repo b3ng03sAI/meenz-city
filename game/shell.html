@@ -294,7 +294,12 @@ html.touchmode .keys{display:none}
   function hide(){if(done)return;done=true;clearInterval(iv);clearInterval(it);clearInterval(ib);S.classList.add('out');setTimeout(()=>S.remove(),800);}
   window.__splashReady=()=>{ready=true;bar.style.width='100%';tip.textContent='Fertig – Helau!';S.classList.add('ready');
     if(window.__MANUAL||window.__NORENDER){hide();return;}const wait=Math.max(0,3200-(Date.now()-t0));setTimeout(hide,wait+1200);};
-  window.__splashHide=hide;S.addEventListener('click',()=>{if(ready)hide();});addEventListener('keydown',()=>{if(ready)hide();});})();
+  window.__splashHide=hide;S.addEventListener('click',()=>{if(ready)hide();});
+  /* Fehler beim Laden sichtbar machen statt ewig zu drehen (z. B. auf Handys) */
+  addEventListener('error',()=>{if(!ready)hide();});addEventListener('unhandledrejection',()=>{if(!ready)hide();});
+  setTimeout(()=>{if(ready||done)return;tip.textContent='Dauert ungewöhnlich lange … ';const b=document.createElement('button');b.textContent='Mit niedriger Grafik neu laden';
+    b.style.cssText='margin-left:8px;font:700 15px "Barlow Condensed",sans-serif;padding:6px 12px;border:0;border-radius:6px;background:#f6c142;color:#111;cursor:pointer';
+    b.onclick=e=>{e.stopPropagation();try{localStorage.setItem('meenz-quality','niedrig');}catch(_){}location.hash='niedrig';location.reload();};tip.appendChild(b);},45000);addEventListener('keydown',()=>{if(ready)hide();});})();
 </script>
 <div id="start" class="overlay">
   <div class="panel">

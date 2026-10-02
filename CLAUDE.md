@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GTA-artiges Browser-Spiel in Mainz + Wiesbaden (three.js r160). Das Spiel wird als **eine einzige HTML-Datei** ausgeliefert
 (`game/meenz-city.html`, ~4,8 MB) und als claude.ai-Artifact veröffentlicht:
-https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (Stand: Version 32).
+https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (Stand: Version 33).
 
 Sprache im Spiel und in Kommentaren: **Deutsch**, Dialoge gern auf **Meenzerisch/Rheinhessisch**.
 
@@ -46,7 +46,7 @@ python3 tests/run.py rad hbf     # nur test_rad.py + test_hbf.py;  --no-build ü
 ## Architektur (Kurzfassung)
 | Datei | Inhalt |
 |---|---|
-| `p0_render.js` | Renderer, Qualitätsstufen `QS` (ultra/hoch/mittel), Postprocessing inkl. Schärfefilter, Nebel |
+| `p0_render.js` | Renderer, Qualitätsstufen `QS` (ultra/hoch/mittel/niedrig; Handys starten immer auf „niedrig“, Tablets auf „mittel“ – `IS_MOBILE`/`IS_PHONE`, Test `test_mobil.py`), Postprocessing inkl. Schärfefilter, Nebel |
 | `p1_osm.js`, `p1_data.js` | OSM-Daten (`OSM`), Bounds, Bezirke (`districtAt`), Orte `PLACES` |
 | `seg_masks.js` | Raster: `HG` (1 m Höhe/Hindernis, 255=Wasser) und `MFLAG` (2 m, Bits 1 Park/2 Straße/4 Wasser) – **dünn besetzte 64er-Kacheln**, Zugriff nur über `hgG(i)/hgS(i,v)`, `mfG(i)`; Index via `idx(x,z)` |
 | `seg_*.js`, `p2*.js` | Weltgenerierung: Gebäude (Chunk-LOD), Straßen, Boden-Kacheln, Bäume, Läden, Wahrzeichen |
