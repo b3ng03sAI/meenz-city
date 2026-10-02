@@ -38,7 +38,11 @@ function gonsNearest(x,z){let d=1e9;for(const P of PLAYERS)if(P.h)d=Math.min(d,g
 function gonsFree(x,z){const i=idx(x,z);return i>=0&&hgG(i)===0&&!(mfG(i)&6);}
 
 // ===================== ZONEN + KOLLISION =====================
-function gonsMakeZone(name,x,z,build){const Z=lazyZone({name,x,z,build(Z){GONS.hitOn++;build(Z);},dispose:gonsZoneDispose});GONS.zones.push(Z);return Z;}
+// Eigener Zufallsstrom für Bau, NPCs und Update: der Bau einer Zone verschiebt nicht die globale (im Test geseedete)
+// Zufallsfolge, an der Passanten-Ereignisse wie Pöbeleien hängen
+const GONS_RNG=mulberry32(3838);
+function gonsRng(fn){const r=Math.random;Math.random=GONS_RNG;try{return fn();}finally{Math.random=r;}}
+function gonsMakeZone(name,x,z,build){const Z=lazyZone({name,x,z,build(Z){GONS.hitOn++;gonsRng(()=>build(Z));},dispose:gonsZoneDispose});GONS.zones.push(Z);return Z;}
 function gonsZoneDispose(Z){
   if(Z===GONS.zone){gonsKerbClear();GONS.kerb.greeted=false;}
   for(let i=GONS.scenes.length-1;i>=0;i--){const sc=GONS.scenes[i];if(sc.zone!==Z)continue;for(const h of sc.npcs)if(!h.removed)h.remove();sc.npcs=[];sc.active=false;GONS.scenes.splice(i,1);}
@@ -376,7 +380,7 @@ function gonsKerbSceneUpdate(sc,dt){const K=GONS.kerb,S=K.speech,kb=sc.kb;if(!kb
   if(gonsNearest(sc.x,sc.z)>45||kb.state!=='venue')return;S.t-=dt;if(S.t>0)return;
   if(S.i>=GONS_SPRUCH.length){S.i=0;S.t=35;return;}const line=GONS_SPRUCH[S.i++];say(kb,line,4.4,'loud');S.said++;S.t=4.8;
   if(S.i===GONS_SPRUCH.length||S.i%3===0){const crowd=sc.npcs.filter(h=>h!==kb&&h.alive&&!h.removed&&h.state==='venue');const c=crowd.length?mpick(crowd):null;
-    if(c)setTimeout(()=>{if(c.alive&&!c.removed)say(c,S.i===GONS_SPRUCH.length?'UNSER!':mpick(GONS_RUF),2.4,'loud');},1500);}}
+    if(c)setTimeout(()=>gonsRng(()=>{if(c.alive&&!c.removed)say(c,S.i===GONS_SPRUCH.length?'UNSER!':mpick(GONS_RUF),2.4,'loud');}),1500);}}
 function gonsKerbClear(){const K=GONS.kerb;if(!K.built)return;for(const sc of GONS.scenes)if(sc.kerb&&sc.active){for(const h of sc.npcs)if(!h.removed)h.remove();sc.npcs=[];sc.active=false;}
   if(K.grp){if(K.grp.parent)K.grp.parent.remove(K.grp);K.grp.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.isInstancedMesh)o.dispose();});}if(K.signTex)K.signTex.dispose();if(K.signMat)K.signMat.dispose();
   for(const E of K.closed)E.car=true;K.closed=[];K.grp=null;K.signTex=K.signMat=null;K.stalls=[];K.carousel=null;K.tree=null;K.podium=null;K.boxes=[];K.circles=[];K.built=false;K.greeted=false;K.speech.i=0;K.speech.t=0;
@@ -457,10 +461,10 @@ function gonsMusicUpdate(){const M=GONS.music,K=GONS.kerb;let mode=null,vol=0;
 const _gonsFtSpecials=ftSpecials;
 ftSpecials=function(){const S=_gonsFtSpecials();for(const d of gonsFtTargets())S.push({n:d.n,g:'Besondere Orte',x:d.x,z:d.z,special:true});return S;};
 function gonsFtTargets(){const L=GONS.ft;if(L.length)return L;const add=(n,x,z)=>{const [fx,fz]=freeSpot(x,z,0.6);L.push({n,x:fx,z:fz});};
-  const F=GONS.kerb.frame;if(F){const [x,z]=F.W(0,-12);add('Juxplatz – Gonsenheimer Kerb',x,z);}
-  const W=GONS.wald;if(W.c){let best=null,bd=1e9;for(const p of gonsForestRoads(false).paths)for(const q of p.pts){const d=Math.hypot(q[0]-W.c[0],q[1]-W.c[1]);if(d<bd){bd=d;best=q;}}if(best)add('Lennebergwald – Waldweg',best[0],best[1]);}
-  gonsBachPlan();const B=GONS.bach.benches;if(B.length){const b=B[B.length>>1];add('Gonsbachtal – Bank am Bach',b.x+Math.sin(b.face)*1.5,b.z+Math.cos(b.face)*1.5);}
-  gonsOrtPlan();const f=GONS.ort.fountain;if(f)add('Alt-Gonsenheim – Dorfbrunnen',f.x+2.6,f.z);
+  const F=GONS.kerb.frame;if(F){const [x,z]=F.W(0,-12);add('Gonsenheim – Juxplatz (Kerb)',x,z);}
+  const W=GONS.wald;if(W.c){let best=null,bd=1e9;for(const p of gonsForestRoads(false).paths)for(const q of p.pts){const d=Math.hypot(q[0]-W.c[0],q[1]-W.c[1]);if(d<bd){bd=d;best=q;}}if(best)add('Gonsenheim – Lennebergwald',best[0],best[1]);}
+  gonsBachPlan();const B=GONS.bach.benches;if(B.length){const b=B[B.length>>1];add('Gonsenheim – Gonsbachtal',b.x+Math.sin(b.face)*1.5,b.z+Math.cos(b.face)*1.5);}
+  gonsOrtPlan();const f=GONS.ort.fountain;if(f)add('Gonsenheim – Dorfbrunnen',f.x+2.6,f.z);
   return L;}
 
 // ===================== SETUP / UPDATE =====================
@@ -471,7 +475,8 @@ function setupGons(){GONS.convs=GONS_CONVS;GONS.tent=GONS_TENT;
   GONS.zone=gonsMakeZone('gons',GONS_CX,GONS_CZ,gonsMainBuild);
   if(gonsForestInfo()){const W=GONS.wald;GONS.zoneWald=gonsMakeZone('gonswald',W.c[0],W.c[1],gonsWaldBuild);label('Lennebergwald',W.c[0],W.c[1],'lm');}
   gonsBachSections();label('Gonsbachtal',-3600,-205,'lm');}
-function updateGons(dt){if(mode!=='play')return;gonsRoomGC();
+function updateGons(dt){if(mode!=='play')return;gonsRng(()=>gonsUpdate(dt));}
+function gonsUpdate(dt){gonsRoomGC();
   const main=GONS.zone&&GONS.zone.built;if(main||GONS.music.inTent||GONS_MUS.g)gonsMusicUpdate();
   if(!GONS.hitOn)return;
   if(main)gonsUpdateKerb(dt);

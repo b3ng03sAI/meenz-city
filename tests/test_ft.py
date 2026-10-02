@@ -11,7 +11,10 @@ SPECIALS = ['Brezel-Schalter (Marktfrühstück)', 'Hoher Dom St. Martin – Eing
             'Dach-Yoga', 'Grillparzerstraße', 'Flugplatz Großer Sand',
             # Paket 36 (p6c_oberst.js) hängt fünf Oberstadt-Ziele per ftSpecials-Wrapper an
             'Zitadelle – Bastion Drusus (Wall)', 'Zitadelle – Stadthistorisches Museum', 'Volkspark – Spielplatz',
-            'Universitätsmedizin – Besuchereingang', 'Hartenberg-Münchfeld – Wohnstraßen']
+            'Universitätsmedizin – Besuchereingang', 'Hartenberg-Münchfeld – Wohnstraßen',
+            # Paket 38 (p6e_gons.js) hängt vier Gonsenheim-Ziele an
+            'Gonsenheim – Juxplatz (Kerb)', 'Gonsenheim – Lennebergwald', 'Gonsenheim – Gonsbachtal',
+            'Gonsenheim – Dorfbrunnen']
 
 
 async def arrived(g, d):
