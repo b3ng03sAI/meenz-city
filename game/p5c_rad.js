@@ -24,15 +24,21 @@ carGeo=function(id){const T=CAR_TYPES[id];if(!T||!T.pedal)return _radCarGeo(id);
   gbox(head,0,0.86,0.47,0.07,0.06,0.04,{r:1,g:0.97,b:0.9});gbox(tail,0,0.66,-0.86,0.06,0.04,0.02,{r:1,g:0.06,b:0.04});
   const r={body,glass:new THREE.BoxGeometry(0.001,0.001,0.001),det:det.geo(),head:head.geo(),tail:tail.geo()};CAR_GEO.set(id,r);return r;};
 
-// --- schmale Reifen: einmalig nach dem ersten sync (Konstruktor ruft sync auf) ---
+// --- Speichenräder statt Auto-Felgen: einmalig nach dem ersten sync (Konstruktor ruft sync auf) ---
+let RAD_WHEEL=null;
+function radWheelGeo(wr){if(RAD_WHEEL)return RAD_WHEEL;const r=wr-0.03;
+  RAD_WHEEL={tire:new THREE.TorusGeometry(r,0.03,6,28).rotateY(Math.PI/2),hub:new THREE.CylinderGeometry(0.035,0.035,0.1,8).rotateZ(Math.PI/2),
+    spokes:[0,1,2,3].map(i=>new THREE.BoxGeometry(0.006,2*r-0.02,0.006).rotateX(i*Math.PI/4))};return RAD_WHEEL;}
 const _radSync=Car.prototype.sync;
-Car.prototype.sync=function(dt){_radSync.call(this,dt);if(this.T.pedal&&!this.radInit){this.radInit=true;for(const w of this.wheels){const ch=w.w.children;if(Array.isArray(ch))for(const m of ch)m.scale.x*=0.25;}}};
+Car.prototype.sync=function(dt){_radSync.call(this,dt);if(!this.T.pedal||this.radInit)return;this.radInit=true;const G=radWheelGeo(this.T.wr);
+  for(const w of this.wheels){const ch=w.w.children;if(Array.isArray(ch))for(const m of ch)m.visible=false;
+    w.w.add(new THREE.Mesh(G.tire,TIRE_M));w.w.add(new THREE.Mesh(G.hub,RIM_M));for(const s of G.spokes)w.w.add(new THREE.Mesh(s,RIM_M));}};
 
 // --- Fahrer: sitzt auf dem Sattel, Beine folgen der Kurbel ---
 const _radVehicleInput=vehicleInput;
 vehicleInput=function(P,I){_radVehicleInput(P,I);const c=P.car;if(!c||!c.T.pedal||!P.h)return;const h=P.h;const fx=Math.sin(c.h),fz=Math.cos(c.h);
   h.x=c.x-fx*0.2;h.z=c.z-fz*0.2;h.y=c.y+0.2;const a=c.spin*0.45;
-  h.legL.rotation.set(-1.05+Math.sin(a)*0.5,0,0.08);h.legR.rotation.set(-1.05-Math.sin(a)*0.5,0,-0.08);
+  h.legL.rotation.set(-0.55+Math.sin(a)*0.35,0,0.06);h.legR.rotation.set(-0.55-Math.sin(a)*0.35,0,-0.06);
   h.armL.rotation.set(-1.2,0,0.18-c.steer*0.15);h.armR.rotation.set(-1.2,0,-0.18-c.steer*0.15);h.hips.rotation.x=0.35;h.g.position.set(h.x,h.y,h.z);};
 
 const _radEnterCar=enterCar;
