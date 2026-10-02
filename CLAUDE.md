@@ -23,6 +23,14 @@ Laden per `DecompressionStream` (Fallback `gunzip_small.js` für alte iPhones) e
 `meenz-city.html`, `test.html` und `real.html` sind **Build-Ausgaben** – nie direkt bearbeiten, sondern die Teil-Dateien
 in `game/` ändern und neu bauen. Kurzformen: `npm run build`, `npm run serve`, `npm test` (= `tests/run.py`).
 
+## Veröffentlichen
+- **Haupt-Link: GitHub Pages** (installierbare Web-App: Vollbild, Home-Bildschirm-Icon, offline):
+  https://b3ng03sai.github.io/meenz-city/ – `.github/workflows/pages.yml` baut bei jedem Push eines Tags `v*` die
+  Spielquellen **dieses Tags** und legt den Rahmen aus `site/` drum (`site/build_site.py` → `dist/`: Manifest, Service
+  Worker mit Cache je Build, Icons aus `site/make_icons.py`, Hinweis „Zum Home-Bildschirm“ für iOS). Einen älteren Tag
+  von Hand: `gh workflow run pages.yml -f tag=vNN.0.0`. Test: `tests/test_pwa.py` (inkl. Offline-Start).
+- claude.ai-Artifact (Link oben) bleibt als Zweitkanal; dort gibt es kein Manifest/Service Worker.
+
 ## Testen (Playwright, headless Chromium)
 ```bash
 python3 -m venv .venv && .venv/bin/pip install playwright && .venv/bin/playwright install chromium   # einmalig
