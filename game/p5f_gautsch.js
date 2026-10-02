@@ -151,7 +151,7 @@ function gautschFlee(h,dt){const ga=h.ga,T=GAUTSCH.tub;const P=nearestPlayer(h.x
     ax-=cx/cd*out*1.6;az-=cz/cd*out*1.6;const [ox,oz]=gautschAvoid(h.x,h.z);ax+=ox;az+=oz;
     const a=Math.atan2(ax,az)+ga.dodge;const fx=Math.sin(a),fz=Math.cos(a);
     if(blocked(h.x+fx*1.4,h.z+fz*1.4)){ga.dodge+=ga.side*dt*6;if(Math.abs(ga.dodge)>2.6){ga.side=-ga.side;ga.dodge=0;}}else ga.dodge*=Math.max(0,1-dt*1.5);
-    mv=moveHuman(h,fx,fz,GAUTSCH.FLEE_SPEED,dt);faceTo(h,fx,fz,dt,10);if(Math.random()<dt*0.3&&!h.bubble)say(h,mpick(GAUTSCH_LINES.taunt),2.2);}
+    mv=moveHuman(h,fx,fz,GAUTSCH.FLEE_SPEED,dt);if(!mv){ga.dodge+=ga.side*dt*8;if(Math.abs(ga.dodge)>3.1){ga.side=-ga.side;ga.dodge=0;}}faceTo(h,fx,fz,dt,10);/* festgeklemmt (Hindernis näher als die 1,4-m-Vorausschau) → Richtung durchdrehen */if(Math.random()<dt*0.3&&!h.bubble)say(h,mpick(GAUTSCH_LINES.taunt),2.2);}
   else{const hx=ga.home[0]-h.x,hz=ga.home[1]-h.z;if(Math.hypot(hx,hz)>1.5&&d>5){mv=moveHuman(h,hx,hz,1.4,dt);faceTo(h,hx,hz,dt,6);}else faceTo(h,-dx,-dz,dt,4);}
   h.animate(dt,mv);if(!mv&&GAUTSCH.running)gautschArm(h.armR,0,-1.2-Math.sin(simTime*7+h.phase)*0.3);else h.armR.rotation.z=0;// Lehrling winkt frech zur Seite
   h.y=groundY(h.x,h.z);h.sync();}
