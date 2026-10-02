@@ -74,7 +74,7 @@ function fmtDate(t){const d=new Date(t);return d.toLocaleDateString('de-DE',{day
 function renderSlots(){const box=$('slots');if(!box)return;box.innerHTML='';
   for(const k of [0,1,2,3]){const d=readSave(k);const el=document.createElement('div');el.className='slot';
     const nDone=d?Object.keys(d.done||{}).length:0;
-    el.innerHTML=`<div class="t">${k===0?'Autosave':'Slot '+k}</div><div class="d">${d?`${fmtDate(d.t)} · ${d.zone||'Mainz'}<br>€${d.money} · ${nDone}/13 Missionen`:'leer'}</div><div class="b">${k?'<button class="save">Speichern</button>':''}<button class="load"${d?'':' disabled'}>Laden</button></div>`;
+    el.innerHTML=`<div class="t">${k===0?'Autosave':'Slot '+k}</div><div class="d">${d?`${fmtDate(d.t)} · ${d.zone||'Mainz'}<br>€${d.money} · ${nDone}/${MISSIONS.length} Missionen`:'leer'}</div><div class="b">${k?'<button class="save">Speichern</button>':''}<button class="load"${d?'':' disabled'}>Laden</button></div>`;
     if(k)el.querySelector('.save').addEventListener('click',()=>saveGame(k));el.querySelector('.load').addEventListener('click',()=>loadGame(k));box.appendChild(el);}}
 
 // ===================== MENÜS =====================
