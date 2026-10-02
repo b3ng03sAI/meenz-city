@@ -41,7 +41,7 @@ async def test(g):
 
     # Schnellreise-Ziele (werden beim ersten Öffnen berechnet, nur Zahlen – baut nichts)
     names = await g.js(f"()=>{M}.ftDestinations().filter(d=>d.special).map(d=>d.n)")
-    want = ['Juxplatz – Gonsenheimer Kerb', 'Lennebergwald – Waldweg', 'Gonsbachtal – Bank am Bach', 'Alt-Gonsenheim – Dorfbrunnen']
+    want = ['Gonsenheim – Juxplatz (Kerb)', 'Gonsenheim – Lennebergwald', 'Gonsenheim – Gonsbachtal', 'Gonsenheim – Dorfbrunnen']
     g.check('Schnellreise: vier Gonsenheimer Ziele unter „Besondere Orte“', all(n in names for n in want), [n for n in want if n not in names])
     g.check('Schnellreise-Liste baut nichts', await g.js(f"()=>{G}.zones.every(Z=>!Z.built)"))
 
