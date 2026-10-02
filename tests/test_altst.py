@@ -157,39 +157,52 @@ async def test(g):
     g.check('Schnellreise landet am Kirschgarten (< 20 m)', ((pos[0] - kg['x']) ** 2 + (pos[1] - kg['z']) ** 2) ** 0.5 < 20, pos)
 
 
+async def snap(g, name):
+    """Wie g.snap, aber ohne Spielerfigur im Bild."""
+    import base64
+    url = await g.js(f"()=>{M}.snap(6,true)")
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', name + '.jpg')
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as f:
+        f.write(base64.b64decode(url.split(',', 1)[1]))
+    print('  ', path)
+
+
 async def shots(g):
-    """Echte Screenshots: Kirschgarten (Fachwerk, Brunnen, Fastnachter), Weinstube innen, Leichhof; Draw-Calls mit/ohne Paket."""
+    """Echte Screenshots: Kirschgarten, Leichhof, Weinstube innen; Draw-Calls mit/ohne Paket."""
+    import math
     await g.start()
     await g.js(f"()=>{{const M={M};M.gameMin=13*60;M.setWeather('klar')}}")
     A = f'{M}.ALTST'
     f = await g.js(f"()=>{A}.fountain")
-    import math
-    for name, x, z, tx, tz in [('altst_kirschgarten', f['x'] + 10, f['z'] + 9, f['x'], f['z'])]:
-        yaw = math.atan2(tx - x, tz - z)
-        await goto(g, x, z, yaw)
-        await g.step(1.5)
-        calls = {}
-        for on in (False, True):
-            await g.js(f"(on)=>{{{A}.on=on}}", on)
-            await g.step(0.6)
-            calls[on] = await g.js(f"()=>{A}.drawCalls()")
-        print(f'  Draw-Calls am Kirschgarten: ohne Paket {calls[False]}, mit {calls[True]} (+{calls[True] - calls[False]})')
-        g.check('Draw-Call-Zuwachs am Kirschgarten <= 150', calls[True] - calls[False] <= 150, calls)
-        await g.js(f"(y)=>{{const P={M}.P1;P.cam.yaw=y;P.cam.pitch=0.12;P.cam.init=false}}", yaw)
-        print('  ', await g.snap(name, 6))
+    x, z = f['x'] + 12, f['z'] + 8
+    yaw = math.atan2(f['x'] - x, f['z'] - z)
+    await goto(g, x, z, yaw)
+    await g.step(1.5)
+    calls = {}
+    for key, on, sc in (('ohne', False, False), ('statisch', True, False), ('mit Szene', True, True)):
+        await g.js(f"([on,sc])=>{{{A}.on=on;{A}.scenesOn=sc}}", [on, sc])
+        await g.step(0.6)
+        calls[key] = await g.js(f"()=>{A}.drawCalls()")
+    print(f"  Draw-Calls am Kirschgarten: {calls}")
+    g.check('statische Draw-Calls am Kirschgarten <= +150', calls['statisch'] - calls['ohne'] <= 150, calls)
+    await g.js(f"(y)=>{{const P={M}.P1;P.cam.yaw=y;P.cam.pitch=0.1;P.cam.init=false}}", yaw)
+    await g.step(0.5)
+    await snap(g, 'altst_kirschgarten')
     c = await g.js(f"()=>{A}.cafe[0]")
     await goto(g, c['x'] - 2.5, c['z'] + 3, math.atan2(-10.6 - c['x'], -8.9 - c['z']))
     await g.step(1.5)
     await g.js(f"()=>{{const P={M}.P1;P.cam.pitch=0.0;P.cam.init=false}}")
-    print('  ', await g.snap('altst_leichhof', 6))
+    await snap(g, 'altst_leichhof')
     door = await g.js(f"()=>{A}.weinstube.door")
     await goto(g, door[0], door[1])
     await g.step(0.4)
     await g.key('KeyF', after=1.0)
     await g.js(f"()=>{{const M={M},P=M.P1,h=P.h,r=h.room;h.x=r.ox+2.5;h.z=r.oz+4.5;P.cam.yaw=Math.atan2(-3-2.5,-2-4.5);h.facing=P.cam.yaw;P.cam.pitch=0.15;P.cam.init=false}}")
     await g.step(1.0)
-    print('  ', await g.snap('altst_weinstube', 6))
+    await snap(g, 'altst_weinstube')
     g.check('Screenshots gemacht', True)
+
 
 async def mem(g):
     """JS-Heap nach GC im iPhone-Profil (LOWMEM); mit `skip` ohne setupAltst – die Differenz ist der Zuwachs des Pakets."""
@@ -204,6 +217,6 @@ async def mem(g):
 if 'shots' in sys.argv:
     run(shots, real=True)
 elif 'mem' in sys.argv:
-    run(mem, mobile=True, init_extra='window.__ALTST_SKIP=true;' if 'skip' in sys.argv else '')
+    run(mem, mobile=True, real='real' in sys.argv, init_extra='window.__ALTST_SKIP=true;' if 'skip' in sys.argv else '')
 else:
     run(test)

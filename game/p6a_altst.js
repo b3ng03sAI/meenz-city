@@ -5,7 +5,7 @@
 // Positionen kommen aus den OSM-Namen (Straßen „Kirschgarten“, „Augustinerstraße“, Platz „Leichhof“, die drei Bleichen).
 const ALTST={fachwerk:[],weinstube:null,scenes:[],ft:[],cafe:[],displays:[],racks:[],stands:[],shoppers:[],meshes:[],sitters:[],
   on:true,kg:null,fountain:null,lh:null,bl:null,blEdges:[],
-  BIAS:0.55,BL_R:320,BL_NEAR:150,SCENE_ON:70,SCENE_OFF:100,FACH_D:3.5,FACH_C:12};
+  scenesOn:true,BIAS:0.55,BL_R:320,BL_NEAR:150,SCENE_ON:45,SCENE_OFF:60,FACH_D:3.5,FACH_C:12};
 const ALTST_FACH_TINT=[0xf3e3c3,0xeec9a8,0xe9d6a0,0xd9e2c8,0xf2d0c9,0xf6efe2,0xe8c88e,0xdfe6ee];
 const ALTST_BLEICHEN=new Set(['Große Bleiche','Mittlere Bleiche','Hintere Bleiche']);
 
@@ -148,6 +148,8 @@ const ALTST_STAMM=[
     ['Helau!','HELAU! Endlich emol aaner mit Kultur.','laugh'],
     ['Alaaf!','… Raus. Des sacht mer hier net. Des is Kölle.','angry',{leave:'angry'}],
     ['Was is Fassenacht?','Ach Gott … Hannelore, gebb dem Kind emol e Programmheft.','cringe']]}}];
+// Die Sichtbarkeits-Schleife in update() blendet drinnen alle Figuren aus (INDOOR) – Gäste der Weinstube bleiben im Raum sichtbar
+function altstIndoorVisible(h,r){Object.defineProperty(h.g,'visible',{configurable:true,get:()=>INDOOR===r&&!h.removed,set(){}});}
 function altstSitPose(h){h.hips.position.y=0.55;h.legL.rotation.x=-1.5;h.legR.rotation.x=-1.5;h.armL.rotation.x=-0.45;h.armR.rotation.x=-0.45;}
 function altstSitter(h){h.altstSit=true;altstSitPose(h);ALTST.sitters.push(h);return h;}
 const ALTST_WS={id:'altst_weinstube',name:ALTST_WS_NAME,sub:'Augustinerstraße · Schoppe, Weck un Worscht',W:12,D:16,H:4.2,wall:0xd9c3a0,ceil:0x6b4a30,hemiI:0.5,exp:1.0,lampI:20,lampD:14,
@@ -177,11 +179,13 @@ const ALTST_WS={id:'altst_weinstube',name:ALTST_WS_NAME,sub:'Augustinerstraße �
     const fc=[0xc8102e,0xf2f2f2,0x1d4e89,0xf2c500];for(let k=0;k<22;k++)B.box('cloth',-5.5+k*0.5,3.45,-1+Math.sin(k*0.6)*0.2,0.3,0.32,0.02,fc[k%4]);
     B.plane(textTex('Meenz · Helau!',{w:512,h:128,bg:'#f2e6c8',fg:'#7a1f1f',border:'#3a2512'}),0,2.2,-7.68,2.4,0.6,0);
     for(const [x,z] of [[0,-4],[0,3],[-3,-2],[3.5,-6]])B.box('glow',x,3.55,z,0.5,0.18,0.5,0xffd9a0);
-    B.box('wood',0,0,7.82,1.4,2.3,0.14,0x3a2512);},
+    B.box('wood',0,0,7.82,1.4,2.3,0.14,0x3a2512);
+    const ceil=new THREE.Mesh(new THREE.PlaneGeometry(W,D).rotateX(Math.PI/2),stdMat({color:0x6b4a30,roughness:0.85}));ceil.position.y=4.18;r.grp.add(ceil);},// die Raum-Decke ist nur von oben sichtbar
   npcs(r){const wirt=vPerson(r,3.5,-7.0,0,{role:'stand',lines:['Noch en Schoppe?','Weck, Worscht un Woi – fünf Euro, wie immer.','Bei mir gibt’s kaa Cola. Des is e Weinstubb!','Die Gläser sin noch vun meiner Oma.']});wirt.npcName='Elfriede (Wirtin)';
     ALTST_STAMM.forEach((s,k)=>{const a=k/4*TAU+Math.PI/4;const x=-3+Math.cos(a)*1.3,z=-2+Math.sin(a)*1.3;const h=vPerson(r,x,z,Math.atan2(-3-x,-2-z),{pose:'sit',lines:s.lines});h.npcName=s.who;h.altstConv=s.conv;h.altstStamm=true;altstSitter(h);});
     for(const [x,z,f] of [[3.85,1,-Math.PI/2],[2.15,4.5,Math.PI/2]])altstSitter(vPerson(r,x,z,f,{pose:'sit',lines:['Mmh, de Riesling is gut heut.','Noch eins, dann geh ich. Ehrlich.','Prost!']}));
-    vPerson(r,1.6,-5.2,Math.PI,{role:'stand',lines:['Ich wart nur uff mein Schoppe.','Die Elfriede is die Beste.']});},
+    vPerson(r,1.6,-5.2,Math.PI,{role:'stand',lines:['Ich wart nur uff mein Schoppe.','Die Elfriede is die Beste.']});
+    for(const h of r.people)altstIndoorVisible(h,r);},
   interact(P,r){const h=P.h;const lx=h.x-r.ox,lz=h.z-r.oz;if(Math.abs(lx-3.5)>2.6||lz>-4.2)return;
     if(G.money<5){hint('Fünf Euro hoste net? Dann gibt’s nur Leitungswasser.',2.5,P);return;}G.money-=5;h.health=Math.min(100,h.health+30);drinkAdd(P);ALTST.orders=(ALTST.orders||0)+1;
     hint('<b>Weck, Worscht un Woi</b> – Ei gude! (–5 €)',2.5,P);const w=r.people.find(o=>o.npcName==='Elfriede (Wirtin)');if(w&&w.alive)say(w,mpick(['Wohl bekomm’s!','Lass der’s schmecke!','Un de Senf is umsonst.']),2.5);},
@@ -220,6 +224,9 @@ const ALTST_SCENE_DEFS={
   stammtisch:{n:3,sit:true,lines:['Guck emol, de Dom – steht immer noch.','Noch e Schoppe, Gerda!','Früher war mehr Lametta. Un billischer Woi.','Vun hier sieht mer de Dom am schönste.','Mer sin de Stammtisch vum Leichhof, seit 1972.'],
     who:['Gerda (Stammtisch)','Willi (Stammtisch)','Karl-Heinz (Stammtisch)'],
     dress(h,k){altstGlass(h);},anim(h,k,t){h.armR.rotation.x=-0.55-Math.max(0,Math.sin(t*0.7+k*2))*0.9;}}};
+// Szenen-Leute ersetzen ferne Passanten, damit das Passanten-Budget gleich bleibt
+function altstMakeRoom(n,px,pz){const far=HUMANS.filter(h=>h.kind==='ped'&&h.alive&&h.state==='walk'&&!h.mission&&!h.room&&!h.keeper&&!h.inCar&&Math.hypot(h.x-px,h.z-pz)>60)
+    .sort((a,b)=>Math.hypot(b.x-px,b.z-pz)-Math.hypot(a.x-px,a.z-pz));for(const h of far.slice(0,n))h.remove();}
 function altstScene(key,x,z,face){const s={key,x,z,face,people:[],active:false,sayT:mr(2,5),t:0};ALTST.scenes.push(s);return s;}
 function altstSpawnScene(s){const D=ALTST_SCENE_DEFS[s.key];s.people=[];s.active=true;
   for(let k=0;k<D.n;k++){let x,z,f;
@@ -230,8 +237,8 @@ function altstSpawnScene(s){const D=ALTST_SCENE_DEFS[s.key];s.people=[];s.active
   if(s.key==='weinprobe'&&!s.barrel){const m=new THREE.Mesh(altstProps().barrel,stdMat({color:0x7a4a26,roughness:0.8}));m.position.set(s.x,groundY(s.x,s.z),s.z);s.barrel=altstAdd(m);}}
 function altstDespawnScene(s){for(const h of s.people)if(!h.removed&&h.altstScene===s&&(h.state==='wait'||h.state==='talk')){if(TALK&&TALK.npc===h)endTalk();h.remove();}s.people=[];s.active=false;}
 function altstUpdateScene(s,dt,px,pz){const d=Math.hypot(s.x-px,s.z-pz);
-  if(!s.active){if(ALTST.on&&d<ALTST.SCENE_ON)altstSpawnScene(s);return;}
-  if(!ALTST.on||d>ALTST.SCENE_OFF){altstDespawnScene(s);return;}
+  if(!s.active){if(ALTST.on&&ALTST.scenesOn&&d<ALTST.SCENE_ON){altstMakeRoom(ALTST_SCENE_DEFS[s.key].n,px,pz);altstSpawnScene(s);}return;}
+  if(!ALTST.on||!ALTST.scenesOn||d>ALTST.SCENE_OFF){altstDespawnScene(s);return;}
   const D=ALTST_SCENE_DEFS[s.key];s.t+=dt;
   // Wer erschreckt wegläuft oder umgefahren wurde, gehört nicht mehr zur Szene
   s.people=s.people.filter(h=>{const ok=!h.removed&&h.alive&&(h.state==='wait'||h.state==='talk');if(!ok){h.altstScene=null;h.altstSit=false;h.g.rotation.z=0;}return ok;});
