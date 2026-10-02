@@ -259,7 +259,7 @@ function updateActivePed(o,dt){const P=nearestPlayer(o.x,o.z);const h=P.h;if(!h|
     if(o.shoutT>14||d>60){o.state='walk';}}
   else if(o.state==='approach'){o.apT+=dt;if(d>1.7){mv=moveHuman(o,dx,dz,2.6,dt);faceTo(o,dx,dz,dt,8);}else if(!TALK){o.state='wait';startTalk(P,o);return;}if(o.apT>15||d>50){o.state='walk';}}
   else if(o.state==='brawl'){o.brT+=dt;o.hitT-=dt;faceTo(o,dx,dz,dt,10);if(d>1.05)mv=moveHuman(o,dx,dz,4.6,dt);
-    else if(o.hitT<=0){o.hitT=mr(0.8,1.3);o.armR.rotation.x=-1.45;o.armR.rotation.z=0.4;noiseHit(0.4,0.08,600);damagePlayer(P,mr(5,9));P.cam.shake=Math.max(P.cam.shake,0.15);if(Math.random()<0.3)say(o,mpick(['Nimm das!','Für meine Oma!','Und noch eine!','HELAU!']),1.5,'loud');}
+    else if(o.hitT<=0){o.hitT=mr(0.8,1.3);o.armR.rotation.x=-0.85;o.armR.rotation.z=0.4;noiseHit(0.4,0.08,600);damagePlayer(P,mr(5,9));P.cam.shake=Math.max(P.cam.shake,0.15);if(Math.random()<0.3)say(o,mpick(['Nimm das!','Für meine Oma!','Und noch eine!','HELAU!']),1.5,'loud');}
     if(o.brT>25||d>45||o.health<20){o.state='walk';o.setExpr('sad');say(o,mpick(['Schon gut, schon gut!','Ich hab Rücken.','Das war nur Spaß!']),2.5);pedFlee(o,h.x,h.z,8);return;}}
   o.animate(dt,mv);o.y=groundY(o.x,o.z,o.y);o.sync();}
 

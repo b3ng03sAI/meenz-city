@@ -1,3 +1,7 @@
+// ---------- Sicherheit: OSM-Texte landen in innerHTML-Hinweisen → spitze Klammern entfernen (Security-Audit F1) ----------
+const OSM_SANITIZED=(()=>{let n=0;const walk=a=>{if(!Array.isArray(a)||!a.length)return;if(typeof a[0]==='number'&&typeof a[a.length-1]==='number'&&a.length>8)return;
+  for(let i=0;i<a.length;i++){const v=a[i];if(typeof v==='string'){if(/[<>]/.test(v)){a[i]=v.replace(/[<>]/g,'');n++;}}else if(Array.isArray(v))walk(v);}};
+  for(const k in OSM){const v=OSM[k];if(Array.isArray(v))walk(v);}return n;})();
 // ---------- Weltgrenzen (1 Einheit = 1 m, Ursprung = Dom, +x Ost, -z Nord) ----------
 const [MINX,MINZ,WW,WH]=OSM.bounds||[-6016,-3264,9216,5888];const MAXX=MINX+WW, MAXZ=MINZ+WH;
 const MAP_CX=(MINX+MAXX)/2, MAP_CZ=(MINZ+MAXZ)/2, MAP_R=Math.hypot(WW,WH)/2;
