@@ -120,6 +120,8 @@ async def test(g):
     await g.js(f"()=>{{{M}.G.fahrradSchein=true}}")
     await g.page.keyboard.down('KeyW'); await g.step(7)
     sp = await g.js(f"()=>Math.abs({M}.P1.car.speed)")
+    # Gang-Revier am Straßenrand würde den Spieler anschießen – geprüft wird nur der Sturz beim Absteigen
+    await g.js(f"()=>{{const M={M},c=M.P1.car;for(const h of [...M.HUMANS])if(h.kind==='gang'&&Math.hypot(h.x-c.x,h.z-c.z)<80)h.remove();}}")
     hp0 = await g.js(f"()=>{M}.P1.h.health")
     await g.js(f"()=>{M}.tryEnterExit({M}.P1)")
     await g.page.keyboard.up('KeyW')
