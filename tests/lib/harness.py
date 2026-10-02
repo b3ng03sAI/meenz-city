@@ -50,9 +50,15 @@ class Game:
 
     async def start(self, split=False):
         """Wartet auf das fertig geladene Spiel und startet eine neue Runde."""
-        await self.page.wait_for_function('(window.__MEENZ!==undefined&&__MEENZ.mode==="menu")||!!(document.getElementById("errbox")||{}).textContent', timeout=300000)
-        err = await self.errbox()
-        if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
+        # Laden: bis das Menü steht – sofort abbrechen bei Fehlerbox oder Seitenfehler (z. B. SyntaxError bei Namenskollision)
+        t0 = time.time()
+        while time.time() - t0 < 300:
+            if await self.js('()=>window.__MEENZ!==undefined&&__MEENZ.mode==="menu"'): break
+            err = await self.errbox() or next((e for e in self.errors if e.startswith('pageerror')), '')
+            if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
+            await asyncio.sleep(0.25)   # Wartezeit nur beim Laden, nicht in der Spielzeit
+        else:
+            raise RuntimeError('Spiel lädt nicht: Zeitüberschreitung (300 s)')
         await self.js('(s)=>{if(s)__MEENZ.enableSplit&&__MEENZ.enableSplit();__MEENZ.startGame();}', bool(split))
         await self.step(0.1)
 
