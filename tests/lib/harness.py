@@ -50,7 +50,9 @@ class Game:
 
     async def start(self, split=False):
         """Wartet auf das fertig geladene Spiel und startet eine neue Runde."""
-        await self.page.wait_for_function('window.__MEENZ!==undefined&&__MEENZ.mode==="menu"', timeout=300000)
+        await self.page.wait_for_function('(window.__MEENZ!==undefined&&__MEENZ.mode==="menu")||!!(document.getElementById("errbox")||{}).textContent', timeout=300000)
+        err = await self.errbox()
+        if err: raise RuntimeError('Spiel lädt nicht: ' + err[:300])
         await self.js('(s)=>{if(s)__MEENZ.enableSplit&&__MEENZ.enableSplit();__MEENZ.startGame();}', bool(split))
         await self.step(0.1)
 
