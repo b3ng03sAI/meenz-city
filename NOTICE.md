@@ -16,9 +16,12 @@ Startbildschirm einen Link auf den Quellcode; bei eigenen Fassungen auf das eige
 Volltext in [`licenses/ODbL-1.0.txt`](licenses/ODbL-1.0.txt), siehe https://www.openstreetmap.org/copyright.
 Abgeleitete Datenbestände müssen ebenfalls unter der ODbL weitergegeben werden.
 
-## Zur Laufzeit geladene Fremdbestandteile (nicht im Repository enthalten)
-- [three.js](https://threejs.org) r160 – MIT-Lizenz, © 2010–2023 three.js authors (per CDN geladen)
-- Schriften „Bungee“ und „Barlow Condensed“ über Google Fonts – SIL Open Font License 1.1
+## Eingebettete Fremdbestandteile (im gebauten Spiel enthalten, keine Anfragen an Dritte)
+- [three.js](https://threejs.org) r160 inkl. Addons (`examples/jsm`) – MIT-Lizenz, © 2010–2023 three.js authors,
+  Volltext in [`licenses/MIT-three.js.txt`](licenses/MIT-three.js.txt). Quelle: `node_modules/three` (gepinnt per `package-lock.json`).
+- Schriften „Bungee“ (© 2023 The Bungee Project Authors) und „Barlow Condensed“ (© 2017 The Barlow Project Authors) –
+  SIL Open Font License 1.1, Volltexte in [`licenses/OFL-Bungee.txt`](licenses/OFL-Bungee.txt) und
+  [`licenses/OFL-BarlowCondensed.txt`](licenses/OFL-BarlowCondensed.txt); Dateien in `game/fonts/` (lateinischer Zeichensatz).
 
 ## Hinweise
 Fan-Projekt ohne Verbindung zu den Städten Mainz und Wiesbaden oder anderen Institutionen. Alle Personen in Dialogen und

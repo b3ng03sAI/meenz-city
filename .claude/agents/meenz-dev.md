@@ -32,7 +32,8 @@ You implement exactly one roadmap package of Meenz City, a three.js browser game
 ## Definition of done (completion gate)
 - Feature implemented per the spec in your task.
 - `tests/test_<package>.py` asserts the spec through `window.__MEENZ.<YOUR_OBJ>` — deterministic (`g.step`, no sleeps).
-- Full suite green: `python3 tests/run.py` — paste the summary line.
+- Your own test file plus the smoke test green: `python3 tests/run.py <package> all` — paste the summary line. Do NOT
+  run the full suite: the team lead merges all packages and a single `web-tester` runs it once per wave.
 - Visible parts: at least one `real=True` screenshot that you opened and looked at; describe what you saw.
 - Small commits on your branch (`feat:`/`test:`/`fix:` + lowercase German description saying why, plus the trailers
   the task gives you). No merge, no push.

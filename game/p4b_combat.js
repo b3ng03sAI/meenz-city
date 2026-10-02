@@ -30,11 +30,11 @@ function castRay(o,d,tMin,tMax,ignoreH,ignoreCar){let best=Infinity,hit=null,kin
   for(let t=tMin;t<Math.min(best,tMax);t+=0.5){const x=o.x+d.x*t,y=o.y+d.y*t,z=o.z+d.z*t;const gh=gridH(x,z);if(y<groundY(x,z)-((mfG(idx(x,z))&4)&&!bridgeLocal(x,z)?5:0)||(gh!==255&&gh>0&&y<gh&&!bridgeLocal(x,z))){best=t;hit=null;kind='w';break;}}
   return {t:best,hit,kind,head};}
 function playerFire(P,I){const h=P.h,W=WEAPONS[P.weapon];if(P.fireT>0||P.gameOver)return;
-  if(W.melee){if(P.car)return;P.fireT=W.rate;h.armR.rotation.x=-1.8;const fx=Math.sin(h.facing),fz=Math.cos(h.facing);let best=null,bd=W.range;
+  if(W.melee){if(P.car)return;P.fireT=W.rate;h.armR.rotation.x=-0.85;h.armR.rotation.z=0.4;const fx=Math.sin(h.facing),fz=Math.cos(h.facing);let best=null,bd=W.range;
     for(const o of HUMANS){if(o===h||!o.alive||o.inCar)continue;const dx=o.x-h.x,dz=o.z-h.z;const d=Math.hypot(dx,dz);if(d<bd&&(dx*fx+dz*fz)/Math.max(d,0.01)>0.4){bd=d;best=o;}}
     noiseHit(0.25,0.06,500);if(best){noiseHit(0.5,0.1,700);knockHuman(best,fx*(P.weapon==='bat'?6:3),fz*(P.weapon==='bat'?6:3),2.4,W.dmg,true);if(best.kind==='cop')crime('hitCop',best.x,best.z);else if(best.alive&&best.kind==='ped')pedFlee(best,h.x,h.z);if(best.kind==='gang')best.hostile=true;}return;}
   if(W.thrown){if((P.ammo[P.weapon]||0)<=0)return;P.fireT=W.rate;P.ammo[P.weapon]--;P.camera.getWorldDirection(_d);const sx=P.car?P.car.x:h.x,sz=P.car?P.car.z:h.z,sy=(P.car?P.car.y+1.6:h.y+1.7);
-    const sp=P.car?14:16;throwProjectile(P.weapon,sx+_d.x*0.8,sy,sz+_d.z*0.8,_d.x*sp+(P.car?P.car.vx:0),_d.y*sp+5.5,_d.z*sp+(P.car?P.car.vz:0),P);h.armR.rotation.x=-2.6;
+    const sp=P.car?14:16;throwProjectile(P.weapon,sx+_d.x*0.8,sy,sz+_d.z*0.8,_d.x*sp+(P.car?P.car.vx:0),_d.y*sp+5.5,_d.z*sp+(P.car?P.car.vz:0),P);h.armR.rotation.x=-0.6;h.armR.rotation.z=-0.8;
     if(!(P.ammo[P.weapon]>0))cycleWeapon(P,1);return;}
   if(P.reloadT>0)return;if(!(P.mag[P.weapon]>0)){reload(P);return;}
   if(P.car&&!(P.weapon==='pistol'||P.weapon==='smg'))return;
