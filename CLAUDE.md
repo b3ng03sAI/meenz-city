@@ -78,7 +78,10 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
 ## Inhaltliche Regeln
 - **Keine echten lebenden Politiker** darstellen – nur fiktive Figuren (z. B. „Dr. Hubertus Schoppenhauer“).
 - **Keine fremden Marken/Figuren nachbauen** (z. B. Mario-Kart-Elemente: keine Pilze, Panzer, ?-Blöcke) – eigene Designs.
-- Keine Gesten, die nach verbotenem Gruß aussehen (Arme beim Jubeln senkrecht nach oben).
+- **Keine Gesten, die nach verbotenem Gruß aussehen:** nie den rechten Arm allein gestreckt über ~33° unter der Waagerechten
+  heben (Faustschlag = Stoß schräg nach unten zur Körpermitte), nie beide Arme senkrecht (Jubel nur als seitliches V).
+  `game/p3c_haltung.js` erzwingt das am Ende jedes `update()` für alle Figuren; `tests/test_haltung.py` prüft es mit echtem
+  three.js. Neue Posen trotzdem von vornherein so bauen.
 - Kartendaten © OpenStreetMap-Mitwirkende (ODbL).
 - **Lizenz:** Spiel AGPL-3.0-only, OSM-Daten ODbL (`LICENSE`, `NOTICE.md`). Keinen fremden Code/Assets übernehmen, deren Lizenz
   nicht AGPL-kompatibel ist; neue Laufzeit-Abhängigkeiten in `NOTICE.md` eintragen. Quellcode-Link im Startbildschirm nie entfernen (AGPL §13).
