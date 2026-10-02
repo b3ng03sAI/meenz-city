@@ -124,6 +124,11 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
 9. Notion: **Fertig** + Notizen (Version, was drin ist, Teststand); Lessons in `tasks/lessons.md`.
 
 ## Parallel arbeiten (Agent-Team)
+- **Rollen:** `team-lead` (`.claude/agents/team-lead.md`) plant die Welle, verdrahtet vorab, startet je Paket einen
+  `meenz-dev` im eigenen Worktree, merged die Branches und gibt den Gesamtstand **einmal** an einen `web-tester`
+  (volle Suite, Screenshots, `mob9`, Haltung). Feature-Agents testen nur ihre eigene Datei + `test_all`
+  (`python3 tests/run.py <paket> all`), nie die volle Suite – sonst laufen N volle Suiten parallel und die Maschine kippt.
+  Höchstens ~5 Feature-Agents gleichzeitig.
 - Ein Feature = eine eigene Datei + eigener Branch/Worktree. Konfliktträchtig sind nur `build.py`, `p4e_main.js`
   (Schleife/Boot/`__MEENZ`), `p3_actors.js` (Fahrzeugtypen) und `p4c_player.js` – Änderungen dort klein halten.
 - Integration in der Hauptsession: mergen, dann `npm test` im Haupt-Tree – zwei grüne Branches sind nicht automatisch
