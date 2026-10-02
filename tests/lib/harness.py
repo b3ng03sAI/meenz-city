@@ -31,11 +31,11 @@ SWIFTSHADER = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--igno
 INIT = """
 window.__NORENDER=true;window.__MANUAL=true;
 (()=>{let s=%d>>>0;Math.random=function(){s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);
-t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};})();
+t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};window.__reseed=n=>{s=n>>>0;};})();
 """ % SEED
 
 # Konsolenfehler, die kein Spielfehler sind (fehlende Ressourcen im Offline-/Stub-Betrieb)
-IGNORE_CONSOLE = ('Failed to load resource', 'favicon')
+IGNORE_CONSOLE = ('fonts.googleapis', 'fonts.gstatic', 'favicon')
 
 
 class Game:
@@ -60,12 +60,19 @@ class Game:
         else:
             raise RuntimeError('Spiel lädt nicht: Zeitüberschreitung (300 s)')
         await self.js('(s)=>{if(s)__MEENZ.enableSplit&&__MEENZ.enableSplit();__MEENZ.startGame();}', bool(split))
+        await self.reseed(SEED)   # ab Spielstart dieselbe Zufallsfolge, egal wie viel Zufall neue Features beim Boot verbrauchen
         await self.step(0.1)
 
     async def step(self, sec, dt=1 / 60):
         """Lässt `sec` Sekunden Spielzeit in Schritten von `dt` laufen. Fehler im Update werfen hier."""
-        return await self.js('([n,dt])=>{const M=__MEENZ;for(let i=0;i<n;i++)M.update(dt);return M.mode;}',
+        # wie frame(): update + HUD jeden Schritt, Minimap ~30 Hz – so fallen auch HUD-/Kartenfehler in Tests auf
+        return await self.js('([n,dt])=>{const M=__MEENZ;for(let i=0;i<n;i++){M.update(dt);if(M.mode==="play"){M.updateHUD(dt);if(i%2===0)M.drawMinimaps();}}return M.mode;}',
                              [max(1, round(sec / dt)), dt])
+
+    async def reseed(self, n):
+        """Setzt den Zufallsgenerator neu – vor zufallsabhängigen Abschnitten, damit neue Features mit eigenem
+        Zufallsverbrauch beim Boot die Erwartungen späterer Checks nicht verschieben."""
+        await self.js('(n)=>window.__reseed(n)', int(n))
 
     async def key(self, code, hold=0.0, after=0.1):
         """Drückt eine Taste (KeyboardEvent.code, z. B. 'KeyE'), hält sie `hold` s Spielzeit, dann `after` s weiter."""
