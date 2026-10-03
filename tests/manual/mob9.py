@@ -5,6 +5,7 @@ Aufruf:  python3 tests/manual/mob9.py m              # iPhone-13-Emulation (Qual
 Optionen: --q niedrig|mittel|hoch|ultra   Qualität fest setzen (localStorage meenz-quality)
           --at x,z[;x,z…]                 nach dem Laden dorthin teleportieren (je Ziel Heap + STREAM-Zustand)
           --tour                          Fahrt Start → Brücke → Wiesbaden → zurück (Heap je Etappe, Paket 40.5)
+          --ft                            danach Schnellreise nach Wiesbaden-Innenstadt und zurück zum Dom (Heap je Ziel)
           --top N                         Anzahl Zeilen der Verursacherlisten (Standard 25)
 Braucht einen Server (MEENZ_URL, Standard http://localhost:8765). Bild: tests/out/mob_snap.jpg.
 """
@@ -18,6 +19,7 @@ ap.add_argument('dev',nargs='?',default='m')
 ap.add_argument('--q',default=None)
 ap.add_argument('--at',default=None)
 ap.add_argument('--tour',action='store_true')
+ap.add_argument('--ft',action='store_true')
 ap.add_argument('--top',type=int,default=25)
 A=ap.parse_args()
 MOB=A.dev=='m'
@@ -31,7 +33,12 @@ async def heap(pg):
     await pg.evaluate("()=>window.gc&&gc()")
     return await pg.evaluate("()=>Math.round(performance.memory.usedJSHeapSize/1e6)")
 async def stream_state(pg):
-    return await pg.evaluate("()=>{const S=window.__MEENZ.STREAM||{};const o={};for(const k in S){const v=S[k];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[k]=v;else if(Array.isArray(v))o[k]='['+v.length+']';else if(v instanceof Map||v instanceof Set)o[k]='{'+v.size+'}';}return JSON.stringify(o);}")
+    return await pg.evaluate("()=>{const S=window.__MEENZ.STREAM||{};const o={};for(const k in S){const v=S[k];if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')o[k]=v;else if(Array.isArray(v))o[k]='['+v.length+']';else if(v instanceof Map||v instanceof Set)o[k]='{'+v.size+'}';}"
+                             "if(S.counts){o.tiles=S.counts();o.pending=S.pending();o.cpuGeoMB=Math.round(S.stats.cpuGeoBytes/1e5)/10;o.builds=S.stats.layerBuilds;o.disposes=S.stats.disposes;}return JSON.stringify(o);}")
+async def settle(pg):
+    """Spiel-Updates laufen lassen, bis STREAM nichts mehr nachbaut/freigibt (höchstens 600 Bilder), dann einmal rendern
+    (GPU-Upload → dropCPU gibt die CPU-Kopien der sichtbaren Kachel-Meshes frei, wie im Spiel)."""
+    return await pg.evaluate("()=>{const M=__MEENZ,S=M.STREAM;let i=0;for(;i<600;i++){M.update(0.05);if(S.pending&&!S.pending())break;}M.snap(1);return i;}")
 async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-precise-memory-info','--js-flags=--expose-gc'])
@@ -109,6 +116,17 @@ async def main():
         for (x,z) in stops:
             t1=time.time()
             await pg.evaluate("([x,z])=>{const M=__MEENZ;M.P1.h.x=x;M.P1.h.z=z;for(let i=0;i<40;i++)M.update(0.05);}",[x,z])
-            print('at',(x,z),'step',round(time.time()-t1,1),'s heap',await heap(pg),'MB',await stream_state(pg),(await pg.evaluate("()=>(document.getElementById('errbox')||{}).textContent")) or '')
+            n=await settle(pg)
+            print('at',(x,z),'step',round(time.time()-t1,1),'s +',n,'frames heap',await heap(pg),'MB',await stream_state(pg),(await pg.evaluate("()=>(document.getElementById('errbox')||{}).textContent")) or '')
+        if A.ft:
+            # Schnellreise wie im Spiel (Karte → Ziel): Wiesbaden-Innenstadt, danach zurück zum Dom
+            await pg.evaluate("()=>{window.__MANUAL=true;const M=__MEENZ;if(M.mode!=='play')M.startGame();M.setWanted(0);}")
+            for target in [(-2239,-9205),(0,0)]:
+                t1=time.time()
+                d=await pg.evaluate("([x,z])=>{const M=__MEENZ;const L=M.ftDestinations().filter(d=>!d.special);let b=null,bd=1e9;for(const d of L){const e=Math.hypot(d.x-x,d.z-z);if(e<bd){bd=e;b=d;}}M.fastTravel(b);return {n:b.n,x:b.x,z:b.z};}",list(target))
+                await pg.wait_for_function("(d)=>{const h=__MEENZ.P1.h;return Math.hypot(h.x-d.x,h.z-d.z)<400}",arg=d,timeout=10000)
+                core=await pg.evaluate("()=>{const S=__MEENZ.STREAM;return JSON.stringify({coreMs:Math.round(S.stats.coreMs),near450:S.near(__MEENZ.P1.h.x,__MEENZ.P1.h.z,450).filter(t=>t.state!=='built').length})}")
+                n=await settle(pg)
+                print('ft',d['n'],'step',round(time.time()-t1,1),'s +',n,'frames heap',await heap(pg),'MB',await stream_state(pg),'core',core)
         await b.close()
 asyncio.run(main())
