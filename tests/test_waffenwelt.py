@@ -110,8 +110,9 @@ async def test(g):
     got = await g.js(f"""(i)=>{{const M={M},W=M.WWELT,s=W.spots[i];return {{owned:!!M.P1.owned.bat,weapon:M.P1.weapon,active:s.active,t:s.t,found:W.found.size,
       hint:document.getElementById('hint').innerHTML,last:W.lastHint,n:W.spots.length}}}}""", bat[0])
     g.check('Schläger aufgesammelt und in der Hand', got['owned'] and got['weapon'] == 'bat', got)
-    g.check('Mundart-Hinweis „Ei, e Baseballschläger!“ mit Waffennamen', 'Ei, e Baseballschläger!' in got['hint'] and 'BASEBALLSCHLÄGER' in got['hint'], got['hint'])
-    g.check('Hinweis zeigt den Zähler „Waffenverstecke gefunden: 1 / N“', f"Waffenverstecke gefunden: 1 / {got['n']}" in got['hint'], got['hint'])
+    # lastHint statt #hint: der Start-Hinweis aus startGame() kommt per setTimeout nach Wanduhr und kann #hint überschreiben
+    g.check('Mundart-Hinweis „Ei, e Baseballschläger!“ mit Waffennamen', 'Ei, e Baseballschläger!' in got['last'] and 'BASEBALLSCHLÄGER' in got['last'], got['last'])
+    g.check('Hinweis zeigt den Zähler „Waffenverstecke gefunden: 1 / N“', f"Waffenverstecke gefunden: 1 / {got['n']}" in got['last'], got['last'])
     g.check('Versteck leer, Nachschub in 5 min', not got['active'] and 290 <= got['t'] <= 300, got)
 
     # 6. Nachschub nach dem Timer (Spieler steht daneben, nicht drauf)
@@ -184,8 +185,8 @@ async def shot(g):
     # Screenshot: Gruppe aus Verstecken an der dichtesten Stelle, Kamera von schräg oben
     c = await g.js(f"""()=>{{const sp={S}.spots.filter(s=>!s.roof);let best=null,bn=-1;for(const a of sp){{const n=sp.filter(b=>Math.hypot(a.x-b.x,a.z-b.z)<60).reduce((t,b)=>t+b.items.length,0)+a.items.length;if(n>bn){{bn=n;best=a;}}}}
       return [best.x,best.z,best.y,bn]}}""")
-    await tele(g, c[0] + 6, c[1] + 6)
-    await g.js(f"()=>{{for(const s of {S}.spots)s.active=true;const P={M}.P1;P.cam.yaw=Math.atan2({c[0]}-P.h.x,{c[1]}-P.h.z);P.cam.pitch=0.32;P.cam.lastLook=1e9}}")
+    await tele(g, c[0] + 3.5, c[1] + 3.5)
+    await g.js(f"()=>{{for(const s of {S}.spots)s.active=true;const P={M}.P1;P.cam.yaw=Math.atan2({c[0]}-P.h.x,{c[1]}-P.h.z);P.cam.pitch=0.22;P.cam.lastLook=1e9}}")
     await g.step(1.0)
     import base64
     url = await g.js("()=>__MEENZ.snap(4,true)")
