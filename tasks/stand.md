@@ -5,7 +5,7 @@
   (installierbare Web-App) und als claude.ai-Artifact https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq.
 
 ## Lokal fertig, nicht gepusht
-Der lokale `main` liegt **78 Commits** vor `origin/main` (Nutzerwunsch seit 2026-10-02 abends: nicht pushen).
+Der lokale `main` liegt **rund 80 Commits** vor `origin/main` (Nutzerwunsch seit 2026-10-02 abends: nicht pushen).
 Testsuite: 50 Testdateien. Letzter voller Lauf (`npm test`, 2026-10-03, ruhige Maschine): 49/50 grün; `test_gons` scheiterte
 nur an einer fest eingebauten Gehzeit (seit Gehen 4,2 m/s) – Test angepasst, danach mit zwei Seeds grün.
 
