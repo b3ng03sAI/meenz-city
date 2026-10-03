@@ -52,7 +52,7 @@ const GROUND={tiles:new Map(),far:null,TZ:512,t:0,R:750,stats:{builds:0,disposes
 // Schritt, sonst landet alles im Weichzeichner-Schritt (WebKit: bis 16 ms statt 4–6 ms je Schritt)
 function grFlush(g){g.getImageData(0,0,1,1);}
 // Bodenkachel-Canvas auf der CPU: Malen kostet im eigenen Schritt, kein Rückleseweg von der GPU
-const GR_CPU={willReadFrequently:true},GR_AO_N=250;
+const GR_CPU={willReadFrequently:true},GR_AO_N=250,GR_JUMP_R=200;
 function groundTileJob(tx,ty,k){const S=Q.tileRes,TZ=GROUND.TZ,sc=S/TZ,ox=MINX+tx*TZ,oz=MINZ+ty*TZ;let c=null,g=null,ac=null,ag=null,bl=null,bi=0,ph=0;
   const world=gg=>gg.setTransform(sc,0,0,sc,-ox*sc,-oz*sc);
   const step=()=>{GROUND.stats.steps++;
@@ -82,7 +82,11 @@ function updateGround(px,pz,force=false,maxN=1,pts=null){pts=pts||[[px,pz]];GROU
     const t0y=Math.max(0,Math.floor((q[1]-R-TZ-MINZ)/TZ)),t1y=Math.min(ny-1,Math.floor((q[1]+R+TZ-MINZ)/TZ));
     for(let ty=t0y;ty<=t1y;ty++)for(let tx=t0x;tx<=t1x;tx++){const k=tx+','+ty;if(GROUND.tiles.has(k)||dOf(tx,ty)>=R)continue;const key='gr:'+k;
       if(!fbHas(key)){const J=fbJob(key,groundTileJob(tx,ty,k),{x:MINX+(tx+0.5)*TZ,z:MINZ+(ty+0.5)*TZ,bias:0});J.gr=[tx,ty];}}}
-  if(force)fbFlush(J=>J.gr!==undefined&&dOf(J.gr[0],J.gr[1])<R);
+  // force: beim Laden alles in Reichweite, im Spiel (Schnellreise) nur die Kacheln < GR_JUMP_R um den Zielpunkt – der Rest
+  // kommt über das Budget nach (bis dahin zeigt der grobe Fernboden), sonst hängt das erste Bild nach dem Sprung ~150 ms
+  if(force){const near=(tx,ty)=>{const x0=MINX+tx*TZ,z0=MINZ+ty*TZ;
+      for(const q of pts)if(Math.hypot(Math.max(x0-q[0],0,q[0]-x0-TZ),Math.max(z0-q[1],0,q[1]-z0-TZ))<GR_JUMP_R)return true;return false;};
+    fbFlush(J=>J.gr!==undefined&&dOf(J.gr[0],J.gr[1])<R&&(mode==='loading'||near(J.gr[0],J.gr[1])));}
   for(const J of FRAMEB.jobs.values())if(J.gr&&dOf(J.gr[0],J.gr[1])>R+350){J.step.drop();fbCancel(J.key);GROUND.stats.cancels++;}
   for(const [k,has] of GROUND.tiles){const i=k.indexOf(',');if(dOf(+k.slice(0,i),+k.slice(i+1))<=R+350)continue;
     scene.remove(has);has.geometry.dispose();has.material.map.dispose();has.material.dispose();GROUND.tiles.delete(k);GROUND.stats.disposes++;}}

@@ -91,14 +91,29 @@ async def test(g):
     b = await g.js(STATE, 'weis_syn')
     g.check('Weisenau-Synagoge: bei 440 m angefangen, bei 300 m Rest synchron fertig', a['building'] and not a['built'] and b['built'] and b['inScene'] and not b['job'], [a, b])
 
-    # 5. Teleport (Sprung) in ferne Zonen: sofort gebaut, keine kalten Raster-Kacheln beim Bau
+    # 5. Teleport (Sprung) in ferne Zonen: sofort gebaut, keine kalten Raster-Kacheln beim Bau (HGC zählt beim Baustart;
+    #    die Zwangsbauten oben weit weg vom Spieler zählen absichtlich nicht mit)
+    await g.js(NOWHERE)
+    for _ in range(40): await g.js(TICK)
+    c0 = await g.js(f"()=>{M}.HGC.zoneBuildsCold")
+    n0 = await g.js(f"()=>{M}.HGC.zoneBuildsNoted||0")
     for n in ('gons', 'weis_syn', 'wiesi_schloss'):
         await g.js(PUT, [n, 20])
         await g.js(TICK)
         s = await g.js(STATE, n)
         g.check(f'Teleport nach {n}: im ersten Bild gebaut', s['built'] and s['inScene'], s)
-    cold = await g.js(f"()=>{M}.HGC.zoneBuildsCold")
-    g.check('HGC.zoneBuildsCold === 0', cold == 0, cold)
+    c1 = await g.js(f"()=>{M}.HGC.zoneBuildsCold")
+    # normale Annäherung (Gehen in 100-m-Schritten aus 1,3 km): die Umgebung ist vor dem Baustart roh
+    await g.js(NOWHERE)
+    for _ in range(40): await g.js(TICK)
+    for d in range(1300, 250, -100):
+        await g.js(PUT, ['akk_schleuse', d])
+        for _ in range(8): await g.js(TICK)
+    s = await g.js(STATE, 'akk_schleuse')
+    c2 = await g.js(f"()=>{M}.HGC.zoneBuildsCold")
+    n2 = await g.js(f"()=>{M}.HGC.zoneBuildsNoted||0")
+    g.check('Baustart meldet sich bei HGC (hgcNoteZoneBuild)', n2 >= n0 + 4, [n0, n2])
+    g.check('kein kalter Baustart (zoneBuildsCold +0) bei Teleport in ferne Zonen und normaler Annäherung', c1 == c0 and c2 == c1 and s['built'], [c0, c1, c2, s['built']])
 
     # 6. Im Bau weggefahren: Bau läuft zu Ende, danach normal freigegeben, keine Reste
     await g.js(NOWHERE); await g.js(TICK)
