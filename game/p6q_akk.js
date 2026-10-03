@@ -501,9 +501,6 @@ function akkZoneDispose(Z){const k=Z.o.key;akkDropScenes(Z);const i=AKK.live.ind
   if(k==='amoeneburg'&&AKK.industrie)AKK.industrie.arm=null;
   if(k==='maaraue')AKK.swim.in=false;}
 
-// p6_lazy legt Z.group vor build() an – in echtem three.js zieht die UUID aus Math.random: eigene Zonen ganz im eigenen Strom bauen
-const _akkLazyBuild=lazyBuild;
-lazyBuild=function(Z){if(Z&&Z.o&&Z.o.build===akkZoneBuild)return akkRng(()=>_akkLazyBuild(Z));return _akkLazyBuild(Z);};
 function setupAkk(){
   for(const k in AKK_ZC)AKK.zones[k]=lazyZone({name:'akk_'+k,key:k,x:AKK_ZC[k][0],z:AKK_ZC[k][1],build:akkZoneBuild,dispose:akkZoneDispose});
   label('Reduit-Hof',AKK_REDUIT_DOOR[0]-10,AKK_REDUIT_DOOR[1]+5,'small');label('Freibad Maaraue',AKK_BAD.O[0],AKK_BAD.O[1],'lm');label('Mainmündung',AKK_BAD.T[0],AKK_BAD.T[1]+15,'small');

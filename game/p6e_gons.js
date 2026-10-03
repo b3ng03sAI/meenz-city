@@ -42,7 +42,9 @@ function gonsFree(x,z){const i=idx(x,z);return i>=0&&hgG(i)===0&&!(mfG(i)&6);}
 // Zufallsfolge, an der Passanten-Ereignisse wie Pöbeleien hängen
 const GONS_RNG=mulberry32(3838);
 function gonsRng(fn){const r=Math.random;Math.random=GONS_RNG;try{return fn();}finally{Math.random=r;}}
-function gonsMakeZone(name,x,z,build){const Z=lazyZone({name,x,z,build(Z){GONS.hitOn++;gonsRng(()=>build(Z));},dispose:gonsZoneDispose});GONS.zones.push(Z);return Z;}
+// Generator-Bau (Wald): jeder Teilschritt läuft wie bisher im eigenen Gonsenheimer Zufallsstrom
+function gonsMakeZone(name,x,z,build){const Z=lazyZone({name,x,z,build(Z){GONS.hitOn++;const it=gonsRng(()=>build(Z));return it&&typeof it.next==='function'?gonsSteps(it):undefined;},dispose:gonsZoneDispose});GONS.zones.push(Z);return Z;}
+function* gonsSteps(it){while(!gonsRng(()=>it.next()).done)yield;}
 function gonsZoneDispose(Z){
   if(Z===GONS.zone){gonsKerbClear();GONS.kerb.greeted=false;}
   for(let i=GONS.scenes.length-1;i>=0;i--){const sc=GONS.scenes[i];if(sc.zone!==Z)continue;for(const h of sc.npcs)if(!h.removed)h.remove();sc.npcs=[];sc.active=false;GONS.scenes.splice(i,1);}
@@ -78,18 +80,19 @@ function gonsForestRoads(withSeg){const W=GONS.wald,bb=W.bb,paths=[],SEG=withSeg
     const cum=[0];for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));const L=cum[cum.length-1],m=pts[pts.length>>1];
     if((r.type==='path'||r.cls>=5)&&L>=60&&gonsInForest(m[0],m[1]))paths.push({pts,cum,L});}
   return {paths,SEG};}
-function gonsWaldBuild(Z){const W=GONS.wald;const {paths,SEG}=gonsForestRoads(true);W.paths=paths;const bb=W.bb;
+// Generator (p6_lazy: ein Teil je Bild-Paket): Wege, Baumraster in Zeilenblöcken, Instanz-Meshes in Zellblöcken
+function* gonsWaldBuild(Z){const W=GONS.wald;const {paths,SEG}=gonsForestRoads(true);W.paths=paths;const bb=W.bb;yield;
   const nearPath=(x,z)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=SEG.get((Math.floor(x/16)+a)+','+(Math.floor(z/16)+b));if(l)for(const s of l)if(segDist(x,z,s[0],s[1],s[2],s[3]).d<s[4])return true;}return false;};
   // Qualität „niedrig“/Handy: etwa halb so viele Bäume
   const R=mulberry32(3801),sp=gonsLow()?9.3:6.6,CS=300,cells=new Map();let n=0;const H=gonsHits(Z);H.trees=new Map();gonsHitBB(H,bb[0],bb[1],1);gonsHitBB(H,bb[2],bb[3],1);
-  for(let z=bb[1];z<bb[3];z+=sp)for(let x=bb[0];x<bb[2];x+=sp){const px=x+(R()-0.5)*sp*0.8,pz=z+(R()-0.5)*sp*0.8;const kind=R()<0.66?1:0,s=0.8+R()*0.6,rot=R()*TAU,col=R();
+  let row=0;for(let z=bb[1];z<bb[3];z+=sp){if(++row%12===0)yield;for(let x=bb[0];x<bb[2];x+=sp){const px=x+(R()-0.5)*sp*0.8,pz=z+(R()-0.5)*sp*0.8;const kind=R()<0.66?1:0,s=0.8+R()*0.6,rot=R()*TAU,col=R();
     if(!gonsInForest(px,pz)||!gonsFree(px,pz)||nearPath(px,pz)||treeNear(px,pz,3))continue;
     const k=Math.floor((px-bb[0])/CS)+','+Math.floor((pz-bb[1])/CS);let c=cells.get(k);if(!c){c={list:[],x:0,z:0};cells.set(k,c);}c.list.push([px,pz,kind,s,rot,col]);n++;
-    const hk=Math.floor(px/8)*65536+Math.floor(pz/8);let hl=H.trees.get(hk);if(!hl)H.trees.set(hk,hl=[]);hl.push(px,pz);}
-  W.trees=n;if(!n)return;
+    const hk=Math.floor(px/8)*65536+Math.floor(pz/8);let hl=H.trees.get(hk);if(!hl)H.trees.set(hk,hl=[]);hl.push(px,pz);}}
+  W.trees=n;if(!n)return;yield;
   const crowns=[lazyOwn(Z,gonsCrown(0)),lazyOwn(Z,gonsCrown(1))],trunk=lazyOwn(Z,gonsTrunk());
   const m=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new THREE.Vector3(),p=new THREE.Vector3(),c=new THREE.Color(),up=new THREE.Vector3(0,1,0);
-  for(const cell of cells.values()){const L=cell.list;for(let i=L.length-1;i>0;i--){const j=Math.floor(R()*(i+1));const t=L[i];L[i]=L[j];L[j]=t;}// gemischt → .count = gleichmäßige Ausdünnung
+  let nc=0;for(const cell of cells.values()){if(nc++%3===2)yield;const L=cell.list;for(let i=L.length-1;i>0;i--){const j=Math.floor(R()*(i+1));const t=L[i];L[i]=L[j];L[j]=t;}// gemischt → .count = gleichmäßige Ausdünnung
     let sx=0,sz=0;for(const t of L){sx+=t[0];sz+=t[1];}cell.x=sx/L.length;cell.z=sz/L.length;let r=0;for(const t of L)r=Math.max(r,Math.hypot(t[0]-cell.x,t[1]-cell.z));cell.r=r+6;
     const byK=[L.filter(t=>t[2]===0),L.filter(t=>t[2]===1)];cell.meshes=[];
     const tm=new THREE.InstancedMesh(trunk,MAT.bark,L.length);
