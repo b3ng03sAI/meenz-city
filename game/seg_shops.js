@@ -48,7 +48,8 @@ function buildShops(){
     // Außengastronomie
     if((s.cat===3||s.cat===4)&&R()<0.6){for(const a of [-1.6,1.6]){const p=P(a,0,3.0);if(!free(p[0],p[2])||(mfG(idx(p[0],p[2]))&2))continue;seats.push({x:p[0],z:p[2],face:R()*TAU});if(R()<0.5)paras.push({x:p[0],z:p[2],face:0});rasterCirc(HG,p[0],p[2],0.55,2);}}
     s.doorX=s.x+nx*0.9;s.doorZ=s.z+nz*0.9;SHOPS.push(s);}
-  const add=(G,mat,cast=false)=>{if(G.empty)return null;const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=cast;scene.add(m);return m;};
+  // Handy: Schilder/Türen/Markisen sind stadtweite Meshes → CPU-Kopie nach dem GPU-Upload freigeben
+  const add=(G,mat,cast=false)=>{if(G.empty)return null;const m=new THREE.Mesh(G.geo(),mat);if(LOWMEM)dropCPU(m.geometry);m.receiveShadow=true;m.castShadow=cast;scene.add(m);return m;};
   SIGN_ATLASES.forEach((t,a)=>{const m=stdMat({map:t,roughness:0.45,emissiveMap:t,emissive:0xffffff,emissiveIntensity:0});nightMats.push({m,k:0.9});add(signG[a],m);});
   add(back,stdMat({vertexColors:true,roughness:0.5,metalness:0.4}),true);
   {const m=stdMat({map:doorTex,roughness:0.15,metalness:0.3,emissiveMap:doorEmis,emissive:0xffd9a0,emissiveIntensity:0});nightMats.push({m,k:1.4});add(door,m);}

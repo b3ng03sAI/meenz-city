@@ -25,6 +25,11 @@ CALM = f"""()=>{{for(const o of {M}.HUMANS)if(o.state==='brawl'||o.state==='shou
 # Regression: ein Prügler direkt neben dem sitzenden Fahrgast (Bahn steht, damit sie ihn nicht wegschiebt) – darf nicht zuschlagen
 BRAWLER = f"""()=>{{const M={M},h=M.P1.h;const o=M.HUMANS.find(o=>o.kind==='ped'&&o.alive&&!o.inCar&&!o.removed&&!o.keeper&&!o.mission&&!M.PLAYERS.some(P=>P.h===o));
   if(!o)return null;o.x=h.x+0.5;o.z=h.z;o.y=h.y;o.state='brawl';o.brT=0;o.hitT=0;o.walkSpeed=4.6;return {{i:M.HUMANS.indexOf(o),hp:h.health}}}}"""
+# Regression: feindlicher Bandenschütze 8 m neben dem sitzenden Fahrgast (Bahn steht am Halt); Rüstung weg, damit jeder Treffer zählt
+GUNMAN = f"""()=>{{const M={M},P=M.P1,h=P.h,t=M.STRABA.riding&&M.STRABA.riding.tram;if(!t)return null;const st=t.line.routes[t.ri].stops[t.k];
+  const d=M.STRABA.fn.doors(t).filter(d=>d[2]===st.side)[0];const ax=d[0]-t.x,az=d[1]-t.z,L=Math.hypot(ax,az)||1;
+  const o=M.mkHuman('ped');o.kind='gang';o.state='gang';o.x=d[0]+ax/L*6;o.z=d[1]+az/L*6;o.y=M.groundYFn(o.x,o.z,0);o.health=80;o.weaponG='pistol';
+  o.shootT=0;o.hostile=true;o.alive=true;o.home=[o.x,o.z];o.sync();P.armor=0;h.health=100;return {{i:M.HUMANS.indexOf(o),hp:h.health}}}}"""
 # Regression: Powerup genau am Sitzplatz – darf während der Fahrt nicht eingesammelt werden
 PU_AT_SEAT = f"""()=>{{const M={M},h=M.P1.h,n={{position:{{y:0,set(){{}}}},rotation:{{y:0}},visible:true}};
   M.PU.items.push({{g:n,sp:n,key:'mouse',x:h.x,z:h.z,ph:0}});return M.PU.items.length}}"""
@@ -141,6 +146,12 @@ async def test(g):
     pu = await g.js(f"()=>({{morph:!!{M}.P1.morph,n:{M}.PU.items.length}})")
     g.check('Fahrgast: Powerup am Sitzplatz wird nicht eingesammelt', not pu['morph'] and pu['n'] == n, pu)
     await g.js(NO_PU); await g.js(CALM)
+    # Regression (Welle 10): ein Bandenschütze an der Haltestelle feuert auf den sitzenden Fahrgast – kein Schaden, kein Schuss
+    gun = await g.js(GUNMAN)
+    await g.step(4)
+    shot = await g.js(f"(i)=>{{const M={M},o=M.HUMANS[i];const r={{hp:M.P1.h.health,ride:!!M.STRABA.riding,d:Math.hypot(o.x-M.P1.h.x,o.z-M.P1.h.z),hostile:o.hostile}};o.remove();return r}}", gun['i']) if gun else None
+    g.check('Fahrgast: Schüsse von Bande/Polizei treffen nicht in der Bahn', gun and shot['ride'] and shot['hostile'] and shot['d'] < 20 and shot['hp'] == gun['hp'], [gun, shot])
+    await g.js(CALM)
     await g.step(0.1)
     await g.key('KeyF')
     out = await g.js(f"""()=>{{const M={M},S=M.STRABA,t=S.trams[1],st=t.line.routes[0].stops[t.k],h=M.P1.h;

@@ -24,13 +24,18 @@ function ringValid(P,Q){const aP=polyArea(P),aQ=polyArea(Q);if(Math.sign(aP)!==M
 function ringLen(P){let L=0;for(let i=0;i<P.length;i++){const j=(i+1)%P.length;L+=Math.hypot(P[j][0]-P[i][0],P[j][1]-P[i][1]);}return L;}
 
 const OB=[];
+// Gebäude-Datensatz: poly/holes sind Getter. Bis setupBldSlim() (Boot-Ende) liegen die Ringe in rgP/rgH; danach nur noch
+// nahe den Spielern (Ring-Cache, p2g_bldslim.js), fern dekodiert der Getter jedes Mal frisch aus OSM.b[src].
+class BldsRec{constructor(src,P,H){this.src=src;this.rgP=P;this.rgH=H;}
+  get poly(){const P=this.rgP;return P!==null?P:bldsFetch(this,false);}
+  get holes(){const H=this.rgH;return H!==null?H:bldsFetch(this,true);}}
 function decodeBuildings(){
   const cols=OSM.cols.map(c=>new THREE.Color(c));
-  for(const r of OSM.b){const [hdm,mhdm,rs,lv,typ,flags,col,rcol,rhdm,ni,ring,holes,gid]=r;if(LM_SKIP.has(gid))continue;
+  for(let si=0;si<OSM.b.length;si++){const r=OSM.b[si];const [hdm,mhdm,rs,lv,typ,flags,col,rcol,rhdm,ni,ring,holes,gid]=r;if(LM_SKIP.has(gid))continue;
     const P=decRing(ring);if(P.length<3)continue;const H=holes.map(decRing).filter(h=>h.length>=3);
     const area=Math.abs(polyArea(P));const [cx,cz]=polyCentroid(P);if(cx<MINX+2||cx>MAXX-2||cz<MINZ+2||cz>MAXZ-2)continue;
     if(inRiver(cx,cz)&&area<400)continue;
-    OB.push({poly:P,holes:H,area,x:cx,z:cz,h:hdm/10,mh:mhdm/10,rs,lv,typ,hist:!!(flags&1),isRoof:!!(flags&2)||HALL_ROOFS.has(gid),col:col>=0?cols[col]:null,rcol:rcol>=0?cols[rcol]:null,rh:rhdm/10,name:ONAME(ni),gid});}
+    OB.push(Object.assign(new BldsRec(si,P,H),{area,x:cx,z:cz,h:hdm/10,mh:mhdm/10,rs,lv,typ,hist:!!(flags&1),isRoof:!!(flags&2)||HALL_ROOFS.has(gid),col:col>=0?cols[col]:null,rcol:rcol>=0?cols[rcol]:null,rh:rhdm/10,name:ONAME(ni),gid}));}
 }
 // Stil, Höhe, Dach bestimmen
 function planBuilding(b){const R=mulberry32((b.gid%100000)*7+13);const dist=districtAt(b.x,b.z);b.dist=dist;
@@ -65,7 +70,7 @@ function planBuilding(b){const R=mulberry32((b.gid%100000)*7+13);const dist=dist
   const slate=b.typ===2||b.hist&&R()<0.6||R()<(dist==='Neustadt'?0.55:dist==='Innenstadt'?0.35:0.18);
   b.roofKind=b.typ===2&&R()<0.3?'copper':slate?'slate':'tile';b.roofTint=b.rcol?b.rcol.clone():new THREE.Color(b.roofKind==='slate'?pick(PAL.slate):b.roofKind==='copper'?0xffffff:pick(PAL.tile));
   b.gf=b.typ===2?0:(central&&b.typ!==6&&b.typ!==4?4.2:3.3);b.fh=b.typ===5?3.8:b.typ===2?4:3.15;
-  b.u0=Math.floor(R()*4)*0.25;b.v0=Math.floor(R()*4)*0.25;b.us=Math.floor(R()*8)/8;b.seed=Math.floor(R()*1e6);b.R=R;b.central=central;
+  b.u0=Math.floor(R()*4)*0.25;b.v0=Math.floor(R()*4)*0.25;b.us=Math.floor(R()*8)/8;b.seed=Math.floor(R()*1e6);b.central=central;
 }
 // Prüfen, ob eine Kante zur Straße zeigt
 function faceStreet(mx,mz,nx,nz){for(const d of [3,6,9]){const i=idx(mx+nx*d,mz+nz*d);if(i<0)return false;if(hgG(i)>0)return false;if((mfG(i)&2))return true;}return false;}
@@ -141,19 +146,46 @@ function addOSMBuilding(b){
 // ---------- Detailstufen: grob für alle Kacheln, fein nur in Spielernähe (wird nachgeladen) ----------
 const CITY={chunks:new Map(),t:0};
 function cityMats(){return {plaster:MAT.plaster,fachwerk:MAT.fachwerk,sandstone:MAT.sandstone,modern:MAT.modern,shop:MAT.shop,trim:MAT.trim,tile:MAT.tile,slate:MAT.slate,flat:MAT.flat,brick:MAT.brick,rom:MAT.rom,copper:MAT.copper};}
-function cityChunks(){for(const b of BUILDINGS){const k=chunkKey(b.x,b.z);let c=CITY.chunks.get(k);if(!c){const [i,j]=k.split(',').map(Number);c={key:k,list:[],cx:MINX+(i+0.5)*CHUNK,cz:MINZ+(j+0.5)*CHUNK,low:null,high:null};CITY.chunks.set(k,c);}c.list.push(b);}}
-function buildChunkGroup(c,det){DET=det;CHUNK_TARGET=new Map();try{for(const b of c.list)addOSMBuilding(b);}finally{DET=QS.detail;}const mats=cityMats();const g=new THREE.Group();
-  for(const ch of CHUNK_TARGET.values())for(const k in ch){if(ch[k].empty)continue;const m=new THREE.Mesh(ch[k].geo(),mats[k]);if(LOWMEM)dropCPU(m.geometry);m.castShadow=true;m.receiveShadow=true;g.add(m);}
-  CHUNK_TARGET=CHUNKS;scene.add(g);return g;}
+function cityChunks(){for(const b of BUILDINGS){const k=chunkKey(b.x,b.z);let c=CITY.chunks.get(k);if(!c){const [i,j]=k.split(',').map(Number);c={key:k,list:[],cx:MINX+(i+0.5)*CHUNK,cz:MINZ+(j+0.5)*CHUNK,low:null,high:null,kHi:'bld:hi:'+k,kLo:'bld:lo:'+k};CITY.chunks.set(k,c);}c.list.push(b);}}
+// Chunk-Gruppe in Schritten bauen (Paket 40.5): erst die Gebäude in Portionen (Kostenmaß = Ringpunkte), dann je Schritt
+// wenige Meshes. Synchron (buildChunkGroup) läuft derselbe Bauer in einem Zug → Ergebnis identisch.
+function cityBuilder(c,det){return {c,det,list:c.list,i:0,target:new Map(),parts:null,pi:0,g:null};}
+function cityStep(B,cost,meshes){
+  if(B.list!==B.c.list){if(B.g)B.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});Object.assign(B,cityBuilder(B.c,B.det));}// Liste geändert (Feature hat ein Gebäude ersetzt) → neu
+  if(B.i<B.list.length){DET=B.det;CHUNK_TARGET=B.target;bldsPinBegin();let w=0;
+    try{while(B.i<B.list.length&&w<cost){const b=B.list[B.i++];w+=8+b.poly.length;addOSMBuilding(b);}}finally{DET=QS.detail;CHUNK_TARGET=CHUNKS;bldsPinEnd();}
+    return false;}
+  if(!B.parts){B.parts=[];for(const ch of B.target.values())for(const k in ch)if(!ch[k].empty)B.parts.push(k,ch[k]);B.target=null;B.g=new THREE.Group();}
+  const mats=cityMats();
+  for(let n=0;B.pi<B.parts.length&&n<meshes;n++){const k=B.parts[B.pi],G=B.parts[B.pi+1];B.parts[B.pi+1]=null;B.pi+=2;
+    const m=new THREE.Mesh(G.geo(),mats[k]);if(LOWMEM)dropCPU(m.geometry);m.castShadow=true;m.receiveShadow=true;B.g.add(m);}
+  return B.pi>=B.parts.length;}
+function buildChunkGroup(c,det){const B=cityBuilder(c,det);while(!cityStep(B,Infinity,Infinity)){}scene.add(B.g);return B.g;}
 function dropCPU(geo){geo.computeBoundingSphere();geo.computeBoundingBox();const f=function(){this.array=new this.array.constructor(0);};for(const k in geo.attributes)geo.attributes[k].onUpload(f);if(geo.index)geo.index.onUpload(f);}
 function disposeGroup(g){scene.remove(g);g.traverse(o=>{if(o.geometry)o.geometry.dispose();});}
 const CITY_RH=()=>QS.lowLOD?280:LOWMEM?360:QS.detail>=2?620:480;
 const CITY_LOW_R=QS.lowLOD?1300:LOWMEM?1700:3200;
-function updateCityLOD(px,pz,maxBuild=1,force=false,pts=null){pts=pts||[[px,pz]];CITY.t-=1;if(CITY.t>0&&!force)return;CITY.t=8;const RH=CITY_RH();let built=0;
+// Kostenmaß je Bauschritt (Ringpunkte + 8 je Gebäude): Ziel < 10 ms je Paket auf dem Handy
+const CITY_COST={hi:400,lo:1200};
+// Im Spiel: Chunk-Bau als Pakete bld:hi:/bld:lo: über das Bild-Budget (FRAMEB); fertig erst nach dem letzten Schritt.
+// Grob +150 m: am selben Chunk zuerst die sichtbare feine Stufe (die grobe liegt darunter unsichtbar bereit).
+function cityQueue(c,hi){const key=hi?c.kHi:c.kLo;if(fbHas(key))return;const B=cityBuilder(c,hi?QS.detail:-1),cost=hi?CITY_COST.hi:CITY_COST.lo;
+  fbJob(key,()=>{const t=performance.now();
+    if(hi?c.high:c.low)return true;// inzwischen synchron gebaut
+    const done=bldsPacket(()=>cityStep(B,cost,1));
+    if(done){scene.add(B.g);if(hi){c.high=B.g;if(c.low)c.low.visible=false;}else{c.low=B.g;if(c.high)B.g.visible=false;}BLDS.city.built[hi?'hi':'lo']++;}
+    bldsCityTime(key,hi,performance.now()-t);return done;},{x:c.cx,z:c.cz,bias:hi?0:150});}
+function cityCancel(c,hi){const key=hi?c.kHi:c.kLo;if(fbHas(key)){fbCancel(key);BLDS.city.cancelled++;}}
+// force (Boot, Schnellreise, S-Bahn) und Sprung (> 250 m in diesem Bild, FRAMEB.jump): nahe Chunks sofort synchron wie bisher
+function updateCityLOD(px,pz,maxBuild=1,force=false,pts=null){pts=pts||[[px,pz]];const jump=!force&&FRAMEB.jump;
+  if(jump){for(const p of FRAMEB.pts)pts.push([p.x,p.z]);maxBuild=99;}
+  CITY.t-=1;if(CITY.t>0&&!force&&!jump)return;CITY.t=8;const RH=CITY_RH(),sync=force||jump;let built=0;
   const list=[];for(const c of CITY.chunks.values()){let d=1e9;for(const p of pts)d=Math.min(d,Math.hypot(c.cx-p[0],c.cz-p[1]));list.push([d,c]);}list.sort((a,b)=>a[0]-b[0]);
-  let lowBuilt=0;for(const [d,c] of list){if(d<CITY_LOW_R&&!c.low&&lowBuilt<2){c.low=buildChunkGroup(c,-1);if(c.high)c.low.visible=false;lowBuilt++;}else if(d>CITY_LOW_R+900&&c.low){disposeGroup(c.low);c.low=null;}
-    if(d<RH&&!c.high){if(built<maxBuild){c.high=buildChunkGroup(c,QS.detail);if(c.low)c.low.visible=false;built++;}else CITY.t=0;}
-    else if(d>RH+260&&c.high){disposeGroup(c.high);c.high=null;if(c.low)c.low.visible=true;}}}
+  let lowBuilt=0;for(const [d,c] of list){
+    if(d<CITY_LOW_R&&!c.low){if(force&&lowBuilt<2){cityCancel(c,false);c.low=buildChunkGroup(c,-1);if(c.high)c.low.visible=false;lowBuilt++;BLDS.city.sync.lo++;}else cityQueue(c,false);}
+    else if(d>CITY_LOW_R+900){cityCancel(c,false);if(c.low){disposeGroup(c.low);c.low=null;}}
+    if(d<RH&&!c.high){if(sync&&built<maxBuild){cityCancel(c,true);c.high=buildChunkGroup(c,QS.detail);if(c.low)c.low.visible=false;built++;BLDS.city.sync.hi++;}else cityQueue(c,true);}
+    else if(d>RH+260){cityCancel(c,true);if(c.high){disposeGroup(c.high);c.high=null;if(c.low)c.low.visible=true;}}}}
 // Fassadenpunkt eines Gebäudes zur nächsten Straße (für Schilder, Türen)
 function facadeSpot(x,z,maxD=40){let best=null;for(const b of BUILDINGS){if(Math.abs(b.x-x)>maxD+60||Math.abs(b.z-z)>maxD+60)continue;const P=b.poly;
   for(let i=0;i<P.length;i++){const A=P[i],B=P[(i+1)%P.length];const dx=B[0]-A[0],dz=B[1]-A[1],L=Math.hypot(dx,dz);if(L<4)continue;const nx=dz/L,nz=-dx/L;const sd=segDist(x,z,A[0],A[1],B[0],B[1]);if(sd.d>maxD)continue;

@@ -1,8 +1,27 @@
 // Dünnbesetzte Raster in 64er-Kacheln: leere/gleichförmige Kacheln kosten kein RAM (wichtig fürs Handy)
-function SGrid(W,H){const TW=Math.ceil(W/64),TH=Math.ceil(H/64);return {W,H,TW,TH,tiles:new Array(TW*TH).fill(null),uni:new Uint8Array(TW*TH)};}
-function sgGet(G,ix,iz){const t=(iz>>6)*G.TW+(ix>>6);const a=G.tiles[t];return a?a[((iz&63)<<6)|(ix&63)]:G.uni[t];}
-function sgSet(G,ix,iz,v){const t=(iz>>6)*G.TW+(ix>>6);let a=G.tiles[t];if(!a){if(G.uni[t]===v)return;a=G.tiles[t]=new Uint8Array(4096);if(G.uni[t])a.fill(G.uni[t]);}a[((iz&63)<<6)|(ix&63)]=v;}
-function sgCompact(G){let n=0;for(let t=0;t<G.tiles.length;t++){const a=G.tiles[t];if(!a)continue;const v=a[0];let u=true;for(let k=1;k<4096;k++)if(a[k]!==v){u=false;break;}if(u){G.tiles[t]=null;G.uni[t]=v;}else n++;}return n;}
+// Kalte Kacheln (Paket 40.5 B, Pflege in p2f_hgcold.js) liegen lauflängenkodiert in rle[t] (Uint16Array):
+// [0..64] = Startindex der Läufe je Zeile (Zeile y: rle[y]…rle[y+1]-1), danach je Lauf ((Länge-1)<<8)|Wert.
+// Lesen aus einer kalten Kachel ohne Entpacken (≤ 64 Läufe der Zeile), Schreiben entpackt sie zuerst → Werte bleiben exakt.
+// hot = Menge der rohen Kacheln (Kandidaten fürs Packen), crt = Kalt-Lesezähler je Kachel (für den LRU in p2f_hgcold.js).
+function SGrid(W,H){const TW=Math.ceil(W/64),TH=Math.ceil(H/64);return {W,H,TW,TH,tiles:new Array(TW*TH).fill(null),uni:new Uint8Array(TW*TH),
+  rle:new Array(TW*TH).fill(null),hot:new Set(),crt:null,want:[],cr:0,packs:0,unpacks:0};}
+function sgGet(G,ix,iz){const t=(iz>>6)*G.TW+(ix>>6);const a=G.tiles[t];if(a)return a[((iz&63)<<6)|(ix&63)];const r=G.rle[t];return r?sgCold(G,r,t,ix&63,iz&63):G.uni[t];}
+function sgCold(G,r,t,x,y){G.cr++;if(G.crt&&++G.crt[t]===2048)G.want.push(t);
+  let s=0;for(let k=r[y],e=r[y+1];k<e;k++){const w=r[k];s+=(w>>8)+1;if(x<s)return w&255;}return 0;}
+function sgSet(G,ix,iz,v){const t=(iz>>6)*G.TW+(ix>>6);let a=G.tiles[t];
+  if(!a){if(G.rle[t])a=sgUnpack(G,t);else{if(G.uni[t]===v)return;a=G.tiles[t]=new Uint8Array(4096);if(G.uni[t])a.fill(G.uni[t]);G.hot.add(t);}}
+  a[((iz&63)<<6)|(ix&63)]=v;}
+const SG_BUF=new Uint16Array(65+4096);
+function sgEncode(a){const B=SG_BUF;let n=65;
+  for(let y=0;y<64;y++){B[y]=n;const o=y<<6;let v=a[o],L=1;for(let x=1;x<64;x++){const w=a[o+x];if(w===v)L++;else{B[n++]=((L-1)<<8)|v;v=w;L=1;}}B[n++]=((L-1)<<8)|v;}
+  B[64]=n;return B.slice(0,n);}
+function sgDecodeInto(r,a){for(let y=0;y<64;y++){let o=y<<6;for(let k=r[y],e=r[y+1];k<e;k++){const w=r[k],v=w&255,L=(w>>8)+1;
+  if(L<8){for(let j=0;j<L;j++)a[o+j]=v;}else a.fill(v,o,o+L);o+=L;}}return a;}
+// Rohe Kachel kalt machen: gleichförmig → uni (wie sgCompact), sonst RLE. true, wenn gepackt.
+function sgPack(G,t){const a=G.tiles[t];if(!a)return false;const v=a[0];let u=true;for(let k=1;k<4096;k++)if(a[k]!==v){u=false;break;}
+  if(u)G.uni[t]=v;else G.rle[t]=sgEncode(a);G.tiles[t]=null;G.hot.delete(t);G.packs++;return true;}
+function sgUnpack(G,t){const r=G.rle[t];if(!r)return G.tiles[t];const a=sgDecodeInto(r,new Uint8Array(4096));G.tiles[t]=a;G.rle[t]=null;G.hot.add(t);G.unpacks++;return a;}
+function sgCompact(G){let n=0;for(let t=0;t<G.tiles.length;t++){const a=G.tiles[t];if(!a)continue;const v=a[0];let u=true;for(let k=1;k<4096;k++)if(a[k]!==v){u=false;break;}if(u){G.tiles[t]=null;G.uni[t]=v;G.hot.delete(t);}else n++;}return n;}
 const HGG=SGrid(WW,WH); // Höhenraster 1 m (0 frei, 1..254 Höhe, 255 Wasser)
 const MF_W=Math.ceil(WW/2),MF_H=Math.ceil(WH/2),MFG=SGrid(MF_W,MF_H); // 2-m-Raster, Bits: 1 Park, 2 Straße, 4 Wasser
 const HG={grid:HGG},MFLAG={grid:MFG};
