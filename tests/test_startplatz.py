@@ -6,7 +6,7 @@ import os, sys; sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(
 from harness import run
 
 M = '__MEENZ'
-CALLS, TRIS = 450, 1_600_000
+CALLS, TRIS = 430, 1_600_000   # Ziel 450, mit Luft für Passanten-Streuung
 LAND = {'width': 852, 'height': 393}   # iPhone 14 Pro quer
 FAR = 500                              # Sichtweite einzelner Szenen-Meshes (450 m + eigener Radius) + Luft
 

@@ -85,7 +85,10 @@ function leihMats(){if(LEIH.mats)return LEIH.mats;
   LEIH.mats={station:stdMat({map:leihSignTex(),vertexColors:true,roughness:0.55,metalness:0.25})};return LEIH.mats;}
 
 // ---------- Aufbau ----------
-function setupLeih(){const G=leihGeos(),M=leihMats();
+// Die Objekte selbst (Mesh/Geometrie/Material/Textur) ziehen in three.js UUIDs aus Math.random: beim Boot über einen eigenen
+// Strom, sonst verschiebt die Station Aussehen und Verteilung von Spieler, Passanten und Bürgermeisterin (Startplatz-Budget).
+function setupLeih(){const r=Math.random;Math.random=mulberry32(lazySeed('leihrad-setup'));try{leihBuild();}finally{Math.random=r;}}
+function leihBuild(){const G=leihGeos(),M=leihMats();
   const b=new THREE.InstancedMesh(G.bike,DET_MAT,LEIH.cap);b.count=0;b.frustumCulled=false;b.castShadow=false;b.receiveShadow=true;scene.add(b);
   LEIH.inst={bikes:b,m4:new THREE.Matrix4()};
   LEIH.stations=leihPlace().map((p,i)=>{const y=groundY(p.x,p.z);const m=new THREE.Mesh(G.station,M.station);
