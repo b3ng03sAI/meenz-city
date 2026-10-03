@@ -7,7 +7,7 @@
 // strabaControlFlee(P), strabaControlForce(P).
 const STRABA={lines:[],trams:[],riding:null,ticket:{validUntil:-1,price:2.9,minutes:120},control:null,lastControl:null,
   FINE:60,CONTROL_CHANCE:0.3,forceControl:false,VMAX:12,ACC:1.1,DEC:1.3,DWELL:12,DOOR_T:1.6,
-  SEC:9.4,GAP:0.6,W:2.3,hud:null};
+  SEC:9.4,GAP:0.6,W:2.3,hud:null,playerHits:0};   // playerHits: wie oft eine Bahn einen Spieler erwischt hat (für Tests)
 // Endstellen je Linie (Koordinaten der Gleisenden). Die Strecke Richtung Lerchenberg endet in den Gleisdaten bei Marienborn
 // (Hans-Böckler-Straße): Lerchenberg selbst liegt außerhalb der OSM-Daten des Spiels.
 const STRABA_DEFS=[{no:'50',color:'#c8102e',a:[-6167,295],aName:'Finthen',b:[-277,2536],bName:'Hechtsheim'},
@@ -164,7 +164,7 @@ function strabaShove(t){const S=STRABA,hl=S.SEC/2+0.2,hw=S.W/2;
   for(const c of CARS){if(c.dead||c.removed||c.T.boat||Math.abs(c.x-t.x)>25||Math.abs(c.z-t.z)>25)continue;
     push(c,c.T.W*0.5,(nx,nz,pen)=>{c.x+=nx*pen;c.z+=nz*pen;c.vx=c.vx*0.5+nx*Math.min(6,t.v*0.5);c.vz=c.vz*0.5+nz*Math.min(6,t.v*0.5);if(t.v>4&&c.health>0)c.health-=t.v*0.3;});}
   for(const h of HUMANS){if(!h.alive||h.inCar||h.room||h.state==='knock'||Math.abs(h.x-t.x)>25||Math.abs(h.z-t.z)>25)continue;
-    push(h,0.35,(nx,nz,pen)=>{h.x+=nx*pen;h.z+=nz*pen;if(t.v<=3)return;const pv=playerOfHuman(h);if(pv){damagePlayer(pv,t.v*2.5);}else knockHuman(h,nx*4+Math.sin(t.h)*t.v*0.6,nz*4+Math.cos(t.h)*t.v*0.6,2.5,t.v*5,false);});}}
+    push(h,0.35,(nx,nz,pen)=>{h.x+=nx*pen;h.z+=nz*pen;if(t.v<=3)return;const pv=playerOfHuman(h);if(pv){STRABA.playerHits++;damagePlayer(pv,t.v*2.5);}else knockHuman(h,nx*4+Math.sin(t.h)*t.v*0.6,nz*4+Math.cos(t.h)*t.v*0.6,2.5,t.v*5,false);});}}
 function strabaStep(t,dt){const S=STRABA,R=strabaRouteOf(t);
   if(t.state==='dwell'){t.dwellT+=dt;const closing=simTime>=t.depT-S.DOOR_T;t.doors=clamp(t.doors+(closing?-dt:dt)/S.DOOR_T*1.0,0,1);
     if(simTime>=t.depT&&t.doors<=0){if(strabaTurnBlocked(t))t.depT=simTime+3;else{strabaBeforeDepart(t);strabaDepart(t);}}}
