@@ -382,7 +382,7 @@ html.touchmode #introskip{min-height:44px}
   window.__splashHide=hide;S.addEventListener('click',()=>{if(ready)hide();});
   /* Fehler beim Laden sichtbar machen statt ewig zu drehen (z. B. auf Handys) */
   addEventListener('error',()=>{if(!ready)hide();});addEventListener('unhandledrejection',()=>{if(!ready)hide();});
-  setTimeout(()=>{if(ready||done)return;tip.textContent='Dauert ungewöhnlich lange … ';const b=document.createElement('button');b.textContent='Mit niedriger Grafik neu laden';
+  setTimeout(()=>{if(ready||done)return;clearInterval(it);/* Tipp-Wechsel stoppen, sonst überschreibt er den Hinweis */tip.textContent='Dauert ungewöhnlich lange … ';const b=document.createElement('button');b.textContent='Mit niedriger Grafik neu laden';
     b.style.cssText='margin-left:8px;font:700 15px "Barlow Condensed",sans-serif;padding:6px 12px;border:0;border-radius:6px;background:#f6c142;color:#111;cursor:pointer';
     b.onclick=e=>{e.stopPropagation();try{localStorage.setItem('meenz-quality','niedrig');}catch(_){}location.hash='niedrig';location.reload();};tip.appendChild(b);},45000);addEventListener('keydown',()=>{if(ready)hide();});})();
 </script>

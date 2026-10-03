@@ -87,6 +87,14 @@ const nextFrame=()=>new Promise(r=>setTimeout(r,0));
 
 // ===================== RENDERER / SZENE =====================
 const stage=document.getElementById('stage');
+// Ohne WebGL2 (sehr alte Geräte/Browser) zeichnet three.js nur Himmel – lieber klar sagen, woran es liegt, und anhalten.
+if(!document.createElement('canvas').getContext('webgl2')){
+  const d=document.createElement('div');d.id='nogl';
+  d.style.cssText='position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;background:#0b0d10;color:#fff;text-align:center;font:600 18px/1.4 "Barlow Condensed",Arial,sans-serif';
+  d.innerHTML='<div style="max-width:520px"><div style="font:400 30px Bungee,Impact,sans-serif;color:#ffd23f;margin-bottom:12px">Des Gerät packt\'s net</div>Meenz City braucht <b>WebGL 2</b> für die 3D-Grafik – das kann dieser Browser oder dieses Gerät nicht.<br><br>Probier’s mit einem aktuellen Safari (iOS 15 oder neuer), Chrome, Edge oder Firefox.</div>';
+  document.body.appendChild(d);if(window.__splashHide)window.__splashHide();
+  await new Promise(()=>{});// Modul hier anhalten – ohne Fehlermeldungen im Hintergrund
+}
 const renderer=new THREE.WebGLRenderer({antialias:QS.msaa===0,powerPreference:'high-performance',stencil:false});
 renderer.setPixelRatio(Q.pixelRatio);renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=!QS.noShadow;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
