@@ -58,7 +58,8 @@ async def test(g):
     s1 = await g.js(STATE)
     g.check('Spieler steht still → Abstand schrumpft', s1['d'] < s0['d'] - 3, f"{s0['d']:.1f} → {s1['d']:.1f}")
     speed = (s0['d'] - s1['d']) / 1.5
-    g.check('Tempo schneller als Gehen (3,4), langsamer als Sprinten (6,8)', 3.4 < speed < 6.8, f'{speed:.2f} m/s')
+    foot = await g.js(f"()=>{M}.FOOT")
+    g.check('Tempo schneller als Gehen, langsamer als Sprinten', foot['walk'] < speed < foot['run'], f"{speed:.2f} m/s (gehen {foot['walk']}, rennen {foot['run']})")
     g.check('laute Sprechblase in Mundart', s1['loud'] and ('disch' in s1['bubble'] or 'Schätzelsche' in s1['bubble'] or 'Oma' in s1['bubble']), s1['bubble'])
     g.check('Zunge sichtbar', s1['tongue'])
 

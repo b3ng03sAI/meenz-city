@@ -27,7 +27,7 @@ function readInput(P){const I={mx:0,mz:0,lookX:0,lookY:0,sprint:false,jump:false
     I.sprint=!!(keys.ShiftLeft||(!split&&keys.ShiftRight));I.jump=!!keys.Space;I.fire=mouse.left;I.aim=mouse.right;I.enter=!!(keys.KeyF||keysP.KeyF||(!split&&(keys.Enter||keysP.Enter)));I.weapon=!!(keys.KeyQ||keys.Tab||keysP.KeyQ||keysP.Tab);I.reload=!!(keys.KeyR||keysP.KeyR);I.jump=I.jump||!!keysP.Space;
     for(const k of ['KeyF','Enter','KeyQ','Tab','KeyR','Space'])keysP[k]=false;
     I.lookX=mouse.dx;I.lookY=mouse.dy;mouse.dx=0;mouse.dy=0;
-    if(touch.active){I.mx+=touch.mx;I.mz+=touch.mz;}
+    if(touch.active){I.mx+=touch.mx;I.mz+=touch.mz;if(Math.hypot(touch.mx,touch.mz)>0.9)I.sprint=true;}// Touch: Stick ganz durchdrücken = rennen
     const gp=padState(split?99:0);if(gp)mergePad(I,gp);}
   else{I.mz=(keys.ArrowUp?1:0)-(keys.ArrowDown?1:0);I.mx=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);I.sprint=!!keys.ShiftRight;I.jump=!!keys.ShiftRight;I.fire=!!(keys.ControlRight||keys.Numpad0);I.enter=!!(keys.Enter||keys.NumpadEnter);I.weapon=!!(keys.Minus||keys.NumpadSubtract||keys.Slash);
     I.lookX=((keys.Numpad6||keys.Period)?1:0)-((keys.Numpad4||keys.Comma)?1:0);I.lookX*=8;

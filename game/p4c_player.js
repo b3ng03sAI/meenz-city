@@ -24,9 +24,11 @@ function vehicleInput(P,I){const c=P.car;const i=c.inp;i.throttle=I.throttle;i.b
   if((c.T.bike||c.T.jetski)&&P.h){const h=P.h;const fx=Math.sin(c.h),fz=Math.cos(c.h);const js=c.T.jetski;h.x=c.x-fx*(js?0.45:0.25);h.z=c.z-fz*(js?0.45:0.25);h.y=c.y+(js?0.32:0.18);h.facing=c.h;h.g.rotation.order='YXZ';h.g.rotation.set(js?c.g.rotation.x:0,c.h,js?c.g.rotation.z:(c.lean||0));
     h.legL.rotation.set(-1.25,0,0.25);h.legR.rotation.set(-1.25,0,-0.25);h.armL.rotation.set(-1.1,0,0.15);h.armR.rotation.set(-1.1,0,-0.15);h.hips.rotation.x=0.25;h.g.position.set(h.x,h.y,h.z);}}
 // Fahrphysik (Feinschliff): Gewichtsverlagerung, Reifenhaftung abhängig vom Schlupf, Untersteuern, Karosserieneigung
+// Tempo zu Fuß (m/s) – bewusst flotter als echt, damit Strecken nicht ewig dauern; Schwimmen als Anteil davon
+const FOOT={walk:4.2,run:9.0,swim:0.75};
 function updatePlayerFoot(P,I,dt){const h=P.h;h.swimmer=true;const y=P.cam.yaw;const fx=Math.sin(y),fz=Math.cos(y),rx=-Math.cos(y),rz=Math.sin(y);let dx=fx*I.mz+rx*I.mx,dz=fz*I.mz+rz*I.mx;const L=Math.hypot(dx,dz);
   if(P.aimT>0)P.aimT-=dt;const W=WEAPONS[P.weapon];h.aiming=!W.melee&&!W.thrown&&(I.aim||P.aimT>0);
-  const sprint=I.sprint&&!h.aiming;const flying=P.jet&&P.jet.on;const sp=L>0.1?(flying?(sprint?17:10):sprint?(P.shoesOn?24:6.8):3.4)*Math.min(1,L)*(P.pu&&P.pu.speed>0?(sprint?2.8:1.6):1)*(P.morph?P.morph.speed:1)*(P.swim&&!flying?0.55:1):0;let mv=0;
+  const sprint=I.sprint&&!h.aiming;const flying=P.jet&&P.jet.on;const sp=L>0.1?(flying?(sprint?17:10):sprint?(P.shoesOn?24:FOOT.run):FOOT.walk)*Math.min(1,L)*(P.pu&&P.pu.speed>0?(sprint?2.8:1.6):1)*(P.morph?P.morph.speed:1)*(P.swim&&!flying?FOOT.swim:1):0;let mv=0;
   if(L>0.1){dx/=L;dz/=L;if(sp>10){mv=0;for(let k=0;k<4;k++)mv+=moveHuman(h,dx,dz,sp,dt/4)/4;}else mv=moveHuman(h,dx,dz,sp,dt);if(!h.aiming)faceTo(h,dx,dz,dt,12);h.vx=dx*mv;h.vz=dz*mv;}else{h.vx=h.vz=0;}
   if(h.aiming)h.facing+=angDiff(h.facing,P.cam.yaw)*Math.min(1,dt*20);
   if(I.jumpP&&P.ground){P.vy=(P.pu&&P.pu.jump>0)?17:P.shoesOn?9.5:5.4;P.ground=false;P.airT=0;}
