@@ -25,6 +25,7 @@ FRAME = """(far)=>{const M=__MEENZ,P=M.P1,scene=P.h.g.parent,cam=P.camera.positi
       const w=g.boundingSphere.center.clone().applyMatrix4(o.matrixWorld),me=o.matrixWorld.elements;
       const sc=Math.sqrt(Math.max(me[0]*me[0]+me[1]*me[1]+me[2]*me[2],me[4]*me[4]+me[5]*me[5]+me[6]*me[6],me[8]*me[8]+me[9]*me[9]+me[10]*me[10]));
       const d=Math.hypot(w.x-cam.x,w.z-cam.z)-g.boundingSphere.radius*sc;if(d>far&&farL.length<5)farL.push([o.type,o.material&&o.material.type,Math.round(w.x),Math.round(w.z),Math.round(d)]);};});
+  M.MUX.cull.t=0;// Sichtweiten-Liste frisch wie im laufenden Spiel (dort spätestens alle 30 Bilder neu)
   let ri;try{ri=M.RINFO;}finally{for(const [o,own] of hooked){if(own)o.onBeforeRender=own;else delete o.onBeforeRender;}}
   const dup=[...cnt.values()].filter(e=>e.n>1).map(e=>[e.o.type,e.m.type,e.n]).slice(0,5);
   let trans=0;scene.traverse(o=>{const ms=Array.isArray(o.material)?o.material:o.material?[o.material]:[];for(const m of ms)if(m.transmission>0)trans++;});
@@ -82,6 +83,9 @@ async def test(g):
       g.traverse(o=>{{if(!o.isMesh)return;meshes++;if(o.isInstancedMesh){{inst++;parts+=o.count;}}}});return {{on:{M}.MARKT.on,vis:g.visible,meshes,inst,parts}}}}""")
     g.check('Marktstände als Instanzen: ≤ 30 Meshes für > 200 Teile', mk and mk['on'] and mk['vis'] and mk['meshes'] <= 30 and mk['parts'] > 200, mk)
     await measure(g, 'Marktfrühstück')
+
+    dog = await g.js(f"()=>{{const D={M}.DOGS[0];if(!D)return null;let n=0;D.g.traverse(o=>{{if(o.isMesh)n++;}});return n}}")
+    g.check('Fliegerdackel: unbewegte Teile zusammengefügt (≤ 22 statt 36 Meshes)', dog is not None and dog <= 22, dog)
 
     # 5. Requisiten: geteilter Bildschirm zeichnet ohne Sichtweite → wieder alle Instanzen
     full = await g.js(f"""()=>{{const P={M}.MUX.props;P.all();let s=0;for(const e of P.list)s+=e.im.count;return [s,P.total,P.full]}}""")
