@@ -111,19 +111,19 @@ function wiesiSchlossBuild(Z){const S=WIESI.st.schloss={brunnen:null,flags:[],be
   const G=wiesiGBs(),low=wiesiLow();const SG=wiesiSigns(Z,[['RATSKELLER','#1f3b2c','#e7d27a','italic 700 '],['RATHAUS','#d8cdb6','#3a2e22','700 '],['HESSISCHER LANDTAG','#3b2f20','#e3c98a','700 '],['STANDESAMT','#e9e2d2','#2a2a2a','600 ']]);
   // Rathaus: Portal mit Ratskeller-Schild, Laternen, Schriftzug, drei Fahnen vor der Nordfassade
   {const D=WIESI_DOORS.ratskeller,f=D[2],{nx,nz,tx,tz}=wiesiDir(f);const wx=D[0]-nx*1.2,wz=D[1]-nz*1.2;const st=G.get('stone'),C=C3(0xb9ab90);
-    for(const s of [-1,1])st.box(wx+tx*s*1.35+nx*0.15,0,wz+tz*s*1.35+nz*0.15,0.45,3.5,0.4,f,C);st.box(wx+nx*0.15,3.5,wz+nz*0.15,3.2,0.45,0.42,f,C);
-    G.get('wood').box(wx+nx*0.05,0,wz+nz*0.05,2.2,3.2,0.12,f,C3(0x3a2516));st.box(wx+nx*0.8,0,wz+nz*0.8,3.4,0.14,1.4,f,C3(0xa49a8a));
-    SG.quad(0,wx+nx*0.4,3.98,wz+nz*0.4,3.0,0.56,f);SG.quad(1,wx+nx*0.12+tx*3.5,9.2,wz+nz*0.12+tz*3.5,7.2,1.0,f);S.signs+=2;
+    for(const s of [-1,1])st.box(wx+tx*s*1.35+nx*0.35,0,wz+tz*s*1.35+nz*0.35,0.45,3.5,0.4,f,C);st.box(wx+nx*0.35,3.5,wz+nz*0.35,3.2,0.45,0.42,f,C);
+    G.get('wood').box(wx+nx*0.4,0,wz+nz*0.4,2.2,3.2,0.12,f,C3(0x3a2516));st.box(wx+nx*0.9,0,wz+nz*0.9,3.4,0.14,1.2,f,C3(0xa49a8a));
+    SG.quad(0,wx+nx*0.6,3.98,wz+nz*0.6,3.0,0.56,f);SG.quad(1,wx+nx*0.4+tx*3.5,9.2,wz+nz*0.4+tz*3.5,7.2,1.0,f);S.signs+=2;
     for(const s of [-1,1]){const lx=wx+tx*s*2.0+nx*0.35,lz=wz+tz*s*2.0+nz*0.35;G.get('metal').box(lx-nx*0.2,2.9,lz-nz*0.2,0.06,0.06,0.45,f,C3(0x1a1a1a));G.get('glow').box(lx,2.55,lz,0.24,0.4,0.24,f,C3(0xffd27a));}
     S.portal={x:wx,z:wz};
     ['hessen','deutschland','wiesbaden'].forEach((k,i)=>{const [px,pz]=wiesiOut([wx,wz],f,6,4+i*3.6);if(wiesiFree(px,pz,0.4))S.flags.push(wiesiFlag(G,Z,px,pz,f,k));});}
   // Landtag (Stadtschloss): Bronzeplakette, Stele, Fahnen, Pollerreihe
-  {const L=WIESI_LANDTAG,f=L.f,{nx,nz}=wiesiDir(f);G.get('gold').box(L.x+nx*0.05,1.6,L.z+nz*0.05,2.4,0.8,0.08,f,C3(0x8a6a2a));SG.quad(2,L.x+nx*0.1,1.68,L.z+nz*0.1,2.2,0.64,f);S.plaque={x:L.x,z:L.z};S.signs++;
+  {const L=WIESI_LANDTAG,f=L.f,{nx,nz}=wiesiDir(f);G.get('gold').box(L.x+nx*0.3,1.6,L.z+nz*0.3,2.4,0.8,0.08,f,C3(0x8a6a2a));SG.quad(2,L.x+nx*0.35,1.68,L.z+nz*0.35,2.2,0.64,f);S.plaque={x:L.x,z:L.z};S.signs++;
     const sp=wiesiSpot(...wiesiOut([L.x,L.z],f,8,4),1.2);if(sp){const [sx,sz]=sp;G.get('stone').box(sx,0,sz,3.4,1.5,0.55,f,C3(0x9d978b));SG.quad(2,sx+nx*0.29,0.55,sz+nz*0.29,3.0,0.75,f);wiesiObb(Z,sx,sz,1.75,0.33,f,1.6);S.stele={x:sx,z:sz};S.signs++;}
     ['hessen','deutschland','europa'].forEach((k,i)=>{const [px,pz]=wiesiOut([L.x,L.z],f,5,(i-1)*3.6-6);if(wiesiFree(px,pz,0.4))S.flags.push(wiesiFlag(G,Z,px,pz,f,k));});
     for(let t=-9;t<=9;t+=3){const [px,pz]=wiesiOut([L.x,L.z],f,12,t);if(!wiesiFree(px,pz,0.3))continue;G.get('metal').box(px,0,pz,0.22,0.9,0.22,f,C3(0x3a3f44));G.get('metal').box(px,0.9,pz,0.26,0.06,0.26,f,C3(0xb0b4b8));wiesiCirc(Z,px,pz,0.18,0.9);S.poller++;}}
   // Standesamt (Altes Rathaus): Schild + Blumenbogen
-  {const A=WIESI_STANDESAMT,f=A.f,{nx,nz,tx,tz}=wiesiDir(f);SG.quad(3,A.x+nx*0.1,3.2,A.z+nz*0.1,2.6,0.5,f);S.signs++;
+  {const A=WIESI_STANDESAMT,f=A.f,{nx,nz,tx,tz}=wiesiDir(f);SG.quad(3,A.x+nx*0.4,3.2,A.z+nz*0.4,2.6,0.5,f);S.signs++;
     const [ax,az]=wiesiOut([A.x,A.z],f,4.5);if(wiesiFree(ax,az,1.2)){const wd=G.get('wood'),pl=G.get('plant');for(const s of [-1,1]){wd.box(ax+tx*s*1.3,0,az+tz*s*1.3,0.14,2.6,0.14,f,C3(0xf2efe6));wiesiCirc(Z,ax+tx*s*1.3,az+tz*s*1.3,0.15,2.6);}
       for(let k=0;k<=8;k++){const a=k/8*Math.PI;const lx=-Math.cos(a)*1.3,ly=2.6+Math.sin(a)*0.9;pl.box(ax+tx*lx,ly-0.15,az+tz*lx,0.34,0.3,0.34,a,C3(k%2?0xf5b8c8:0xffffff));pl.box(ax+tx*lx,ly-0.25,az+tz*lx,0.38,0.12,0.38,a+0.4,C3(0x4a7a3a));}
       S.arch={x:ax,z:az};}}
@@ -219,12 +219,12 @@ function wiesiWestendBuild(Z){const S=WIESI.st.westend={stands:[],main:null,ligh
   {const s=stand(-3086,1,true);if(s){S.main=s;S.stands.push(s);const {nx,nz}=wiesiDir(s.f);const wx=s.wx,wz=s.wz,cl=G.get('cloth');
     for(let k=0;k<8;k++){const a=-1.9+k*0.475,b=a+0.475,col=C3(k%2?0xffffff:0x2f8a3a);const P=(t,o,y)=>[wx+s.tx*t+nx*o,y,wz+s.tz*t+nz*o];
       cl.quad(P(a,0.1,3.2),P(b,0.1,3.2),P(b,2.0,2.6),P(a,2.0,2.6),[0,0],[1,0],[1,1],[0,1],col);cl.quad(P(a,2.0,2.6),P(b,2.0,2.6),P(b,0.1,3.2),P(a,0.1,3.2),[0,0],[1,0],[1,1],[0,1],col);}
-    SG.quad(0,wx+nx*0.1,3.3,wz+nz*0.1,3.4,0.6,s.f);}}
+    SG.quad(0,wx+nx*2.05,2.6,wz+nz*2.05,3.4,0.6,s.f);}}
   const xs=[];for(let x=-3196;x<=-2752;x+=8)xs.push(x);
   for(const x of xs){if(S.stands.length>=wiesiN(7))break;for(const side of [1,-1]){if(S.stands.some(o=>Math.hypot(o.x-x,o.z-(wiesiWellritzAt(x)||{z:0}).z)<38))continue;const s=stand(x,side,false);if(s){S.stands.push(s);break;}}}
   // Teestubb: Schild über der Tür, draußen ein Tisch mit Hockern
-  {const D=WIESI_DOORS.teestubb,f=D[2],{nx,nz,tx,tz}=wiesiDir(f);const wx=D[0]-nx*1.2,wz=D[1]-nz*1.2;SG.quad(1,wx+nx*0.1,2.9,wz+nz*0.1,3.6,0.6,f);
-    G.get('wood').box(wx+nx*0.05,0,wz+nz*0.05,1.6,2.6,0.1,f,C3(0x5a2a1a));
+  {const D=WIESI_DOORS.teestubb,f=D[2],{nx,nz,tx,tz}=wiesiDir(f);const wx=D[0]-nx*1.2,wz=D[1]-nz*1.2;SG.quad(1,wx+nx*0.45,2.9,wz+nz*0.45,3.6,0.6,f);
+    G.get('wood').box(wx+nx*0.35,0,wz+nz*0.35,1.6,2.6,0.1,f,C3(0x5a2a1a));
     for(const s of [-1,1]){const p=[wx+nx*1.9+tx*s*2.8,wz+nz*1.9+tz*s*2.8];if(!wiesiFree(p[0],p[1],0.5))continue;const wd=G.get('wood');wd.box(p[0],0,p[1],0.8,0.5,0.8,f,C3(0x7a4a26));
       wd.box(p[0],0.5,p[1],0.5,0.04,0.34,f,C3(0x3a2214));for(const o of [-0.65,0.65])wd.box(p[0]+tx*o,0,p[1]+tz*o,0.38,0.38,0.38,f,C3(0xb3202a));wiesiCirc(Z,p[0],p[1],0.55,0.8);S.tea.push({x:p[0],z:p[1],f});}}
   // Fußgängerzone: Lichterketten zwischen den Fassaden, Pflanzkübel in der Mitte
