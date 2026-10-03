@@ -95,6 +95,9 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
 - Spielerbezogene Bodenhöhe: `playerGroundY()` (Wasser → Schwimmhöhe), sonst `groundY(x,z,y)`.
 - **Neue Stadtteile/Orte immer lazy** über `p6_lazy.js` (nichts beim Boot anlegen) und mit **eigenem Seed-Zufall** –
   nie `Math.random` beim Aufbau/Update ziehen, sonst verschiebt sich der Zufall aller Tests (Gonsenheim-Lektion).
+  Achtung: auch **jedes three.js-Objekt** (Mesh, Geometry, Material, Texture) zieht beim Anlegen eine UUID aus
+  `Math.random` – Aufbau beim Boot daher komplett unter eigenem Seed ausführen (`lazySeed('<feature>-setup')`, Muster
+  `p6t_leihrad.js`), sonst ändert sich die Start-Bevölkerung und damit Draw-Calls und zufallsabhängige Tests.
 - Qualität `niedrig` (`QS.lowLOD`, `QS.noShadow`) existiert – Code darf nicht nur ultra/hoch/mittel annehmen.
 - Tests, die eine Strecke über eine feste Gehzeit zurücklegen, die Dauer aus `__MEENZ.FOOT.walk` ableiten (Tempo wurde schon geändert).
 - Tests, die Geld prüfen: Revier-Einnahmen (`REVIER.incomeT=1e9`) vorher abschalten – sie zahlen zufällig dazwischen.
