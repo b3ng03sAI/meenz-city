@@ -123,7 +123,7 @@ async def test(g):
         const pend=[...M.FRAMEB.jobs.keys()].filter(k=>k.startsWith('gr:')).length;
         for(const [k,m] of G.tiles){{const d=Math.max(0,Math.hypot(m.position.x-P.h.x,m.position.z-P.h.z)-TZ*0.7);if(d>G.R+350)far++;if(!m.parent)miss++;}}
         return {{...G.stats,tiles:G.tiles.size,pend,far,notInScene:miss}}}}""")
-    g.check('Bodenkacheln beim Gehen über Pakete gebaut (4 Schritte je Kachel)', g1['builds'] > g0['builds'] and g1['steps'] - g0['steps'] >= 4 * (g1['builds'] - g0['builds']), [g0, g1])
+    g.check('Bodenkacheln beim Gehen über Pakete gebaut (5 Schritte je Kachel)', g1['builds'] > g0['builds'] and g1['steps'] - g0['steps'] >= 5 * (g1['builds'] - g0['builds']), [g0, g1])
     g.check('Bodenkacheln: alte freigegeben, nichts jenseits R+350 m, alle fertigen in der Szene', g1['disposes'] > g0['disposes'] and g1['far'] == 0 and g1['notInScene'] == 0 and g1['pend'] == 0, g1)
     g.check('auch dabei höchstens FRAMEB.manualJobs Pakete je Bild', maxjobs <= info['manual'], maxjobs)
 

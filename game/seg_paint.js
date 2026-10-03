@@ -22,14 +22,17 @@ function groundDetail(mat){mat.onBeforeCompile=(sh)=>{sh.uniforms.gDetail={value
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vGWXZ;uniform sampler2D gDetail;').replace('#include <map_fragment>','#include <map_fragment>\n{float gd=length(vGWXZ-cameraPosition.xz);float near=1.0-smoothstep(30.0,220.0,gd);vec4 d1=texture2D(gDetail,vGWXZ*0.35);vec4 d2=texture2D(gDetail,vGWXZ*0.021);vec4 d3=texture2D(gDetail,vGWXZ*0.25);float g1=mix(1.0,0.82+d1.r*0.34,near);float g2=0.86+d2.g*0.24;float gsat=max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))-min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b));float g3=mix(1.0,d3.b*1.08,near*0.85*(1.0-smoothstep(0.05,0.14,gsat)));diffuseColor.rgb*=g1*g2*g3;}');};
   mat.customProgramCacheKey=()=>'gdetail';return mat;}
 function bboxOf(pts,m=0){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of pts){if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<z0)z0=p[1];if(p[1]>z1)z1=p[1];}return [x0-m,z0-m,x1+m,z1+m];}
-function paintWorld(g,px,mapMode=false,view=null){
+// part: 1 = Grund, Flächen, Gleisbett; 2 = Straßen, Schienen; ohne = alles (Bodenkacheln malen in zwei Paketschritten)
+function paintWorld(g,px,mapMode=false,view=null,part=0){
   const P={};for(const k in PATC)P[k]=g.createPattern(PATC[k],'repeat');
   const vis=bb=>!view||!(bb[2]<view[0]||bb[0]>view[2]||bb[3]<view[1]||bb[1]>view[3]);
   g.lineJoin='round';g.lineCap='round';
+  if(part!==2){
   g.fillStyle=P.base;g.fillRect(MINX,MINZ,WW,WH);
   for(const a of AREAS){if(!a.bb)a.bb=bboxOf(a.poly);if(!vis(a.bb))continue;const k=a.kind;
     g.fillStyle=k==='square'?P.plaza:k==='parking'?P.asph:(k==='rail'||k==='construction'||k==='playground')?P.gravel:k==='flowerbed'?'#5b4a36':P.grass;pathPoly(g,a.poly);g.fill();}
   for(const r of RAILS){if(!r.bb)r.bb=bboxOf(r.pts,4);if(!vis(r.bb)||r.tram)continue;g.strokeStyle=P.gravel;strokePts(g,r.pts,3.4);}
+  if(part===1)return;}
   const all=[];for(const r of ROADS){if(r.bridge)continue;if(!r.bb)r.bb=bboxOf(r.pts,r.w/2+r.sw+2);if(vis(r.bb))all.push(r);}
   const order=['path','ped','street','main'];
   for(const t of order){const list=all.filter(r=>r.type===t);
@@ -41,25 +44,35 @@ function paintWorld(g,px,mapMode=false,view=null){
 }
 function strokeRoad(g,r,w){strokePts(g,r.pts,w);}
 // Nahboden in 512-m-Kacheln (gemalte Canvas-Textur). Seit Welle 10 als Paket `gr:<tx>,<ty>` durch das Bild-Budget
-// (FRAMEB): Malen, Gebäude-Schatten, Feinstruktur/Wasser und Textur-Upload je ein Schritt; die Kachel kommt erst mit
+// (FRAMEB): Flächen, Straßen, Gebäude-Schatten, Weichzeichner/Feinstruktur/Wasser und Textur-Upload je ein Schritt
+// (5 Schritte); die Kachel kommt erst mit
 // hochgeladener Textur in die Szene. force (Boot, Schnellreise) baut die Kacheln in Reichweite sofort.
 const GROUND={tiles:new Map(),far:null,TZ:512,t:0,R:750,stats:{builds:0,disposes:0,cancels:0,steps:0}};
-function groundTileJob(tx,ty,k){const S=Q.tileRes,TZ=GROUND.TZ,sc=S/TZ,ox=MINX+tx*TZ,oz=MINZ+ty*TZ;let c=null,g=null,ac=null,ph=0;
+// Canvas-Befehle werden aufgezeichnet und erst beim Lesen gerastert: 1 Pixel lesen erzwingt das Rastern im eigenen
+// Schritt, sonst landet alles im Weichzeichner-Schritt (WebKit: bis 16 ms statt 4–6 ms je Schritt)
+function grFlush(g){g.getImageData(0,0,1,1);}
+// Bodenkachel-Canvas auf der CPU: Malen kostet im eigenen Schritt, kein Rückleseweg von der GPU
+const GR_CPU={willReadFrequently:true},GR_AO_N=250;
+function groundTileJob(tx,ty,k){const S=Q.tileRes,TZ=GROUND.TZ,sc=S/TZ,ox=MINX+tx*TZ,oz=MINZ+ty*TZ;let c=null,g=null,ac=null,ag=null,bl=null,bi=0,ph=0;
   const world=gg=>gg.setTransform(sc,0,0,sc,-ox*sc,-oz*sc);
   const step=()=>{GROUND.stats.steps++;
-    if(ph===0){c=document.createElement('canvas');c.width=S;c.height=S;g=c.getContext('2d');world(g);paintWorld(g,sc,false,[ox-10,oz-10,ox+TZ+10,oz+TZ+10]);ph=1;return false;}
-    if(ph===1){ac=document.createElement('canvas');ac.width=S;ac.height=S;const ag=ac.getContext('2d');world(ag);ag.fillStyle='#000';
-      ag.strokeStyle='#000';ag.lineWidth=2.5;ag.lineJoin='round';for(const b of BUILDINGS){if(b.x<ox-90||b.x>ox+TZ+90||b.z<oz-90||b.z>oz+TZ+90||b.mh>3)continue;pathPoly(ag,b.poly);ag.fill();ag.stroke();}
-      ph=2;return false;}
-    if(ph===2){g.setTransform(1,0,0,1,0,0);g.globalAlpha=0.5;g.filter=`blur(${Math.max(2,3*sc)}px)`;g.drawImage(ac,0,0);g.filter='none';g.globalAlpha=1;ac.width=1;ac.height=1;ac=null;
+    const view=[ox-10,oz-10,ox+TZ+10,oz+TZ+10];
+    if(ph===0){c=document.createElement('canvas');c.width=S;c.height=S;g=c.getContext('2d',GR_CPU);world(g);paintWorld(g,sc,false,view,1);grFlush(g);ph=1;return false;}
+    if(ph===1){world(g);paintWorld(g,sc,false,view,2);grFlush(g);ph=2;return false;}
+    if(ph===2){// Gebäude-Schatten: höchstens GR_AO_N Gebäude je Schritt (dichte Innenstädte: mehrere Schritte)
+      if(!ac){ac=document.createElement('canvas');ac.width=S;ac.height=S;ag=ac.getContext('2d',GR_CPU);world(ag);ag.fillStyle='#000';ag.strokeStyle='#000';ag.lineWidth=2.5;ag.lineJoin='round';
+        bl=[];bi=0;for(const b of BUILDINGS){if(b.x<ox-90||b.x>ox+TZ+90||b.z<oz-90||b.z>oz+TZ+90||b.mh>3)continue;bl.push(b);}}
+      for(const e=Math.min(bl.length,bi+GR_AO_N);bi<e;bi++){pathPoly(ag,bl[bi].poly);ag.fill();ag.stroke();}
+      grFlush(ag);if(bi<bl.length)return false;bl=ag=null;ph=3;return false;}
+    if(ph===3){g.setTransform(1,0,0,1,0,0);g.globalAlpha=0.5;g.filter=`blur(${Math.max(2,3*sc)}px)`;g.drawImage(ac,0,0);g.filter='none';g.globalAlpha=1;ac.width=1;ac.height=1;ac=null;
       g.setTransform(1,0,0,1,0,0);for(let y=0;y<S;y+=256)for(let x=0;x<S;x+=256)g.drawImage(FINE,x,y);
-      world(g);g.globalCompositeOperation='destination-out';waterPath(g);g.fill('evenodd');g.globalCompositeOperation='source-over';ph=3;return false;}
+      world(g);g.globalCompositeOperation='destination-out';waterPath(g);g.fill('evenodd');g.globalCompositeOperation='source-over';grFlush(g);ph=4;return false;}
     const t=freeAfterUpload(texFromCanvas(c,false));t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;c=g=null;
     const m=new THREE.Mesh(new THREE.PlaneGeometry(TZ,TZ).rotateX(-Math.PI/2),groundDetail(stdMat({map:t,roughness:0.95,alphaTest:0.5})));
     m.position.set(ox+TZ/2,0,oz+TZ/2);m.receiveShadow=true;
     if(!window.__NORENDER&&renderer.initTexture)renderer.initTexture(t);// Upload in diesem Schritt statt im ersten Bild danach
     scene.add(m);GROUND.tiles.set(k,m);GROUND.stats.builds++;return true;};
-  step.drop=()=>{if(c){c.width=1;c.height=1;}if(ac){ac.width=1;ac.height=1;}c=g=ac=null;};
+  step.drop=()=>{if(c){c.width=1;c.height=1;}if(ac){ac.width=1;ac.height=1;}c=g=ac=ag=bl=null;};
   return step;}
 // Bodenkacheln in Spielernähe als Pakete anmelden, entfernte freigeben (alle 10 Aufrufe; force: sofort, synchron)
 function updateGround(px,pz,force=false,maxN=1,pts=null){pts=pts||[[px,pz]];GROUND.t-=1;if(GROUND.t>0&&!force)return;GROUND.t=10;
