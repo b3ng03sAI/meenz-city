@@ -169,7 +169,8 @@ async def test(g):
     await put(g, st_bottom[0], st_bottom[1], 0, 0.0, settle=0.1)
     yaw_up = await g.js("([x,z])=>Math.atan2(x,z)", [-0.4837, 0.8753])
     await g.js(f"(y)=>{{const P={M}.P1;P.cam.yaw=y;P.h.facing=y;}}", yaw_up)
-    p = await walk(g, 3.5)
+    # 3,5 s bei 3,4 m/s ≈ 12 m Treppe bis zur Plattform – Dauer aus dem aktuellen Gehtempo ableiten
+    p = await walk(g, 3.5 * 3.4 / (await g.js(f"()=>{M}.FOOT.walk")))
     g.check('Sprungturm: Treppe hoch bis zur Plattform (≈ 3 m)', p[2] > 2.6, [round(v, 2) for v in p])
     yaw_board = await g.js("([x,z])=>Math.atan2(x,z)", [-0.8753, -0.4837])
     await put(g, tw['board'][0] + 0.8753 * 5.5, tw['board'][2] + 0.4837 * 5.5, 3.0, yaw_board, settle=0.2)
