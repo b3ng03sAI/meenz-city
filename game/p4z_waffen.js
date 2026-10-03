@@ -60,4 +60,7 @@ const CHEAT={buf:'',codes:{
   JETSKI:P=>{const [x,z]=ppos(P);const w=waterSpotNear(x,z,600);if(!w)return 'Kein Wasser in der Nähe';const c=new Car('jetski',w[0],w[1],w[2],{ctrl:'none'});c.ai={mode:'docked'};return 'Jetski liegt am Wasser bereit';},
   UFOKOMMT:P=>{ufoStart(true);return 'Schau mal nach oben…';},
   HELAU:P=>{P.h.health=100;P.armor=100;return 'Gesund wie e Meenzer Fleischworscht';}}};
-addEventListener('keydown',e=>{if(mode!=='play'||e.repeat||!/^Key[A-Z]$/.test(e.code))return;CHEAT.buf=(CHEAT.buf+e.code.slice(3)).slice(-16);for(const k in CHEAT.codes)if(CHEAT.buf.endsWith(k)){CHEAT.buf='';const msg=CHEAT.codes[k](P1);showBig('CHEAT AKTIVIERT','win',2.5,msg);chime([523,784,1046]);}});
+// Nach dem getippten Buchstaben (e.key), nicht der Tastenposition – sonst passt Z/Y auf QWERTZ nie.
+// M öffnet beim Tippen die Karte (MEENZERWAFFE, FLIEGEMAA) – dort weiter mitlesen und die Karte beim Treffer schließen.
+addEventListener('keydown',e=>{if((mode!=='play'&&mode!=='map')||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;const ch=(e.key||'').toUpperCase();if(!/^[A-Z]$/.test(ch))return;
+  CHEAT.buf=(CHEAT.buf+ch).slice(-16);for(const k in CHEAT.codes)if(CHEAT.buf.endsWith(k)){CHEAT.buf='';if(mode==='map')closeMap();const msg=CHEAT.codes[k](P1);showBig('CHEAT AKTIVIERT','win',2.5,msg);chime([523,784,1046]);}},true);
