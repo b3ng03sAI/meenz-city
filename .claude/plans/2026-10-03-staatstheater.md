@@ -65,3 +65,10 @@ Startpunkt (−150|−30) liegt lokal bei u ≈ 31, v ≈ 52 → schräg vor der
   Wände blockieren, Platz/Treppe begehbar (Treppenhöhe), Draw-Calls ultra ≤ 25 und niedrig ≤ 10, kein errbox.
 - `python3 tests/run.py theater all version`.
 - Screenshots real.html: Startpunkt, Nahansicht Fassade, Abend, WebKit iPhone 14 Pro „niedrig“. Heap vorher/nachher mit `mob9.py m`.
+
+## 5. Ergebnis (2026-10-03)
+- Draw-Calls: ultra 7, niedrig 6 (ein Mesh je Material: Sandstein, Rustika, Putz, Glas, Metall, Relief, Schrift).
+- Handy-Heap (`mob9.py m`, eigener Port): Laden 667 → 667 MB, nach Rendern 668 → 670 MB (usedSize +0,85 MB).
+- Tests: `test_theater` 24/24, `test_all` 18/18, `test_version` 5/5, zusätzlich `test_ft` 17/17 (Schnellreise „Staatstheater & Höfchen“).
+- Screenshots `tests/out/theater_{start,nah,abend,luft}.jpg` (real.html ultra), `theater_iphone_{start,nah}.jpg` (WebKit iPhone 14 Pro, niedrig).
+- Offen: Foyer hinter den Arkaden nicht modelliert (Arkaden 1,6 m tief, Türen geschlossen); Fahnenmasten auf dem Platz weggelassen.
