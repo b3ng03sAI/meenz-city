@@ -4,12 +4,13 @@
 //   heiß:  Kachel näher als 1000 m an einer Spieler-Kapsel (FRAMEB.pts: Position → Vorausschau) oder näher als 900 m an
 //          einer Lazy-Zone, die gleich gebaut wird (damit der Zonenbau die Umgebung roh vorfindet)
 //   kalt:  weiter als 1300 m bzw. 1200 m (Hysterese 300 m)
-// Die Arbeit läuft in Paketen über FRAMEB: je 512-m-Block ein Paket („hg:u:bx,bz“ entpacken, Bias 0; „hg:p:bx,bz“ packen,
-// Bias +3000) mit höchstens 64 HG- + 16 MFLAG-Kacheln. Sprung (FRAMEB.jump): < 300 m und die Umgebung der Zonen, die jetzt
-// synchron gebaut werden, sofort roh. Ferne Viel-Leser (≥ 2048 kalte Lesezugriffe je Kachel in 0,25 s) bekommen ihre
+// Die Arbeit läuft in Paketen über FRAMEB: je 512-m-Block ein Paket („hg:u:bx,bz“ entpacken, Bias 0 bzw. −300 für die
+// Umgebung einer bald gebauten Zone; „hg:p:bx,bz“ packen, Bias +3000) mit höchstens 64 HG- + 16 MFLAG-
+// Kacheln. Sprung (FRAMEB.jump): < 300 m sofort roh. Steht ein Zonenbau unmittelbar bevor (< rPre + 60 m) und ist die
+// Umgebung noch nicht ganz roh, entpackt hgcZoneGuard sie synchron (Notbremse). Ferne Viel-Leser (≥ 2048 kalte Lesezugriffe je Kachel in 0,25 s) bekommen ihre
 // Kachel als LRU-Extra roh (höchstens 256).
 const HGC={zoneBuildsCold:0,zoneBuildsNoted:0,hotR:1000,coldR:1300,zoneR:900,jumpR:300,tick:0.25,t:0,
-  lru:[],lruMax:256,lruTTL:10,lruUnpacks:0,clock:0,cen:[],bootMs:0,bootPacked:0,jumpMs:0,jumpMax:0,jobMaxMs:0,jobs:0,ticks:0,
+  zoneBias:-300,zoneSync:0,zoneSyncTiles:0,zoneSyncMax:0,lru:[],lruMax:256,lruTTL:10,lruUnpacks:0,clock:0,cen:[],bootMs:0,bootPacked:0,jumpMs:0,jumpMax:0,jobMaxMs:0,jobs:0,ticks:0,
   get packs(){return HGG.packs+MFG.packs;},get unpacks(){return HGG.unpacks+MFG.unpacks;},get coldReads(){return HGG.cr+MFG.cr;},
   get rawBytes(){let n=0;for(const G of [HGG,MFG])for(const a of G.tiles)if(a)n+=a.byteLength;return n;},
   get rleBytes(){let n=0;for(const G of [HGG,MFG])for(const r of G.rle)if(r)n+=r.byteLength;return n;},
@@ -41,9 +42,10 @@ function hgcCapD(p,x,z){const dx=p.ax-p.x,dz=p.az-p.z,L2=dx*dx+dz*dz;let t=L2>0?
 function hgcHotD(x,z){let d=1e9;for(const c of HGC.cen){const e=c.zone?Math.hypot(x-c.x,z-c.z)+HGC.hotR-HGC.zoneR:hgcCapD(c,x,z);if(e<d)d=e;}return d;}
 function hgcTileD(g,t){const tx=t%g.G.TW,tz=(t/g.G.TW)|0,h=g.S/2;return hgcHotD(MINX+tx*g.S+h,MINZ+tz*g.S+h)-h*1.4143;}
 // Zonen, die demnächst gebaut werden (oder gebaut sind) – deren 900-m-Umgebung soll roh sein, bevor der Bau beginnt
-function hgcZones(pts){const out=[];if(typeof LAZY==='undefined')return out;const pre=(LAZY.rPre||0);
+function hgcZonePre(Z){return Z.rPre||Math.max(Z.rIn||0,(typeof LAZY!=='undefined'&&LAZY.rPre)||0);}
+function hgcZones(pts){const out=[];if(typeof LAZY==='undefined')return out;
   for(const Z of LAZY.zones){let d=1e9;for(const p of pts){const e=hgcCapD(p,Z.x,Z.z);if(e<d)d=e;}
-    if(Z.built||d<Math.max(Z.rIn||0,pre)+400)out.push({zone:true,x:Z.x,z:Z.z,d,Z});}
+    if(Z.built||Z.building||d<hgcZonePre(Z)+400)out.push({zone:true,x:Z.x,z:Z.z,d,Z});}
   return out;}
 function hgcPts(){if(FRAMEB.pts.length)return FRAMEB.pts;const o=[];for(const P of PLAYERS){if(!P.h)continue;const p=ppos(P);o.push({x:p[0],z:p[1],ax:p[0],az:p[1]});}return o;}
 function hgcCenters(){const pts=hgcPts();HGC.cen=pts.map(p=>({x:p.x,z:p.z,ax:p.ax,az:p.az})).concat(hgcZones(pts));}
@@ -59,15 +61,19 @@ function hgcBlockStep(bx,bz,unpack){const t0=performance.now();let n=0;
     if(unpack){if(G.rle[t]&&hgcTileD(g,t)<HGC.hotR){sgUnpack(G,t);n++;}}
     else if(G.tiles[t]&&!hgcPinned(G,t)&&hgcTileD(g,t)>HGC.coldR){sgPack(G,t);n++;}}}
   const d=performance.now()-t0;HGC.jobs++;if(d>HGC.jobMaxMs)HGC.jobMaxMs=d;return true;}
-function hgcQueue(bx,bz,unpack){const k=(unpack?'hg:u:':'hg:p:')+bx+','+bz;fbCancel((unpack?'hg:p:':'hg:u:')+bx+','+bz);
-  fbJob(k,()=>hgcBlockStep(bx,bz,unpack),{x:MINX+bx*512+256,z:MINZ+bz*512+256,bias:unpack?0:3000});}
+// Priorität ab Blockmitte: Packen +3000, Entpacken 0, für die Umgebung einer bald gebauten Zone zoneBias (−300). Das
+// zieht sie vor gleich weite Kachel-Pakete, aber nicht vor den Zonenbau selbst (lz:, am Zonenmittelpunkt −200) –
+// rechtzeitig roh macht sie notfalls hgcZoneGuard.
+function hgcQueue(bx,bz,unpack,bias){const k=(unpack?'hg:u:':'hg:p:')+bx+','+bz;fbCancel((unpack?'hg:p:':'hg:u:')+bx+','+bz);
+  fbJob(k,()=>hgcBlockStep(bx,bz,unpack),{x:MINX+bx*512+256,z:MINZ+bz*512+256,bias});}
 // Soll-Menge neu bestimmen und Pakete anmelden
-function hgcTick(){HGC.ticks++;hgcCenters();const up=new Set(),pk=new Set();
+function hgcTick(){HGC.ticks++;hgcCenters();const up=new Map(),pk=new Set();
   for(const g of hgcGrids){const G=g.G;
-    for(const c of HGC.cen)hgcEachNear(g,c,c.zone?HGC.zoneR+g.S:HGC.hotR+g.S,(t,tx,tz)=>{if(G.rle[t]&&hgcTileD(g,t)<HGC.hotR)up.add(((tx/g.B)|0)+','+((tz/g.B)|0));});
+    for(const c of HGC.cen)hgcEachNear(g,c,c.zone?HGC.zoneR+g.S:HGC.hotR+g.S,(t,tx,tz)=>{if(!G.rle[t]||hgcTileD(g,t)>=HGC.hotR)return;
+      const k=((tx/g.B)|0)+','+((tz/g.B)|0),b=c.zone?HGC.zoneBias:0;if(!(up.get(k)<=b))up.set(k,b);});
     for(const t of G.hot)if(!hgcPinned(G,t)&&hgcTileD(g,t)>HGC.coldR)pk.add((((t%G.TW)/g.B)|0)+','+((((t/G.TW)|0)/g.B)|0));}
-  for(const k of up){const [bx,bz]=k.split(',').map(Number);hgcQueue(bx,bz,true);}
-  for(const k of pk)if(!up.has(k)){const [bx,bz]=k.split(',').map(Number);hgcQueue(bx,bz,false);}
+  for(const [k,b] of up){const [bx,bz]=k.split(',').map(Number);hgcQueue(bx,bz,true,b);}
+  for(const k of pk)if(!up.has(k)){const [bx,bz]=k.split(',').map(Number);hgcQueue(bx,bz,false,3000);}
   hgcLru();}
 // LRU für ferne Viel-Leser: Kacheln mit vielen kalten Lesezugriffen roh halten – höchstens lruMax, je lruTTL s Spielzeit
 // (danach normal: fern → wieder gepackt; liest jemand weiter viel, wird die Kachel erneut angeheftet)
@@ -75,13 +81,23 @@ function hgcLru(){for(const g of hgcGrids){const G=g.G;if(!G.pin)G.pin=new Set()
     for(const t of G.want){if(!G.rle[t])continue;sgUnpack(G,t);G.pin.add(t);HGC.lru.push({G,t,until:HGC.clock+HGC.lruTTL});HGC.lruUnpacks++;}
     G.want.length=0;if(G.crt)G.crt.fill(0);}
   while(HGC.lru.length&&(HGC.lru.length>HGC.lruMax||HGC.lru[0].until<=HGC.clock)){const o=HGC.lru.shift();o.G.pin.delete(o.t);}}
-// Sprung-Kern: < jumpR um die Spieler und die Umgebung der Zonen, die jetzt (synchron) gebaut werden, sofort roh
-function hgcSyncHot(){const t0=performance.now();hgcCenters();
-  for(const g of hgcGrids){const G=g.G;for(const c of HGC.cen){
-    const R=c.zone?HGC.zoneR:HGC.jumpR;if(c.zone&&(c.Z.built||c.d>=Math.max(c.Z.rIn||0,(typeof LAZY!=='undefined'&&LAZY.rPre)||0)))continue;
-    hgcEachNear(g,c,R+g.S,(t)=>{if(!G.rle[t])return;const tx=t%G.TW,tz=(t/G.TW)|0,h=g.S/2,x=MINX+tx*g.S+h,z=MINZ+tz*g.S+h;
-      const d=(c.zone?Math.hypot(x-c.x,z-c.z):hgcCapD(c,x,z))-h*1.4143;if(d<R)sgUnpack(G,t);});}}
+// Alle kalten Kacheln, die näher als R an Mittelpunkt c liegen (Kapsel oder Zone), sofort entpacken; Zahl zurück
+function hgcHeat(c,R){let n=0;
+  for(const g of hgcGrids){const G=g.G;hgcEachNear(g,c,R+g.S,(t)=>{if(!G.rle[t])return;const tx=t%G.TW,tz=(t/G.TW)|0,h=g.S/2,x=MINX+tx*g.S+h,z=MINZ+tz*g.S+h;
+    const d=(c.zone?Math.hypot(x-c.x,z-c.z):hgcCapD(c,x,z))-h*1.4143;if(d<R){sgUnpack(G,t);n++;}});}
+  return n;}
+// Sprung-Kern: < jumpR um die Spieler sofort roh (Zonen-Umgebung: hgcZoneGuard)
+function hgcSyncHot(){const t0=performance.now();hgcCenters();for(const c of HGC.cen)if(!c.zone)hgcHeat(c,HGC.jumpR);
   const d=performance.now()-t0;HGC.jumpMs=d;if(d>HGC.jumpMax)HGC.jumpMax=d;}
+// Notbremse je Bild (läuft vor updateLazy): steht ein Zonenbau unmittelbar bevor (Spieler < rPre + 60 m) und liegen im
+// 900-m-Umkreis noch kalte Kacheln (Pakete zu langsam, Sprung), jetzt synchron entpacken – einmal je Annäherung.
+const hgcZoneOk=new Set();
+function hgcZoneGuard(){if(typeof LAZY==='undefined')return;
+  for(const Z of LAZY.zones){if(Z.built||Z.building)continue;const d=minPlayerDist(Z.x,Z.z),pre=hgcZonePre(Z);
+    if(d>pre+300){hgcZoneOk.delete(Z);continue;}
+    if(d>=pre+60||hgcZoneOk.has(Z))continue;hgcZoneOk.add(Z);
+    const t0=performance.now(),n=hgcHeat({zone:true,x:Z.x,z:Z.z},HGC.zoneR);
+    if(n){HGC.zoneSync++;HGC.zoneSyncTiles+=n;const ms=performance.now()-t0;if(ms>HGC.zoneSyncMax)HGC.zoneSyncMax=ms;}}}
 // Boot (nach allen Feature-Setups): alles außerhalb des Heiß-Bereichs um den Start packen
 function setupHgCold(){const t0=performance.now();hgcCenters();let n=0;
   for(const g of hgcGrids){const G=g.G;G.crt=new Uint16Array(G.tiles.length);G.hot.clear();
@@ -89,7 +105,8 @@ function setupHgCold(){const t0=performance.now();hgcCenters();let n=0;
   HGC.bootPacked=n;HGC.bootMs=performance.now()-t0;}
 function updateHgCold(dt){HGC.t-=dt;HGC.clock+=dt;
   if(FRAMEB.jump){hgcSyncHot();HGC.t=0;}
-  if(HGC.t<=0){HGC.t=HGC.tick;hgcTick();}}
+  if(HGC.t<=0){HGC.t=HGC.tick;hgcTick();}
+  hgcZoneGuard();}
 // Zahl der kalten (RLE-)Kacheln, die näher als R an (x,z) liegen (HG + MFLAG)
 function hgcColdNear(x,z,R){let n=0;const c={zone:true,x,z};
   for(const g of hgcGrids){const G=g.G,h=g.S/2;hgcEachNear(g,c,R+g.S,(t,tx,tz)=>{
