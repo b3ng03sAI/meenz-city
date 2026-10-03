@@ -137,7 +137,7 @@ function extrudeSide(pts,W,bev,arches){const s=new THREE.Shape();s.moveTo(pts[0]
   s.closePath();const depth=Math.max(0.01,W-2*bev);const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:bev>0,bevelThickness:bev,bevelSize:bev*0.85,bevelSegments:3,curveSegments:10,steps:1});
   g.rotateY(-Math.PI/2);g.translate(depth/2,0,0);g.computeVertexNormals();return g;}
 const CAR_GEO=new Map();
-function carGeo(id){if(CAR_GEO.has(id))return CAR_GEO.get(id);const T=CAR_TYPES[id];const c=0.28,L=T.L,W=T.W,H=T.H,hf=L/2;const det=new GB(),head=new GB(),tail=new GB();let body,glass;
+function carGeo(id){if(CAR_GEO.has(id))return CAR_GEO.get(id);const T=CAR_TYPES[id];if(autosIs(T)){const r=autosGeo(id);CAR_GEO.set(id,r);return r;}const c=0.28,L=T.L,W=T.W,H=T.H,hf=L/2;const det=new GB(),head=new GB(),tail=new GB();let body,glass;
   const lightW={r:1,g:0.97,b:0.9},red={r:1,g:0.06,b:0.04},orange={r:1,g:0.5,b:0.05};
   if(T.bike){const fr=new GB();const k={r:0.08,g:0.08,b:0.09};
     fr.beam([0,0.36,0.72],[0,0.95,0.42],0.07,0.07,k);fr.beam([0,0.36,-0.72],[0,0.62,-0.1],0.08,0.08,k);fr.beam([0,0.62,-0.1],[0,0.95,0.42],0.09,0.09,k);
@@ -233,6 +233,7 @@ class Car{
     const T=this.T=CAR_TYPES[id];this.id=id;const geo=carGeo(id);
     this.color=o.color??T.color??mpick(CAR_COLORS);
     this.g=new THREE.Group();this.g.rotation.order='YXZ';
+    if(geo.auto){this.plateText=o.plate||plateText(o.region||'MZ');autosDress(this,geo);}else{
     this.bodyMat=new THREE.MeshPhysicalMaterial({color:this.color,roughness:0.34,metalness:0.55,clearcoat:1,clearcoatRoughness:0.05});
     this.tailMat=new THREE.MeshStandardMaterial({vertexColors:true,emissive:0xff1a10,emissiveIntensity:0.4,roughness:0.15});
     const add=(g,m,cast=true)=>{const me=new THREE.Mesh(g,m);me.castShadow=cast;me.receiveShadow=true;this.g.add(me);return me;};
@@ -240,14 +241,17 @@ class Car{
     this.wheels=[];const wr=T.wr;
     for(const [sx,sz] of (T.boat||T.plane?[]:T.bike?[[1,1],[1,-1]]:[[1,1],[-1,1],[1,-1],[-1,-1]])){const pv=new THREE.Group();pv.position.set(T.bike?0:sx*(T.W/2-0.16),wr,sz*T.wb/2);const w=new THREE.Group();const tire=new THREE.Mesh(TIRE_G,TIRE_M);tire.scale.set(1,wr,wr);tire.castShadow=true;
       const rim=new THREE.Mesh(RIM_G,RIM_M);rim.scale.set(sx,wr,wr);w.add(tire);w.add(rim);pv.add(w);this.g.add(pv);this.wheels.push({pv,w,front:sz>0});}
+    }
     const blob=new THREE.Mesh(BLOB_G,BLOB_MAT);blob.scale.set(T.W*1.5,1,T.L*1.25);blob.position.y=0.04;blob.renderOrder=1;if(!T.boat&&!T.plane)this.g.add(blob);
+    if(!geo.auto){
     this.plateText=o.plate||plateText(o.region||'MZ');this.plateTex=plateTex(this.plateText);const pm=stdMat({map:this.plateTex,roughness:0.5});
     for(const s of (T.boat||T.plane||T.pedal?[]:T.bike?[-1]:[1,-1])){const p=new THREE.Mesh(new THREE.PlaneGeometry(T.bike?0.3:0.52,T.bike?0.16:0.12),pm);p.position.set(0,T.bike?0.62:0.5,s*(T.L/2+0.1));p.rotation.y=s>0?0:Math.PI;this.g.add(p);}
     if(T.police){this.sirens=[];for(const s of [-1,1]){const m=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.14,0.26),SIREN_OFF);m.position.set(s*0.26,T.H+0.06,T.cab[1]-0.3);this.g.add(m);this.sirens.push(m);}
       for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.28),stdMat({map:polizeiTex}));p.position.set(s*(T.W/2+0.015),0.62,0.1);p.rotation.y=s*Math.PI/2;this.g.add(p);}}
+    }
     if(T.ice){const cone=new THREE.Group();const w=new THREE.Mesh(new THREE.ConeGeometry(0.35,1.0,14),stdMat({color:0xd9a35b,roughness:0.8}));w.rotation.x=Math.PI;w.position.y=0.5;cone.add(w);for(const [cl,y] of [[0xf7e7c8,1.1],[0xe86b9a,1.45]]){const b=new THREE.Mesh(new THREE.SphereGeometry(0.36,14,10),stdMat({color:cl,roughness:0.6}));b.position.y=y;cone.add(b);}cone.position.set(0,T.H,-0.3);this.g.add(cone);
       for(const s of [-1,1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(2.4,0.5),stdMat({map:textTex('Eis vom Meenzer Gelatiere',{w:512,h:96,bg:'#f6c6d8',fg:'#8a1d4a',font:'800 40px "Barlow Condensed",sans-serif'})}));p.position.set(s*(T.W/2+0.015),1.7,-0.6);p.rotation.y=s*Math.PI/2;this.g.add(p);}}
-    if(T.taxi){const m=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.16),stdMat({color:0xf2c500}));m.position.set(0,T.H+0.08,T.cab[1]-0.3);this.g.add(m);for(const s of [1,-1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.18),stdMat({map:taxiTex}));p.position.set(0,T.H+0.08,T.cab[1]-0.3+s*0.085);p.rotation.y=s>0?0:Math.PI;this.g.add(p);}}
+    if(T.taxi&&!geo.auto){const m=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.16),stdMat({color:0xf2c500}));m.position.set(0,T.H+0.08,T.cab[1]-0.3);this.g.add(m);for(const s of [1,-1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.18),stdMat({map:taxiTex}));p.position.set(0,T.H+0.08,T.cab[1]-0.3+s*0.085);p.rotation.y=s>0?0:Math.PI;this.g.add(p);}}
     this.x=x;this.z=z;this.h=h;this.yawRate=0;this.y=T.boat?-5.75:groundY(x,z);this.vx=0;this.vz=0;this.speed=0;this.steer=0;this.health=100;this.burn=0;this.dead=false;this.spin=0;
     this.ctrl=o.ctrl||'none';this.ai={};this.driver=null;this.cops=[];this.sirenOn=false;this.inp={throttle:0,brake:0,steer:0,hand:false};
     const hl=T.L/2-0.05,hw=T.W/2-0.02;this.samples=[[hw,hl],[-hw,hl],[hw,-hl],[-hw,-hl],[hw,0],[-hw,0],[0,hl]];if(T.L>6)this.samples.push([hw,hl/2],[-hw,hl/2],[hw,-hl/2],[-hw,-hl/2]);
