@@ -118,6 +118,8 @@ async def real_checks(g):
 async def test(g):
     await g.start()
     g.check('Spiel läuft', await g.js(f"()=>{M}.mode") == 'play')
+    # Revierkämpfe ruhigstellen: die Wiesbadener Gang greift Spieler zufällig an – hier nicht Thema (wie test_nero)
+    await g.js(f"()=>{{const R={M}.REVIER;if(R){{R.spawnT=R.attackT=R.incomeT=1e9;for(const m of (R.members||[]))if(!m.removed)m.remove();}}}}")
 
     # (a) Lazy: nach dem Boot am Standard-Start nichts gebaut, keine Szenen, keine Kollision
     zs = await g.js(f"()=>{W}.zones.map({ZSTATE})")
@@ -266,6 +268,13 @@ async def test(g):
             g.check('(d) Brunnen wieder massiv, an gleicher Stelle',
                     await g.js(f"()=>{{const B={W}.st.schloss.brunnen;return B.x==={b['x']}&&B.z==={b['z']}&&{M}.blockedFn(B.x+1.5,B.z)}}"))
     await tp_home(g)
+
+    # Qualität „niedrig“: etwa halb so viele Props, keine Lichterketten
+    low = await g.js(f"""()=>{{const M={M},W={W},q=M.QS.lowLOD;M.QS.lowLOD=true;try{{for(const k of ['schloss','wilhelm','luisen','westend'])W.forceBuild(k);
+        const r={{benches:W.st.schloss.benches.length,ducks:W.st.wilhelm.ducks.length,pigeons:W.st.luisen.pigeons.length,stands:W.st.westend.stands.length,lights:W.st.westend.lights}};
+        for(const k of ['schloss','wilhelm','luisen','westend'])W.forceDispose(k);return r;}}finally{{M.QS.lowLOD=q;}}}}""")
+    g.check('Qualität „niedrig“: halb so viele Bänke/Enten/Tauben/Auslagen, keine Lichterketten',
+            low['benches'] <= 2 and low['ducks'] <= 4 and low['pigeons'] <= 6 and low['stands'] <= 4 and low['lights'] == 0, low)
     g.check('am Ende alles wieder leer', await g.js(f"()=>{W}.zones.every(Z=>!Z.built&&Z.group===null&&Z.owned.length===0&&Z.npcs.length===0)&&{W}.hitOn===0"))
 
 
