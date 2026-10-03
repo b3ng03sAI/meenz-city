@@ -49,6 +49,7 @@ function mkSign(text){const c=document.createElement('canvas');c.width=512;c.hei
 // die Marktstände kosteten sonst ~240 Draw-Calls. Matrizen relativ zu root (root selbst darf sich bewegen); Einzelstücke und
 // unsichtbare Teile bleiben, wie sie sind. Gleiche Grundkörper mit eigener Geometrie (z. B. Tischdecken) gelten als gleich.
 // Eigener Zufallsstrom für die UUIDs der neuen Objekte – das globale Math.random bleibt unberührt.
+const MK_INST={n:0};// Zähler je Aufruf: jeder Aufbau bekommt eigene (feste) UUIDs
 function mkSameGeo(a,b){if(a===b)return true;if(a.type!==b.type||!a.parameters||JSON.stringify(a.parameters)!==JSON.stringify(b.parameters))return false;
   const p=a.attributes.position,q=b.attributes.position;if(!p||!q||p.count!==q.count)return false;for(let i=0;i<p.array.length;i++)if(p.array[i]!==q.array[i])return false;return true;}
 function mkInstancify(root){if(!root||!Array.isArray(root.children))return 0;root.updateMatrixWorld(true);
@@ -56,7 +57,7 @@ function mkInstancify(root){if(!root||!Array.isArray(root.children))return 0;roo
   root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.visible&&!Array.isArray(o.material))parts.push(o);});
   for(const o of parts){let g=reps.find(r=>mkSameGeo(r,o.geometry));if(!g){g=o.geometry;reps.push(g);}
     let byM=buckets.get(g);if(!byM)buckets.set(g,byM=new Map());let L=byM.get(o.material);if(!L)byM.set(o.material,L=[]);L.push(o);}
-  const rnd=Math.random;Math.random=mulberry32(0x6d6b);let n=0;
+  const rnd=Math.random;Math.random=mulberry32(0x6d6b+(++MK_INST.n)*7919);let n=0;
   try{const m4=new THREE.Matrix4();
     for(const [g,byM] of buckets)for(const [mat,L] of byM){if(L.length<2)continue;const im=new THREE.InstancedMesh(g,mat,L.length);
       L.forEach((o,i)=>{im.setMatrixAt(i,m4.multiplyMatrices(inv,o.matrixWorld));o.parent.remove(o);});
