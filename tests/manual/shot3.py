@@ -14,7 +14,7 @@ async def main():
         pg.on('pageerror',lambda e: errs.append('PAGEERROR: '+str(e)))
         pg.on('console',lambda m: errs.append(m.type+': '+m.text[:200]) if m.type=='error' else None)
         await pg.add_init_script("try{localStorage.setItem('meenz-quality','"+Q+"')}catch(e){};window.__NORENDER=true;")
-        await pg.goto('http://localhost:8765/game/real.html')
+        await pg.goto(os.environ.get('MEENZ_URL','http://localhost:8765')+'/game/real.html')
         await pg.wait_for_function("window.__MEENZ!==undefined",timeout=400000)
         E=pg.evaluate
         await E("()=>document.getElementById('btn-play').click()"); await pg.wait_for_timeout(1500)
