@@ -379,11 +379,13 @@ function weisBuildGrossberg(Z){const GBx=WEIS.grossberg,hedges=weisKeep(GBx.hedg
 const WEIS_BUILD={
   syn(Z){const Gs=new GB(),Gt=new GB();weisBuildSynagoge(Gs,Gt);weisMesh(Z,Gs,weisMat(Z,'conc'));weisMesh(Z,Gt,weisMat(Z,'atlas'));},
   ufer(Z){const Uc=new GB(),Ut=new GB();weisBuildUfer(Z,Uc,Ut);weisMesh(Z,Uc,weisMat(Z,'conc'));weisMesh(Z,Ut,weisMat(Z,'atlas'),false);},
-  sued(Z){WEIS.qOn=true;const Zc=new GB(),Zm=new GB();weisBuildZement(Zc,Zm);weisMesh(Z,Zc,weisMat(Z,'conc'));weisMesh(Z,Zm,weisMat(Z,'metal'));
-    const Qc=new GB(),Qm=new GB(),Qt=new GB();weisBuildQuarry(Z,Qc,Qm,Qt);weisMesh(Z,Qc,weisMat(Z,'conc'));weisMesh(Z,Qm,weisMat(Z,'metal'));weisMesh(Z,Qt,weisMat(Z,'atlas'),false);
+  *sued(Z){WEIS.qOn=true;const Zc=new GB(),Zm=new GB();weisBuildZement(Zc,Zm);weisMesh(Z,Zc,weisMat(Z,'conc'));weisMesh(Z,Zm,weisMat(Z,'metal'));yield;
+    const Qc=new GB(),Qm=new GB(),Qt=new GB();weisBuildQuarry(Z,Qc,Qm,Qt);yield;weisMesh(Z,Qc,weisMat(Z,'conc'));weisMesh(Z,Qm,weisMat(Z,'metal'));weisMesh(Z,Qt,weisMat(Z,'atlas'),false);yield;
     weisBuildGrossberg(Z);}};
-function weisZoneBuild(Z){const k=Z.o.key;WEIS.stats[k]={meshes:0,inst:0,props:0,cast:0,verts:0,tris:0};Z.J=weisJ();Z.mats={};
-  for(const b of WEIS.blocks[k])weisBlock(Z.J,b);WEIS_BUILD[k](Z);
+// Generator (p6_lazy: ein Teil je Bild-Paket): Raster-Sperren, Bauteile (Süd in mehreren Teilen), Szenen
+function* weisZoneBuild(Z){const k=Z.o.key;WEIS.stats[k]={meshes:0,inst:0,props:0,cast:0,verts:0,tris:0};Z.J=weisJ();Z.mats={};
+  for(const b of WEIS.blocks[k])weisBlock(Z.J,b);yield;
+  const it=WEIS_BUILD[k](Z);if(it&&typeof it.next==='function')yield* it;yield;
   for(const sc of WEIS.scenes)if(sc.zone===k)weisSpawnScene(Z,sc);}
 function weisZoneDispose(Z){const k=Z.o.key;for(const sc of WEIS.scenes)if(sc.zone===k)sc.people=[];
   if(k==='ufer')weisFreeRoom();
