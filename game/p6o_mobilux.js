@@ -159,7 +159,7 @@ function muxRenderInfo(){const C=MUX.cull,out={calls:0,triangles:0,culled:C.hidd
   catch(_){return out;}
   finally{if(I)I.autoReset=true;if(SM&&smR)SM.render=smR;
     if(hadB)scene.onBeforeRender=ob;else delete scene.onBeforeRender;if(hadA)scene.onAfterRender=oa;else delete scene.onAfterRender;}}
-MUX.renderInfo=muxRenderInfo;MUX.aimTarget=muxAimTarget;MUX.touchText=muxTouchText;
+MUX.renderInfo=muxRenderInfo;MUX.aimTarget=muxAimTarget;MUX.touchText=muxTouchText;MUX.props.all=muxPropsAll;
 {let v;Object.defineProperty(window,'__MEENZ',{configurable:true,enumerable:true,get(){return v;},
   set(x){v=x;if(x&&typeof x==='object'&&!('RINFO' in x)){Object.defineProperty(x,'RINFO',{get:muxRenderInfo,enumerable:true});x.MUX=MUX;}}});}
 // Testzugriff (window.__MEENZ.MUX.t)
