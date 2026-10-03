@@ -8,6 +8,8 @@ const STREAM_LAYERS=['road','sw','curb','ground','rails','trees'];
 const STREAM={tiles:new Map(),list:[],ready:false,
   // Bauen < build, Freigeben > free (Abstand Kachelrand ↔ Spieler-/Vorausschau-Kapsel), Sprung-Kern < core
   R:LOWMEM?{build:1700,free:2000}:{build:3200,free:3500},core:450,coreMs:250,relQ:new Set(),half:CHUNK*Math.SQRT1_2,
+  // Desktop: Bäume bleiben überall stehen (Fernsicht aus dem Flugzeug wie bisher, Speicher ist dort nicht knapp)
+  pin:new Set(LOWMEM?[]:['trees']),
   t:0,loading:false,hintT:0,live:new Set(),treeLift:new Map(),treeGeo:null,trims:null,railMat:null,
   stats:{builds:0,layerBuilds:0,disposes:0,cpuGeoBytes:0,cores:0,coreMs:0,coreMax:0},
   st:{maxMs:0,slowest:'',slowestMs:0,steps:0},
@@ -50,19 +52,20 @@ function streamKeepLift(L){for(const [m,list] of L.trees){const a=m.instanceMatr
 const STREAM_EMPTY=new Float32Array(0);
 function streamEmpty(m,inst){const a=inst?[m.instanceMatrix,m.instanceColor]:Object.values(m.geometry.attributes||{}).concat(m.geometry.index||[]);
   for(const x of a)if(x&&x.array&&x.array.length)x.array=x.array instanceof Float32Array?STREAM_EMPTY:new x.array.constructor(0);}
-function streamFreeTile(T){const S=STREAM,gone=new Set();
-  for(const L of T.layers.values()){if(L.trees)streamKeepLift(L);
+function streamFreeTile(T,all){const S=STREAM,gone=new Set();
+  for(const [l,L] of T.layers){if(!all&&S.pin.has(l))continue;if(L.trees)streamKeepLift(L);
     for(const m of L.meshes){scene.remove(m);gone.add(m);S.live.delete(m);if(L.inst)m.dispose();else m.geometry.dispose();streamEmpty(m,L.inst);}
-    for(const r of L.recs)if(!r.up){r.up=true;S.stats.cpuGeoBytes-=r.b;}}
-  T.layers.clear();if(LOWMEM)streamUnstatic(gone);S.stats.disposes++;}
+    for(const r of L.recs)if(!r.up){r.up=true;S.stats.cpuGeoBytes-=r.b;}T.layers.delete(l);}
+  if(LOWMEM)streamUnstatic(gone);S.stats.disposes++;}
 // Freigaben: ein gemeinsames Paket 'st:free', eine Kachel je Schritt (also höchstens eine je Bild). Vorn in der Schlange,
 // sonst verhungert es hinter dauernd nachrückenden Bau-Paketen (Flug, schnelle Fahrt) und der Speicher wächst.
 function streamFreeJob(){const S=STREAM;for(const T of S.relQ){S.relQ.delete(T);T.freeing=false;streamFreeTile(T);break;}return S.relQ.size===0;}
+function streamFreeable(T){for(const l of T.layers.keys())if(!STREAM.pin.has(l))return true;return false;}
 function streamKey(T,layer){return 'st:'+T.key+':'+layer;}
 function streamWant(T){if(T.freeing){STREAM.relQ.delete(T);T.freeing=false;}
   if(T.want)return;T.want=true;for(const l of T.need)if(!T.layers.has(l))fbJob(streamKey(T,l),()=>streamStep(T,l),{x:T.cx,z:T.cz,bias:0});}
 function streamRelease(T){if(T.want){T.want=false;for(const l of T.need)fbCancel(streamKey(T,l));}
-  if(T.layers.size&&!T.freeing){T.freeing=true;STREAM.relQ.add(T);fbJob('st:free',streamFreeJob,{prio:-1});}}
+  if(streamFreeable(T)&&!T.freeing){T.freeing=true;STREAM.relQ.add(T);fbJob('st:free',streamFreeJob,{prio:-1});}}
 // Abstand Kachelrand ↔ nächste Kapsel Spieler → Vorausschau (pts wie FRAMEB.pts)
 function streamDist(T,pts){let best=1e9;for(const p of pts){const dx=p.ax-p.x,dz=p.az-p.z,L2=dx*dx+dz*dz;let t=L2>0?((T.cx-p.x)*dx+(T.cz-p.z)*dz)/L2:0;t=t<0?0:t>1?1:t;
     const d=Math.hypot(T.cx-p.x-dx*t,T.cz-p.z-dz*t);if(d<best)best=d;}
@@ -70,7 +73,7 @@ function streamDist(T,pts){let best=1e9;for(const p of pts){const dx=p.ax-p.x,dz
 // Soll-Menge: nah → Ebenen als Pakete anmelden, fern → Freigabe-Paket (Hysterese build/free)
 function streamPlan(pts){const S=STREAM,{build,free}=S.R;let loading=false;
   for(const T of S.list){const d=streamDist(T,pts);
-    if(d<build)streamWant(T);else if(d>free&&(T.want||T.layers.size))streamRelease(T);
+    if(d<build)streamWant(T);else if(d>free&&(T.want||streamFreeable(T)))streamRelease(T);
     if(d<S.core&&T.layers.size<T.need.length)loading=true;}
   if(!loading)S.loading=false;}// den Lade-Hinweis setzt nur streamCore (nach einem Sprung), hier geht er nur wieder aus
 // Sprung-Kern (Teleport, Schnellreise, Laden): Kacheln < core sofort fertig, nächste zuerst, höchstens coreMs (Tests: immer ganz)
@@ -89,19 +92,22 @@ function setupStream(){const S=STREAM;S.list=[...S.tiles.values()];
   S.list=S.list.filter(T=>T.need.length);
   // Boot: alles im Bau-Radius um den Start synchron (wie früher der globale Bau), der Rest erst im Spiel
   const p=streamPts(POI.start[0],POI.start[1]);
-  for(const T of S.list)if(streamDist(T,p)<S.R.build){T.want=true;for(const l of T.need)streamBuildLayer(T,l);}
+  for(const T of S.list){if(streamDist(T,p)<S.R.build){T.want=true;for(const l of T.need)streamBuildLayer(T,l);}
+    else for(const l of T.need)if(S.pin.has(l))streamBuildLayer(T,l);}
   updateStaticLOD(POI.start[0],POI.start[1],true);S.ready=true;}
 function updateStream(dt){const S=STREAM;if(!S.ready)return;
   if(FRAMEB.jump){S.t=0.25;streamPlan(FRAMEB.pts);streamCore(FRAMEB.pts);}
   else if((S.t-=dt)<=0){S.t=0.25;streamPlan(FRAMEB.pts);}
   if(S.loading&&(S.hintT-=dt)<=0){S.hintT=0.5;hint('Die Gegend lädt …',0.7);}}
 // ---- Prüf-/Messzugriff (Tests, mob9) ----
-function streamState(T){if(T.freeing)return 'freeing';const n=T.layers.size;if(!n)return T.want?'queued':'cold';return n>=T.need.length?'built':'partial';}
-function streamInfo(T){let meshes=0,inScene=0;for(const L of T.layers.values())for(const m of L.meshes){meshes++;if(STREAM.live.has(m))inScene++;}
-  return {key:T.key,cx:T.cx,cz:T.cz,state:streamState(T),need:T.need.slice(),built:[...T.layers.keys()],meshes,inScene,hash:JSON.stringify(T.hash)};}
+function streamState(T){if(T.freeing)return 'freeing';const need=T.need.filter(l=>!STREAM.pin.has(l));if(!need.length||T.layers.size>=T.need.length)return 'built';
+  const n=need.filter(l=>T.layers.has(l)).length;if(!n)return T.want?'queued':'cold';return 'partial';}
+// meshes: alle Meshes der Kachel, streamed: ohne festgehaltene Ebenen (pin)
+function streamInfo(T){let meshes=0,inScene=0,streamed=0;for(const [l,L] of T.layers)for(const m of L.meshes){meshes++;if(!STREAM.pin.has(l))streamed++;if(STREAM.live.has(m))inScene++;}
+  return {key:T.key,cx:T.cx,cz:T.cz,state:streamState(T),need:T.need.slice(),built:[...T.layers.keys()],meshes,streamed,inScene,hash:JSON.stringify(T.hash)};}
 Object.assign(STREAM,{
   at(x,z){const T=STREAM.tiles.get(chunkKey(x,z));return T&&T.need.length?streamInfo(T):null;},
   near(x,z,r){const p=streamPts(x,z);return STREAM.list.filter(T=>streamDist(T,p)<r).map(T=>({...streamInfo(T),d:streamDist(T,p),dp:streamDist(T,FRAMEB.pts)}));},// dp: Abstand zur Spieler-/Vorausschau-Kapsel
   counts(){const c={cold:0,queued:0,partial:0,built:0,freeing:0};for(const T of STREAM.list)c[streamState(T)]++;return c;},
   pending(){let n=0;for(const k of FRAMEB.jobs.keys())if(k.startsWith('st:'))n++;return n;},
-  rebuild(x,z){const T=STREAM.tiles.get(chunkKey(x,z));if(!T||!T.need.length)return null;for(const l of T.need)fbCancel(streamKey(T,l));if(T.freeing){STREAM.relQ.delete(T);T.freeing=false;}streamFreeTile(T);T.want=true;for(const l of T.need)streamBuildLayer(T,l);return streamInfo(T);}});
+  rebuild(x,z){const T=STREAM.tiles.get(chunkKey(x,z));if(!T||!T.need.length)return null;for(const l of T.need)fbCancel(streamKey(T,l));if(T.freeing){STREAM.relQ.delete(T);T.freeing=false;}streamFreeTile(T,true);T.want=true;for(const l of T.need)streamBuildLayer(T,l);return streamInfo(T);}});

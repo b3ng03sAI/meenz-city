@@ -15,7 +15,7 @@ TILE = f"([x,z])=>{M}.STREAM.at(x,z)"
 # Spieler → Vorausschau, wie STREAM selbst plant), die noch Meshes haben und nicht zur Freigabe anstehen
 RING = f"""([x,z])=>{{const S={M}.STREAM;const n=S.near(x,z,1e9);
   return {{open:n.filter(t=>t.d<S.R.build&&t.state!=='built').map(t=>[t.key,t.state,Math.round(t.d)]),
-          stale:n.filter(t=>t.dp>S.R.free+1&&t.meshes>0&&t.state!=='freeing').map(t=>[t.key,t.state,Math.round(t.d)]),
+          stale:n.filter(t=>t.dp>S.R.free+1&&t.streamed>0&&t.state!=='freeing').map(t=>[t.key,t.state,Math.round(t.d)]),
           built:n.filter(t=>t.state==='built').length,freeing:n.filter(t=>t.state==='freeing').length}}}}"""
 
 
@@ -143,7 +143,10 @@ async def test_desktop(g):
     r = await g.js(RING, [sx, sz])
     g.check('Desktop-Boot: jede Kachel < 3200 m gebaut, nichts > 3500 m', not r['open'] and not r['stale'] and r['built'] > 200, [r['built'], r['open'][:3], r['stale'][:3]])
     t = await g.js(TILE, list(WI_MITTE))
-    g.check('Desktop: Wiesbaden-Mitte (> 9 km) kalt', t['state'] == 'cold' and t['meshes'] == 0, t)
+    g.check('Desktop: Wiesbaden-Mitte (> 9 km) kalt – nur die Bäume stehen (Fernsicht wie bisher)',
+            t['state'] == 'cold' and t['streamed'] == 0 and t['built'] == ['trees'] and t['meshes'] > 0, t)
+    n = await g.js(f"()=>{M}.STREAM.near(0,0,1e9).filter(t=>t.need.includes('trees')&&!t.built.includes('trees')).length")
+    g.check('Desktop: Bäume in allen Kacheln gebaut', n == 0, n)
     await teleport(g, *WI_MITTE)
     await g.step(1 / 60)
     t = await g.js(TILE, list(WI_MITTE))
