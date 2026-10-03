@@ -34,8 +34,23 @@ function makeFlyDog(){const g=new THREE.Group();g.scale.setScalar(1.75);scene.ad
   // Schal (flatternde Segmente)
   add(new THREE.TorusGeometry(0.07,0.025,6,14).rotateX(Math.PI/2),scarfM,0,0.1,0.02,dog);
   const scarf=[];let par=dog;for(let i=0;i<6;i++){const sg=new THREE.Group();sg.position.set(i?0:0.04,i?0:0.1,i?-0.09:-0.05);par.add(sg);add(new THREE.BoxGeometry(0.06,0.012,0.09),scarfM,0,0,-0.045,sg);scarf.push(sg);par=sg;}
+  dogMergeStatic(plane);dogMergeStatic(head,new Set(ears));
   const o={g,plane,prop,disc,head,ears,scarf,x:0,y:1.8,z:0,h:0,bank:0,speed:9,tgt:null,tgtT:0,sayT:mr(8,16),reactT:2,mode:'off',nextT:mr(25,70),modeT:0,bob:Math.random()*10,bub:{x:0,y:0,z:0,alive:true,removed:false,g}};
   DOGS.push(o);return o;}
+// Unbewegte Teile eines Knotens (gleiches Material) zu einem Mesh zusammenfügen: Flieger + Kopf hatten 36 Draw-Calls.
+// Nur direkte Kinder; bewegte Teile (Propeller, Ohren, Schal) bleiben eigene Objekte. Eigener Zufallsstrom für die UUIDs.
+let DOG_MERGE_N=0;
+function dogMergeStatic(par,keep){if(!Array.isArray(par.children))return 0;const byM=new Map();
+  for(const m of par.children){if(!m.isMesh||keep&&keep.has(m)||Array.isArray(m.material))continue;let L=byM.get(m.material);if(!L)byM.set(m.material,L=[]);L.push(m);}
+  const rnd=Math.random;Math.random=mulberry32(0x646f67+(++DOG_MERGE_N)*7919);let n=0;
+  try{for(const [mat,L] of byM){if(L.length<2)continue;
+      const keys=g=>Object.keys(g.attributes).sort().join();if(L.some(m=>!m.geometry.index||keys(m.geometry)!==keys(L[0].geometry)))continue;// sonst meldet mergeGeometries einen Fehler
+      const geos=L.map(m=>{m.updateMatrix();return m.geometry.clone().applyMatrix4(m.matrix);});
+      const geo=mergeGeometries(geos);for(const g of geos)g.dispose();if(!geo)continue;
+      const mm=new THREE.Mesh(geo,mat);mm.castShadow=L.some(m=>m.castShadow);mm.receiveShadow=L.some(m=>m.receiveShadow);
+      for(const m of L){par.remove(m);m.geometry.dispose();}par.add(mm);n++;}}
+  finally{Math.random=rnd;}
+  return n;}
 function dogPlace(o,P){const [px,pz]=ppos(P);for(let k=0;k<30;k++){const a=Math.random()*6.28,r=mr(25,55);const x=px+Math.sin(a)*r,z=pz+Math.cos(a)*r;if(!dogBlocked(x,z,1.8)){o.x=x;o.z=z;o.y=1.8;o.h=Math.random()*6.28;o.tgt=null;return true;}}return false;}
 function dogBlocked(x,z,y){const i=idx(x,z);if(i<0)return true;const v=hgG(i);return v>0&&(v===255?y<1:y<v+0.5);}
 function dogTarget(o,P){const [px,pz]=ppos(P);for(let k=0;k<20;k++){const a=Math.random()*6.28,r=mr(6,40);const x=px+Math.sin(a)*r,z=pz+Math.cos(a)*r;if(dogBlocked(x,z,1.8))continue;

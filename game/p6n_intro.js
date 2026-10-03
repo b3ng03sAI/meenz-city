@@ -31,7 +31,7 @@ function introMayor(x,z){let h=null;for(let i=0;i<14;i++){const c=new Human('ped
   const m=new THREE.Group();try{const a=animalModel('mouse');a.scale.setScalar(0.28);m.add(a);}catch(e){const b=new THREE.Mesh(new THREE.SphereGeometry(0.06,10,8),stdMat({color:0xb0b0b8}));m.add(b);}
   m.position.set(0,0.15,0);h.head.add(m);INTRO.mouse=m;
   // Flasche (ohne Etikett/Marke) in der rechten Hand
-  const bt=new THREE.Group();const glass=new THREE.MeshPhysicalMaterial({color:0xdfe9ef,transparent:true,opacity:0.45,roughness:0.05,transmission:0.6});
+  const bt=new THREE.Group();const glass=new THREE.MeshStandardMaterial({color:0xdfe9ef,transparent:true,opacity:0.5,roughness:0.05});// ohne transmission: die zwingt three.js zu einem zweiten Durchgang über alle undurchsichtigen Objekte
   const body=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.2,12),glass);body.position.y=0.1;const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.03,0.09,10),glass);neck.position.y=0.245;
   const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.025,8),stdMat({color:0xc81c2e}));cap.position.y=0.3;bt.add(body,neck,cap);bt.rotation.x=Math.PI;bt.position.set(0,-0.6,0.04);h.armR.add(bt);INTRO.bottle=bt;
   h.sync();return h;}

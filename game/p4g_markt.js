@@ -45,6 +45,25 @@ const _mkM={wood:cmat(0x7a5432,0.85),dark:cmat(0x3a2a1c,0.9),white:cmat(0xf2efe6
 function mkBox(g,m,w,h,d,x,y,z,ry=0){const o=new THREE.Mesh(_mkG.box,m);o.scale.set(w,h,d);o.position.set(x,y,z);o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;g.add(o);return o;}
 function mkSign(text){const c=document.createElement('canvas');c.width=512;c.height=96;const x=c.getContext('2d');x.fillStyle='#f4ead0';x.fillRect(0,0,512,96);x.strokeStyle='#7a1a1a';x.lineWidth=8;x.strokeRect(4,4,504,88);
   x.fillStyle='#7a1a1a';x.font='bold 46px Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,256,50,480);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return new THREE.MeshStandardMaterial({map:t,roughness:0.8});}
+// Gleiche Teile (Geometrie + Material) eines fertig gebauten, unbewegten Aufbaus zu je einem InstancedMesh zusammenfassen:
+// die Marktstände kosteten sonst ~240 Draw-Calls. Matrizen relativ zu root (root selbst darf sich bewegen); Einzelstücke und
+// unsichtbare Teile bleiben, wie sie sind. Gleiche Grundkörper mit eigener Geometrie (z. B. Tischdecken) gelten als gleich.
+// Eigener Zufallsstrom für die UUIDs der neuen Objekte – das globale Math.random bleibt unberührt.
+const MK_INST={n:0};// Zähler je Aufruf: jeder Aufbau bekommt eigene (feste) UUIDs
+function mkSameGeo(a,b){if(a===b)return true;if(a.type!==b.type||!a.parameters||JSON.stringify(a.parameters)!==JSON.stringify(b.parameters))return false;
+  const p=a.attributes.position,q=b.attributes.position;if(!p||!q||p.count!==q.count)return false;for(let i=0;i<p.array.length;i++)if(p.array[i]!==q.array[i])return false;return true;}
+function mkInstancify(root){if(!root||!Array.isArray(root.children))return 0;root.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(root.matrixWorld).invert(),reps=[],buckets=new Map(),parts=[];
+  root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&o.visible&&!Array.isArray(o.material))parts.push(o);});
+  for(const o of parts){let g=reps.find(r=>mkSameGeo(r,o.geometry));if(!g){g=o.geometry;reps.push(g);}
+    let byM=buckets.get(g);if(!byM)buckets.set(g,byM=new Map());let L=byM.get(o.material);if(!L)byM.set(o.material,L=[]);L.push(o);}
+  const rnd=Math.random;Math.random=mulberry32(0x6d6b+(++MK_INST.n)*7919);let n=0;
+  try{const m4=new THREE.Matrix4();
+    for(const [g,byM] of buckets)for(const [mat,L] of byM){if(L.length<2)continue;const im=new THREE.InstancedMesh(g,mat,L.length);
+      L.forEach((o,i)=>{im.setMatrixAt(i,m4.multiplyMatrices(inv,o.matrixWorld));o.parent.remove(o);});
+      im.castShadow=L.some(o=>o.castShadow);im.receiveShadow=L.some(o=>o.receiveShadow);im.computeBoundingSphere();root.add(im);n++;}}
+  finally{Math.random=rnd;}
+  return n;}
 function mkFree(x,z,r){for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){const i=idx(x+dx,z+dz);if(i<0||hgG(i)||(mfG(i)&4))return false;}return true;}
 // Plätze rund um den Markt/Domplatz suchen
 function marktLayout(){const [cx,cz]=POI.markt;const cand=[];for(let z=-50;z<=50;z+=3)for(let x=-50;x<=50;x+=3){const px=cx+x,pz=cz+z;const d=Math.hypot(x,z);if(d<=50)cand.push([px,pz,d]);}
@@ -63,7 +82,7 @@ function buildMarkt(){marktLayout();const g=MARKT.grp=new THREE.Group();scene.ad
     const top=new THREE.Mesh(_mkG.cyl,_mkM.white);top.scale.set(0.8,0.05,0.8);top.position.set(t.x,y+1.1,t.z);top.castShadow=true;g.add(top);
     const cloth=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.5,0.9,12,1,true),_mkM.white);cloth.position.set(t.x,y+0.65,t.z);g.add(cloth);
     for(let i=0;i<3;i++){const gl=new THREE.Mesh(_mkG.glass,_mkM.wine);gl.position.set(t.x+mr(-0.2,0.2),y+1.19,t.z+mr(-0.2,0.2));g.add(gl);}}
-  g.visible=false;MARKT.built=true;}
+  mkInstancify(g);g.visible=false;MARKT.built=true;}
 function marktPerson(x,z,face,role){const h=new Human('ped');h.x=x;h.z=z;h.y=groundY(x,z);h.facing=face;h.state='markt';h.walkSpeed=1.1;
   h.mk={role,home:[x,z],face,drunk:role==='vendor'?0.1:mr(0.2,0.6),evT:mr(1,10),drinkT:mr(2,8),act:'stand',actT:0};
   if(role!=='vendor'){const gl=new THREE.Mesh(_mkG.glass,_mkM.wine);gl.position.set(0,-0.62,0.06);h.armR.add(gl);h.mk.glass=gl;}
@@ -153,6 +172,7 @@ function buildBrezel(){const H=(OSM.pl&&OSM.pl.heunen)||[-28,-82];let pos=null;f
   const tb=new THREE.TorusGeometry(0.15,0.045,8,20);const big=new THREE.Mesh(new THREE.TorusGeometry(0.24,0.055,8,24,Math.PI*1.25),brown);big.rotation.z=-Math.PI*0.125;big.position.y=0.02;btn.add(big);
   for(const s of [-1,1]){const l=new THREE.Mesh(tb,brown);l.position.set(s*0.1,-0.02,0.01);l.scale.set(0.75,0.75,1);btn.add(l);}
   for(let i=0;i<14;i++){const sd=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.018,0.018),salt);const a=Math.random()*6.28;sd.position.set(Math.cos(a)*mr(0.08,0.26),Math.sin(a)*mr(0.05,0.24),0.06);btn.add(sd);}
+  mkInstancify(btn);// Salzkörner: ein Draw-Call statt 14
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(0.72,0.14),mkSign('MARKTFRÜHSTÜCK'));sign.position.set(0,1.78,0.01);g.add(sign);
   label('Brezel-Schalter',pos[0],pos[1],'small');}
 function brezelNear(P){return BREZEL.grp&&P.h&&!P.car&&!P.h.room&&Math.hypot(P.h.x-BREZEL.x,P.h.z-BREZEL.z)<2.3;}
