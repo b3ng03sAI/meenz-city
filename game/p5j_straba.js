@@ -235,6 +235,11 @@ const _strabaFire=playerFire;
 playerFire=function(P,I){if(strabaRideOf(P))return;_strabaFire(P,I);};
 const _strabaStartTalk=startTalk;
 startTalk=function(P,npc){if(strabaRideOf(P))return;_strabaStartTalk(P,npc);};
+// Im Wagen ist man vor Schüssen und Schaden von draußen sicher (Banden, Polizei) – wie in der S-Bahn (p5p_sbahn.js)
+const _strabaNpcShoot=npcShoot;
+npcShoot=function(n,P,d){if(strabaRideOf(P))return;return _strabaNpcShoot(n,P,d);};
+const _strabaDamage=damagePlayer;
+damagePlayer=function(P,d){if(strabaRideOf(P))return;return _strabaDamage(P,d);};
 // Fahrgast in Straßenbahn oder S-Bahn (sbahnRideOf aus p5p, erst zur Laufzeit aufgerufen): keine Pöbler, keine Powerups
 function strabaSeated(P){return !!(P&&(strabaRideOf(P)||(typeof sbahnRideOf==='function'&&sbahnRideOf(P))));}
 const _strabaNearbyPed=nearbyPed;
