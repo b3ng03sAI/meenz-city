@@ -138,7 +138,8 @@ function wiesiSchlossBuild(Z){const S=WIESI.st.schloss={brunnen:null,flags:[],be
 function wiesiRoadAt(name,z){let best=null;for(const r of ROADS){if(r.name!==name)continue;for(let i=1;i<r.pts.length;i++){const a=r.pts[i-1],b=r.pts[i];if((a[1]-z)*(b[1]-z)>0)continue;const f=(z-a[1])/((b[1]-a[1])||1e-6);const x=a[0]+(b[0]-a[0])*f;
   if(!best||Math.abs(x-WIESI_ZONES.wilhelm[0])<Math.abs(best[0]-WIESI_ZONES.wilhelm[0]))best=[x,r.w];}}return best;}
 function wiesiDuckGeo(){const g=new GB();g.box(0,0,0,0.3,0.16,0.46,0,C3(0x7a5a3a));g.box(0,0.12,0.18,0.14,0.14,0.14,0,C3(0x1f6b3a));g.box(0,0.15,0.29,0.06,0.04,0.09,0,C3(0xe08a1e));g.box(0,0.08,-0.24,0.12,0.06,0.08,0,C3(0x4a3a2a));return g.geo();}
-function wiesiWilhelmBuild(Z){const S=WIESI.st.wilhelm={pond:null,jet:null,ducks:[],duckMesh:null,benches:[],litfass:[],cafe:[],rue:null};const G=wiesiGBs(),low=wiesiLow();
+// Generator (p6_lazy: ein Teil je Bild-Paket): Teich, Rue, Meshes, Szenen
+function* wiesiWilhelmBuild(Z){const S=WIESI.st.wilhelm={pond:null,jet:null,ducks:[],duckMesh:null,benches:[],litfass:[],cafe:[],rue:null};const G=wiesiGBs(),low=wiesiLow();
   const SG=wiesiSigns(Z,[['KURKONZERT · SONNTAG 11 UHR · WEINFEST · THEATER','#f3e7c8','#5a2a1a','700 '],['CAFÉ AN DER RUE','#20332a','#f0e3b0','italic 700 ']]);
   // Teich im Warmen Damm (OSM): Fontäne in der Mitte, Enten, Bänke am Ufer
   let pond=null;for(const p of PONDS){if(p.fountain)continue;const [cx,cz]=polyCentroid(p.poly);if(Math.hypot(cx+2015,cz+9238)<140&&Math.abs(polyArea(p.poly))>500){pond={c:[cx,cz],poly:p.poly.map(q=>[q[0],q[1]])};break;}}
@@ -155,6 +156,7 @@ function wiesiWilhelmBuild(Z){const S=WIESI.st.wilhelm={pond:null,jet:null,ducks
     const want=wiesiN(6);for(let s=L/want/2;s<L&&S.benches.length<want;s+=L/want){const seg=per.find(q=>q[2]<=s&&s<q[2]+Math.hypot(q[1][0]-q[0][0],q[1][1]-q[0][1]))||per[0];const l=Math.hypot(seg[1][0]-seg[0][0],seg[1][1]-seg[0][1])||1;const f=(s-seg[2])/l;
       const ex=seg[0][0]+(seg[1][0]-seg[0][0])*f,ez=seg[0][1]+(seg[1][1]-seg[0][1])*f;const dx=ex-cx,dz=ez-cz,dl=Math.hypot(dx,dz)||1;
       for(const off of [4,5.5,7]){const bx=ex+dx/dl*off,bz=ez+dz/dl*off;if(!inP(bx,bz)&&wiesiFree(bx,bz,1.1)){S.benches.push(Object.assign(wiesiBench(G,Z,bx,bz,Math.atan2(-dx,-dz)),{pond:true}));break;}}}}
+  yield;
   // Rue: Ostseite (Bänke, Litfaßsäulen), Westseite (Café-Tische vor den Fassaden)
   const rows=[];for(let z=-9340;z<=-9120;z+=4){const r=wiesiRoadAt('Wilhelmstraße',z);if(r)rows.push([z,r[0],r[1]]);}
   const east=[];for(const [z,x,w] of rows){const ex=x+w/2;let k=1;while(k<6&&wiesiHG(ex+k,z)===0&&(mfG(idx(ex+k,z))&2))k+=0.5;east.push([z,ex+k]);}
@@ -167,7 +169,8 @@ function wiesiWilhelmBuild(Z){const S=WIESI.st.wilhelm={pond:null,jet:null,ducks
     for(const dz of low?[-1.5,1.5]:[-3,0,3]){const tx=fx+Math.min(d-1.2,1.7),tz=cz+dz;if(!wiesiFree(tx,tz,0.5))continue;const mt=G.get('metal'),wd=G.get('wood');
       mt.box(tx,0,tz,0.08,0.72,0.08,0,C3(0x222222));wd.box(tx,0.72,tz,0.7,0.04,0.7,0.785,C3(0xe8e2d4));for(const s of [-1,1]){mt.box(tx,0,tz+s*0.62,0.4,0.45,0.4,0,C3(0x3a3f44));mt.box(tx,0.45,tz+s*0.8,0.4,0.4,0.04,0,C3(0x3a3f44));}
       wiesiCirc(Z,tx,tz,0.55,1);S.cafe.push({x:tx,z:tz});}}}}
-  S.meshes=G.flush(Z)+SG.flush();
+  yield;
+  S.meshes=G.flush(Z)+SG.flush();yield;
   wiesiWilhelmScenes(Z,S);}
 function wiesiDucks(S,dt){const m=S.duckMesh;if(!m)return;const M=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(1,1,1),p=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);
   S.ducks.forEach((d,i)=>{d.a+=d.sp*dt/Math.max(1,d.r)*1.6;d.x=d.cx+Math.sin(d.a)*d.r;d.z=d.cz+Math.cos(d.a)*d.r;q.setFromAxisAngle(up,d.a+(d.sp>0?Math.PI/2:-Math.PI/2));
@@ -421,9 +424,11 @@ ftSpecials=function(){const S=_wiesiFtSpecials();for(const d of WIESI.ft)S.push(
 const WIESI_BUILD={schloss:wiesiSchlossBuild,wilhelm:wiesiWilhelmBuild,luisen:wiesiLuisenBuild,westend:wiesiWestendBuild};
 function wiesiZoneDispose(Z){for(let i=WIESI.scenes.length-1;i>=0;i--){const sc=WIESI.scenes[i];if(sc.zone!==Z)continue;wiesiSceneOff(sc);WIESI.scenes.splice(i,1);}
   WIESI.st[Z.wiesiKey]=null;Z.wmats=null;Z.wgeo=null;Z.hits=null;WIESI.hitOn--;}
+// Generator-Bau: jeder Teilschritt im eigenen Wiesbadener Zufallsstrom
+function* wiesiSteps(it){while(!wiesiRng(()=>it.next()).done)yield;}
 // Beim Boot nur Zahlen (Vertrag Welle 9): Zonen, Schnellreise-Ziele, Kartenbeschriftungen – keine Geometrie, keine NPCs
 function setupWiesi(){if(WIESI.zones.length)return;WIESI.convs=WIESI_CONVS;WIESI.dlg=WIESI_DLG;
-  for(const k in WIESI_ZONES){const [x,z]=WIESI_ZONES[k];const Z=lazyZone({name:'wiesi_'+k,x,z,build(Z){WIESI.hitOn++;wiesiRng(()=>WIESI_BUILD[k](Z));},dispose:wiesiZoneDispose});Z.wiesiKey=k;WIESI.zones.push(Z);WIESI.zone[k]=Z;}
+  for(const k in WIESI_ZONES){const [x,z]=WIESI_ZONES[k];const Z=lazyZone({name:'wiesi_'+k,x,z,build(Z){WIESI.hitOn++;const it=wiesiRng(()=>WIESI_BUILD[k](Z));return it&&typeof it.next==='function'?wiesiSteps(it):undefined;},dispose:wiesiZoneDispose});Z.wiesiKey=k;WIESI.zones.push(Z);WIESI.zone[k]=Z;}
   for(const [n,x,z] of WIESI_FT)WIESI.ft.push({n,g:WIESI_GROUP,x,z});
   WIESI.venues={ratskeller:WIESI_RATSKELLER,teestubb:WIESI_TEESTUBB};
   for(const [n,x,z] of [['Schlossplatz',-2290,-9310],['Luisenplatz',-2451,-8880],['Warmer Damm',-1990,-9150],['Wellritzstraße',-2990,-9340]])label(n,x,z,'small');}
