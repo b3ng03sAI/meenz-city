@@ -167,13 +167,14 @@ const CITY_RH=()=>QS.lowLOD?280:LOWMEM?360:QS.detail>=2?620:480;
 const CITY_LOW_R=QS.lowLOD?1300:LOWMEM?1700:3200;
 // Kostenmaß je Bauschritt (Ringpunkte + 8 je Gebäude): Ziel < 10 ms je Paket auf dem Handy
 const CITY_COST={hi:400,lo:1200};
-// Im Spiel: Chunk-Bau als Pakete bld:hi:/bld:lo: über das Bild-Budget (FRAMEB); fertig erst nach dem letzten Schritt
+// Im Spiel: Chunk-Bau als Pakete bld:hi:/bld:lo: über das Bild-Budget (FRAMEB); fertig erst nach dem letzten Schritt.
+// Grob +150 m: am selben Chunk zuerst die sichtbare feine Stufe (die grobe liegt darunter unsichtbar bereit).
 function cityQueue(c,hi){const key=hi?c.kHi:c.kLo;if(fbHas(key))return;const B=cityBuilder(c,hi?QS.detail:-1),cost=hi?CITY_COST.hi:CITY_COST.lo;
   fbJob(key,()=>{const t=performance.now();
     if(hi?c.high:c.low)return true;// inzwischen synchron gebaut
     const done=bldsPacket(()=>cityStep(B,cost,1));
     if(done){scene.add(B.g);if(hi){c.high=B.g;if(c.low)c.low.visible=false;}else{c.low=B.g;if(c.high)B.g.visible=false;}BLDS.city.built[hi?'hi':'lo']++;}
-    bldsCityTime(key,hi,performance.now()-t);return done;},{x:c.cx,z:c.cz,bias:0});}
+    bldsCityTime(key,hi,performance.now()-t);return done;},{x:c.cx,z:c.cz,bias:hi?0:150});}
 function cityCancel(c,hi){const key=hi?c.kHi:c.kLo;if(fbHas(key)){fbCancel(key);BLDS.city.cancelled++;}}
 // force (Boot, Schnellreise, S-Bahn) und Sprung (> 250 m in diesem Bild, FRAMEB.jump): nahe Chunks sofort synchron wie bisher
 function updateCityLOD(px,pz,maxBuild=1,force=false,pts=null){pts=pts||[[px,pz]];const jump=!force&&FRAMEB.jump;
