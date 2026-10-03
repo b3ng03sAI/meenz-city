@@ -7,7 +7,7 @@ async def main():
     async with async_playwright() as p:
         b=await p.chromium.launch(executable_path=CHROME,args=['--no-sandbox'])
         pg=await b.new_page()
-        await pg.goto('http://localhost:8765/game/test.html')
+        await pg.goto(os.environ.get('MEENZ_URL','http://localhost:8765')+'/game/test.html')
         t0=time.time();last=None;marks=[]
         while time.time()-t0<200:
             try:

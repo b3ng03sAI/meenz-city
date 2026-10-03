@@ -9,7 +9,7 @@ async def main():
         b=await p.chromium.launch(executable_path=CHROME,args=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'])
         pg=await b.new_page(viewport={'width':960,'height':540});errs=[];pg.on('pageerror',lambda e: errs.append(str(e)))
         await pg.add_init_script("try{localStorage.setItem('meenz-quality','hoch')}catch(e){};window.__NORENDER=true;")
-        await pg.goto('http://localhost:8765/game/real.html');await pg.wait_for_function("window.__MEENZ!==undefined",timeout=400000)
+        await pg.goto(os.environ.get('MEENZ_URL','http://localhost:8765')+'/game/real.html');await pg.wait_for_function("window.__MEENZ!==undefined",timeout=400000)
         E=pg.evaluate
         await E("()=>document.getElementById('btn-play').click()"); await pg.wait_for_timeout(1500)
         await E("()=>{const M=window.__MEENZ;M.gameMin=14*60;M.UFO.next=1e9;M.KART.next=1e9;}")

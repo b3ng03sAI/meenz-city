@@ -13,7 +13,7 @@ async def main():
         cdp=await ctx.new_cdp_session(pg)
         await cdp.send('HeapProfiler.enable');await cdp.send('HeapProfiler.startSampling',{'samplingInterval':65536})
         await pg.add_init_script("window.__NORENDER=true")
-        await pg.goto('http://localhost:8765/game/real.html')
+        await pg.goto(os.environ.get('MEENZ_URL','http://localhost:8765')+'/game/real.html')
         t0=time.time()
         while time.time()-t0<170:
             if await pg.evaluate("()=>window.__MEENZ!==undefined"):break
