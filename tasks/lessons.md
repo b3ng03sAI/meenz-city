@@ -15,7 +15,7 @@
 
 ## 2026-10-03 — Handy, Wellen 7–8, Fahrphysik
 **What worked:** Echte Safari-Engine (Playwright-WebKit, iPhone-Profil) statt nur Chromium – zeigte Layout-, Viewport- und Touch-Probleme, die SwiftShader-Tests nie sehen.
-**What worked:** Lazy-Stadtteile mit Protokoll der Kollisionsraster-Schreibzugriffe – vier Stadtteile kosten beim Start +2 MB statt ~40 MB.
+**What worked:** Lazy-Stadtteile mit Protokoll der Kollisionsraster-Schreibzugriffe – vier Stadtteile kosten beim Start nur +2 MB Heap (gemessen mit mob9).
 **What didn't:** Ein Stadtteil zog beim Aufbau `Math.random` und verschob damit einen Kampf in einem fremden Test (Straßenbahn) – eigener Seed-Zufall ist Pflicht.
 **What didn't:** Geld-Asserts (JGA, Nerobergbahn) brachen zufällig durch Revier-Einnahmen; Ursache erst nach Einzellauf-Vergleich sichtbar.
 **What didn't:** Ein manuelles Messskript lief gegen einen fremden Server auf demselben Port und lieferte plausible, aber falsche Zahlen.
