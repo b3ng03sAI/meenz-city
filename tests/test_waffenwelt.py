@@ -72,6 +72,10 @@ async def test(g):
     rnd = await g.js(f"""()=>{{const W={S},r=Math.random;let n=0;Math.random=function(){{n++;return r()}};
       try{{const pl=W.api.place();return {{n,len:pl.length,same:pl.length===W.spots.length&&pl.every((p,i)=>p.kind===W.spots[i].kind&&p.secret===W.spots[i].secret&&p.cat===W.spots[i].cat)}}}}finally{{Math.random=r}}}}""")
     g.check('Verstecke berechnen ohne Math.random', rnd['n'] == 0, rnd)
+    # ganzer Aufbau inkl. Grafik (InstancedMesh, Points, Geometrien, Materialien – three.js zieht UUIDs aus Math.random)
+    rb = await g.js(f"""()=>{{const W={S},r=Math.random;let n=0;Math.random=function(){{n++;return r()}};
+      try{{W.api.rebuild();const g0=!!W.gfx;W.api.scan();W.api.sync();return {{n,len:W.spots.length,g0,g1:!!W.gfx,live:W.live.length,inst:W.api.instCount()}}}}finally{{Math.random=r}}}}""")
+    g.check('Aufbau + Grafik anlegen ohne Math.random', rb['n'] == 0 and not rb['g0'] and rb['g1'] and rb['inst'] >= 1, rb)
     g.check('Platzierung deterministisch (gleiche Arten/Kategorien wie beim Boot)', rnd['same'], rnd)
 
     # 4. Meshes nur in Spielernähe
@@ -178,12 +182,16 @@ async def test(g):
 
 async def shot(g):
     # Screenshot: Gruppe aus Verstecken an der dichtesten Stelle, Kamera von schräg oben
-    c = await g.js(f"""()=>{{const sp={S}.spots.filter(s=>!s.roof);let best=null,bn=-1;for(const a of sp){{const n=sp.filter(b=>Math.hypot(a.x-b.x,a.z-b.z)<60).length;if(n>bn){{bn=n;best=a;}}}}
+    c = await g.js(f"""()=>{{const sp={S}.spots.filter(s=>!s.roof);let best=null,bn=-1;for(const a of sp){{const n=sp.filter(b=>Math.hypot(a.x-b.x,a.z-b.z)<60).reduce((t,b)=>t+b.items.length,0)+a.items.length;if(n>bn){{bn=n;best=a;}}}}
       return [best.x,best.z,best.y,bn]}}""")
-    await tele(g, c[0] + 4, c[1] + 6)
-    await g.js(f"()=>{{for(const s of {S}.spots)s.active=true;const P={M}.P1;P.cam.yaw=Math.atan2({c[0]}-P.h.x,{c[1]}-P.h.z)}}")
+    await tele(g, c[0] + 6, c[1] + 6)
+    await g.js(f"()=>{{for(const s of {S}.spots)s.active=true;const P={M}.P1;P.cam.yaw=Math.atan2({c[0]}-P.h.x,{c[1]}-P.h.z);P.cam.pitch=0.32;P.cam.lastLook=1e9}}")
     await g.step(1.0)
-    path = await g.snap('waffenwelt_cluster')
+    import base64
+    url = await g.js("()=>__MEENZ.snap(4,true)")
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'waffenwelt_cluster.jpg')
+    with open(path, 'wb') as f:
+        f.write(base64.b64decode(url.split(',', 1)[1]))
     print('  screenshot:', path, 'cluster', c)
 
 

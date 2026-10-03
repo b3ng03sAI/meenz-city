@@ -177,6 +177,11 @@ function setupWaffenwelt(){const t=performance.now();
   WWELT.spots=wwPlace().map(s=>Object.assign(s,{active:true,t:0,live:false,y:0,lives:0}));
   for(const s of WWELT.spots)s.y=wwY(s);
   WWELT.bootMs=performance.now()-t;}
+// Grafik abbauen und Verstecke neu berechnen (Testzugriff: prüft Aufbau + Mesh-Erzeugung ohne globalen Zufall)
+function wwDisposeGfx(){const G=WWELT.gfx;if(!G)return;for(const k in G.inst){scene.remove(G.inst[k]);G.inst[k].dispose();}
+  scene.remove(G.glow);G.glow.geometry.dispose();G.glow.material.dispose();for(const k in G.geo)G.geo[k].dispose();for(const k in G.mat)G.mat[k].dispose();
+  WWELT.gfx=null;WWELT.instN={};WWELT.glowN=0;}
+function wwRebuild(){wwDisposeGfx();WWELT.live=[];setupWaffenwelt();}
 function wwY(s){return s.roof?s.ry:s.under?groundY(s.x,s.z,0):groundY(s.x,s.z);}
 // Beim Lebendigwerden nachprüfen: Lazy-Stadtteile schreiben ihre Kollision erst beim Bau ins Raster
 function wwSettle(s){WWELT.stats.settles++;
@@ -255,7 +260,7 @@ const _wwApplySave=applySave;
 applySave=function(d){const r=_wwApplySave(d);if(r){const S=WWELT;S.found=new Set((Array.isArray(d.ww)?d.ww:[]).filter(i=>Number.isInteger(i)&&i>=0&&i<S.spots.length));
   for(const s of S.spots){s.active=true;s.t=0;}}return r;};
 
-WWELT.api={place:wwPlace,scan:wwScan,sync:wwSync,tick:dt=>updateWaffenwelt(dt),settle:wwSettle,collect:wwCollect,reach:wwReach,
+WWELT.api={place:wwPlace,rebuild:wwRebuild,scan:wwScan,sync:wwSync,tick:dt=>updateWaffenwelt(dt),settle:wwSettle,collect:wwCollect,reach:wwReach,
   instCount:wwInstCount,drawCalls:wwDrawCalls,district:(x,z)=>districtAt(x,z),revierZoneAt:(x,z)=>{const z_=revierZoneAt(x,z);return z_?z_.id:0;},
   pauseLine:()=>{const el=wwPauseLine();return el?el.textContent:'';},countText:wwCountText,legacy:()=>PICKUPS,blips:P=>blipList(P||null),
   lazyZones:()=>LAZY.zones.map(Z=>({name:Z.name,x:Z.x,z:Z.z}))};
