@@ -3,8 +3,9 @@
 // träger Exponentialglättung, mehr Lenkwinkel bei Tempo, Gierraten-Hilfe (folgt dem Einschlag schnell, begrenzt auf die
 // Haftung → kein Dreher ohne Handbremse), mehr Zug im mittleren Drehzahlbereich, kräftigere Bremse, Motorbremse.
 // Handbremse lässt das Heck kommen (Drift), Motorräder legen sich physikalisch in die Kurve.
-// KI-Fahrzeuge, Boote, Jetskis, Flugzeug und Hubschrauber laufen unverändert über Car.prototype.physStep (p3_actors.js).
-// Touch: Joystick mit Totzone, leichter Kurve, Tempo-Lenkhilfe und Gas beim seitlichen Lenken.
+// Boot/Jetski/Flugzeug/Hubschrauber des Spielers: Lenkrampe und schnellere Gierfolge. Polizei in der Verfolgung bekommt
+// mehr Antritt; sonstige KI läuft unverändert über Car.prototype.physStep (p3_actors.js).
+// Touch: Joystick mit Totzone, leichter Kurve, Tempo-Lenkhilfe und Gas beim seitlichen Lenken. Verfolgerkamera folgt schneller.
 const FP={on:true,
   // Grundwerte; je Klasse überschrieben. up/back: Lenkrampe 1/s (hin/zurück), maxS/fall: Lenkwinkel und Abnahme mit Tempo,
   // pow/force: Motorleistung/-kraft relativ zu p3 (Höchstgeschwindigkeit bleibt T.max), brk: Bremskraft, coast: Motorbremse m/s²,
@@ -20,6 +21,14 @@ const FP={on:true,
     rad:{up:11,back:16,maxS:0.6,fall:0.04,pow:1.5,force:1.4,brk:1.1,coast:0.3,yawK:10,inertia:0.6,hand:0.6,handBeta:25,lean:1},
     kart:{up:12,back:16,pow:1.0,force:1.0,brk:1.0,yawK:9,handBeta:35}},
   TOUCH:{dz:0.1,curve:1.4,hiV:30,hiCut:0.25,thr0:0.15,thrSpan:0.5,brk0:0.3,brkSpan:0.45,side:0.45},
+  // Wasser: Lenkrampe, Gierrate folgt schneller (yawK statt 3/s), Jetski wendiger (gain); große Boote behäbiger
+  BOAT:{boot:{up:5,back:8,yawK:5,gain:1.0},jetski:{up:12,back:16,yawK:10,gain:1.25}},
+  // Luft: Lenkrampe statt 3–5/s-Glättung; Flugzeug rollt zusätzlich schneller in die Querlage (roll 1/s obendrauf)
+  AIR:{up:8,back:12,roll:3},
+  // Polizei in der Verfolgung: mehr Antritt wie die Spielerautos, Höchsttempo bleibt (Zusatz-Luftwiderstand gleicht aus)
+  POLICE:{pow:1.35,force:1.2},
+  // Verfolgerkamera: Gierfolge 4–6/s je Tempo (statt 2.2/s), kurzer Blick in die Kurve
+  CAM:{rate0:4,rate1:6,v1:30,look:0.2,lookMax:0.25,lookK:4},
   cache:{},stats:{steps:0,touch:0}};
 function fpClass(T){if(T.kart)return 'kart';if(T.pedal)return 'rad';if(T.bike)return 'motorrad';if(T.bus||T.mass>=3)return 'bus';
   if(T.van||T.mass>=2)return 'schwer';if(T.max>=60)return 'sport';if(T.L<4)return 'klein';return '';}
@@ -71,7 +80,43 @@ function fpStep(c,dt){
   c.move(dt);}
 
 const _fpPhysStep=Car.prototype.physStep;
-Car.prototype.physStep=function(dt){if(!fpActive(this))return _fpPhysStep.call(this,dt);fpStep(this,dt);};
+Car.prototype.physStep=function(dt){if(fpActive(this))return fpStep(this,dt);
+  const T=this.T,alive=!this.dead&&!(this.burn>0);
+  if(FP.on&&alive&&this.ctrl==='player'){if(T.boat)return fpBoatStep(this,dt);if(T.plane||T.hubi)return fpAirStep(this,dt);}
+  if(FP.on&&alive&&this.ai.mode==='police'&&!T.boat&&!T.plane&&!T.hubi)return fpPoliceStep(this,dt);
+  return _fpPhysStep.call(this,dt);};
+
+// Lineare Lenkrampe (hin up/s, zurück/gegen back/s) – gemeinsam für Boote und Luftfahrzeuge
+function fpRamp(c,ts,up,back,dt){const away=Math.abs(ts)>Math.abs(c.steer)&&(c.steer===0||Math.sign(ts)===Math.sign(c.steer));
+  const r=(away?up:back)*dt;return c.steer+clamp(ts-c.steer,-r,r);}
+// Boot/Jetski des Spielers: wie p3 boatStep, aber Lenkrampe und schnellere Gierfolge
+function fpBoatStep(c,dt){const T=c.T,B=FP.BOAT[T.jetski?'jetski':'boot'],inp=c.inp;
+  let fx=Math.sin(c.h),fz=Math.cos(c.h),rx=-fz,rz=fx;let vF=c.vx*fx+c.vz*fz,vL=c.vx*rx+c.vz*rz;
+  const thr=inp.throttle||0,brk=inp.brake||0;c.steer=fpRamp(c,clamp(inp.steer||0,-1,1),B.up,B.back,dt);
+  if(thr>0&&vF<T.max)vF+=T.acc*thr*dt*(1-Math.max(0,vF)/T.max*0.8);if(brk>0)vF-=T.acc*0.7*brk*dt;vF-=vF*Math.abs(vF)*0.006*dt+vF*0.25*dt;vF=Math.max(vF,-6);
+  vL*=Math.exp(-(inp.hand?0.6:1.6)*dt);
+  c.yawRate=lerp(c.yawRate,c.steer*B.gain*(0.15+Math.abs(vF)*0.055)*Math.sign(vF||1)*(Math.abs(vF)>0.3?1:0.4),Math.min(1,dt*B.yawK));
+  c.h+=c.yawRate*dt;fx=Math.sin(c.h);fz=Math.cos(c.h);rx=-fz;rz=fx;c.vx=fx*vF+rx*vL;c.vz=fz*vF+rz*vL;c.speed=vF;c.move(dt);}
+// Flugzeug/Hubschrauber: deren eigene Glättung (Flugzeug 3/s in der Luft, 5/s am Boden, Hubschrauber 4/s) bekommt einen
+// Vorhalt-Sollwert, sodass this.steer nach ihrem Schritt genau der Rampe folgt – planeStep/hubiStep bleiben unangetastet
+function fpAirStep(c,dt){const A=FP.AIR,want=fpRamp(c,clamp(c.inp.steer||0,-1,1),A.up,A.back,dt);
+  const rate=c.T.hubi?4:(c.air?3:5),k=Math.min(1,dt*rate);const real=c.inp;c.inp={...real,steer:c.steer+(want-c.steer)/k};
+  try{_fpPhysStep.call(c,dt);}finally{c.inp=real;}c.steer=want;
+  if(c.T.plane&&c.air)c.roll+=(-c.steer*0.75-c.roll)*Math.min(1,dt*A.roll);}
+// Polizei-Verfolger: Zusatzschub = Differenz zur stärkeren Motorkurve, minus Zusatz-Luftwiderstand → gleiche Höchstgeschwindigkeit
+function fpPoliceStep(c,dt){const T=c.T,K=FP.POLICE,thr=c.inp.throttle||0;_fpPhysStep.call(c,dt);
+  const v=c.speed;if(!(thr>0)||v<=-0.5)return;const m=T.mass*1000,Pmax=T.acc*m*9,Fmax=T.acc*m*1.15,kDrag=Pmax/Math.pow(T.max,3),hp=c.health<30?0.6:1;
+  const old=Math.min(Fmax,Pmax/Math.max(1,Math.abs(v)))*thr*hp,neu=Math.min(Fmax*K.force,Pmax*K.pow/Math.max(1,Math.abs(v)))*thr*hp;
+  const a=(neu-old-kDrag*(K.pow-1)*v*Math.abs(v))/m;if(a<=0)return;const fx=Math.sin(c.h),fz=Math.cos(c.h);c.vx+=fx*a*dt;c.vz+=fz*a*dt;c.speed+=a*dt;}
+
+// Verfolgerkamera: vor dem Originalschritt zusätzlich nachführen (zusammen mit dessen 2.2/s → 4–6/s), Ziel leicht in die Kurve
+const _fpCamera=updateCamera;
+updateCamera=function(P,dt){const c=P.car,cam=P.cam;
+  if(FP.on&&c&&!c.T.plane&&!c.T.hubi&&!c.stuntAir&&cam&&simTime-cam.lastLook>1.3&&Math.abs(c.speed)>2){const K=FP.CAM;
+    const la=clamp((c.yawRate||0)*K.look,-K.lookMax,K.lookMax)*Math.sign(c.speed);c.fpLook=lerp(c.fpLook||0,la,Math.min(1,dt*K.lookK));
+    const rate=K.rate0+(K.rate1-K.rate0)*clamp(Math.abs(c.speed)/K.v1,0,1);const th=c.h+(c.speed<-1?Math.PI:0)+c.fpLook;
+    cam.yaw+=angDiff(cam.yaw,th)*Math.min(1,dt*Math.max(0,rate-2.2));}
+  _fpCamera(P,dt);};
 
 // Schräglage: Motorrad/Fahrrad des Spielers neigt sich nach der echten Querbeschleunigung (atan(v·ω/g)) in die Kurve
 const _fpSync=Car.prototype.sync;
