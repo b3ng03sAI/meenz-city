@@ -1,6 +1,10 @@
 # Stand Meenz City – Meilenstein 2026-10-03
 
 ## Veröffentlicht
+- **Version 35** (Tag `v35.0.0`, 2026-10-03): Meenzer Leihrad (Stationen, Rad am Start), ~340 Waffenverstecke mit
+  Geheimverstecken und Respawn, Startplatz auf „niedrig“ ≤ 406 Draw-Calls (vorher bis 2401), Boot-Aufbau mit eigenem
+  Zufall. Volle Suite vor dem Release: 58/58 grün. Offen: Waffenmodelle schlicht, Dach-Verstecke nur per Jetpack,
+  Leihrad-Stationen ohne Kollision, 1 € pro Fahrt ist fast geschenkt.
 - **Version 34** (Tag `v34.0.0`, 2026-10-03) – live auf GitHub Pages https://b3ng03sai.github.io/meenz-city/ und als
   claude.ai-Artifact https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq. Volle Suite vor dem Release: 55/55 grün.
 - Pages-Deploy: Die Umgebung `github-pages` erlaubt nur `main` – der automatische Deploy beim Tag-Push scheitert daher;
