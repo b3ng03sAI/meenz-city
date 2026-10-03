@@ -22,6 +22,14 @@ NO_PU = f"""()=>{{const M={M},PU=M.PU,P=M.P1;PU.t=1e9;for(const it of PU.items)i
   if(P.pu)for(const k in P.pu)if(P.pu[k]>0)P.pu[k]=1e-6}}"""
 # Passanten, die von sich aus pöbeln, prügeln oder ein Gespräch anfangen (p4f updateAmbient), zurück auf 'walk'
 CALM = f"""()=>{{for(const o of {M}.HUMANS)if(o.state==='brawl'||o.state==='shout'||o.state==='approach'){{o.state='walk';if(o.setExpr)o.setExpr('neutral');}}}}"""
+# Regression: ein Prügler direkt neben dem sitzenden Fahrgast (Bahn steht, damit sie ihn nicht wegschiebt) – darf nicht zuschlagen
+BRAWLER = f"""()=>{{const M={M},h=M.P1.h;const o=M.HUMANS.find(o=>o.kind==='ped'&&o.alive&&!o.inCar&&!o.removed&&!o.keeper&&!o.mission&&!M.PLAYERS.some(P=>P.h===o));
+  if(!o)return null;o.x=h.x+0.5;o.z=h.z;o.y=h.y;o.state='brawl';o.brT=0;o.hitT=0;o.walkSpeed=4.6;return {{i:M.HUMANS.indexOf(o),hp:h.health}}}}"""
+# Regression: Powerup genau am Sitzplatz – darf während der Fahrt nicht eingesammelt werden
+PU_AT_SEAT = f"""()=>{{const M={M},h=M.P1.h,n={{position:{{y:0,set(){{}}}},rotation:{{y:0}},visible:true}};
+  M.PU.items.push({{g:n,sp:n,key:'mouse',x:h.x,z:h.z,ph:0}});return M.PU.items.length}}"""
+# Verwandlung trotz Sitzplatz erzwingen (Fahrgast kurz austragen, Powerup geben, wieder eintragen)
+MORPH_SEATED = f"""()=>{{const M={M},R={S}.riding;if(!R)return false;R.P={{}};let ok;try{{ok=M.puActivate(M.P1,'mouse');}}finally{{R.P=M.P1;}}return ok&&!!M.P1.morph}}"""
 
 
 async def calm_step(g, sec):
@@ -63,6 +71,9 @@ async def test(g):
     # Revier (Paket aus Welle 1) zahlt periodisch Geld aus und startet Bandenkriege – beides verfälscht Geld/Gesundheit hier
     await g.js(f"()=>{{const R={M}.REVIER;if(R){{R.incomeT=R.attackT=1e9;if(R.war&&R.endWar)R.endWar(false);}}}}")
     await g.js(f"()=>{{const M={M};M.setWanted(0);M.G.money=500}}")
+    await g.js(NO_PU)
+    sb = await g.js(f"()=>{{const M={M},S=M.SBAHN;if(!S)return 'kein SBAHN';const old=S.riding;S.riding={{P:M.P1}};let r;try{{r=M.puActivate(M.P1,'speed');}}finally{{S.riding=old;}}return r}}")
+    g.check('S-Bahn-Fahrgast sammelt keine Powerups ein', sb is False, sb)
     await g.js(NO_PU)
 
     # 1. Linien aus den Gleisen
@@ -121,6 +132,16 @@ async def test(g):
     g.check('F während der Fahrt: kein Aussteigen', await g.js(RIDE) is not None)
     dt = await wait_dwell(g, 1, prep['next'])
     g.check('Bahn erreicht den nächsten Halt mit Fahrgast', dt is not None and await g.js(RIDE) is not None, dt)
+    br = await g.js(BRAWLER)
+    await g.step(0.1)
+    hit = await g.js(f"(i)=>({{hp:{M}.P1.h.health,st:{M}.HUMANS[i].state}})", br['i']) if br else None
+    g.check('Fahrgast: Prügler daneben schlägt nicht zu und lässt ab', br and hit['hp'] == br['hp'] and hit['st'] != 'brawl', [br, hit])
+    n = await g.js(PU_AT_SEAT)
+    await g.step(0.1)
+    pu = await g.js(f"()=>({{morph:!!{M}.P1.morph,n:{M}.PU.items.length}})")
+    g.check('Fahrgast: Powerup am Sitzplatz wird nicht eingesammelt', not pu['morph'] and pu['n'] == n, pu)
+    await g.js(NO_PU); await g.js(CALM)
+    await g.step(0.1)
     await g.key('KeyF')
     out = await g.js(f"""()=>{{const M={M},S=M.STRABA,t=S.trams[1],st=t.line.routes[0].stops[t.k],h=M.P1.h;
         return {{ride:!!S.riding,vis:h.g.visible,inCar:h.inCar,dStop:Math.min(Math.hypot(h.x-st.x,h.z-st.z),Math.hypot(h.x-st.bx,h.z-st.bz)),dy:Math.abs(h.y-M.groundYFn(h.x,h.z,h.y)),hp:h.health,hits:S.playerHits}}}}""")
@@ -147,8 +168,12 @@ async def test(g):
     g.check('B bei der Kontrolle: -60 €', paid['money'] == 140, paid)
     g.check('Kontrolle erledigt (bezahlt), weiter mitfahren, kein Stern', not paid['ctl'] and paid['res'] == 'paid' and paid['ride'] and paid['w'] == 0, paid)
     await wait_dwell(g, 0, prep['next'])
+    g.check('Verwandlung im Sitzen erzwungen', await g.js(MORPH_SEATED))
+    await g.step(0.1)
     await g.key('KeyF')
     g.check('nach dem Zahlen normal ausgestiegen ohne Stern', await g.js(RIDE) is None and await g.js(f"()=>{M}.wanted") == 0)
+    g.check('verwandelt hindert nicht am Aussteigen (F)', await g.js(RIDE) is None and await g.js(f"()=>!{M}.P1.h.inCar"))
+    await g.js(NO_PU)
 
     # 6. Kontrolle ohne Fahrschein → abhauen an der nächsten Haltestelle
     await g.reseed(6)
