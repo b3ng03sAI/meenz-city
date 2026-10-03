@@ -3,7 +3,7 @@
 // RINFO wird an __MEENZ gehängt, sobald p4e_main das Objekt setzt (Setter auf window).
 const MUX={touch:()=>typeof TOUCHUI!=='undefined'&&TOUCHUI.mode==='touch',
   audio:{hooked:false,resumes:0},aim:{snaps:0,last:null,CONE:12*Math.PI/180,R:40},
-  cull:{on:!!QS.lowLOD,list:[],t:0,hidden:0,R:{bld:600,stat:450,tree:320,ped:80,car:160}},pinch:{pts:new Map(),d0:0,zooms:0}};
+  cull:{on:!!QS.lowLOD,list:[],t:0,hidden:0,R:{bld:600,stat:450,road:300,tree:320,ped:80,car:160,detail:18,small:0.07,roofDy:1.5}},pinch:{pts:new Map(),d0:0,zooms:0}};
 
 // ---------- Touch-Texte: Tastennamen in Hinweisen durch die Knopf-Beschriftung ersetzen ----------
 const MUX_KEYS={F:'EIN/AUS',E:'AKTION',Leertaste:'SPRUNG','Leertaste halten':'SPRUNG halten',M:'KARTE',P:'II',G:'PROST',U:'SCHUHE',H:'HUPE',N:'RADIO',J:'JOB',Q:'WAFFE',R:'WAFFE'};
@@ -70,37 +70,95 @@ playerFire=function(P,I){if(P===P1&&MUX.touch()&&!P.car&&P.h&&!(P.fireT>0)){cons
   return _muxFire(P,I);};
 
 // ---------- Sichtweite auf „niedrig“: ferne Objekte nur fürs Zeichnen ausblenden (Sichtbarkeit wird danach zurückgesetzt) ----------
-// Kategorien: Gebäude-Kacheln, sonstige statische Szene, Bäume (Instanzen), Passanten, Autos. Spieler und sein Auto nie.
+// Kategorien: Gebäude-Kacheln, Straßen-Kacheln, sonstige statische Szene, Bäume (Instanzen), Passanten, Autos. Spieler und sein Auto nie.
+// Die Kugel je Objekt liegt relativ zu seiner Position (bewegte Gruppen wandern mit). Weltmatrix und Geometrie-Kugel werden vor
+// dem Messen aktualisiert: sonst landet alles, was noch nie gezeichnet wurde, beim Ursprung (Dom) und bleibt immer sichtbar.
 let _muxS=null;
-function muxSphereOf(o){_muxS=_muxS||new THREE.Sphere();if(o.isInstancedMesh){if(!o.boundingSphere&&o.computeBoundingSphere)try{o.computeBoundingSphere();}catch(_){}return o.boundingSphere?_muxS.copy(o.boundingSphere).applyMatrix4(o.matrixWorld):null;}
-  if(o.isMesh){const g=o.geometry;if(!g||!g.boundingSphere)return null;return _muxS.copy(g.boundingSphere).applyMatrix4(o.matrixWorld);}
-  if(o.isGroup){let r=null;o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh||!m.geometry||!m.geometry.boundingSphere)return;const s=m.geometry.boundingSphere.clone().applyMatrix4(m.matrixWorld);if(!r)r=s;else r.union(s);});return r;}
+function muxGeoSphere(g){if(!g)return false;if(g.boundingSphere)return true;const p=g.attributes&&g.attributes.position;
+  if(!p||!p.array||!p.array.length)return false;g.computeBoundingSphere();return !!g.boundingSphere&&isFinite(g.boundingSphere.radius);}
+function muxSphereOf(o){_muxS=_muxS||new THREE.Sphere();o.updateWorldMatrix(true,false);
+  if(o.isInstancedMesh){if(!o.boundingSphere&&o.computeBoundingSphere)try{o.computeBoundingSphere();}catch(_){}return o.boundingSphere?_muxS.copy(o.boundingSphere).applyMatrix4(o.matrixWorld):null;}
+  if(o.isMesh)return muxGeoSphere(o.geometry)?_muxS.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld):null;
+  if(o.isGroup){let r=null;o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh||!muxGeoSphere(m.geometry))return;const s=m.geometry.boundingSphere.clone().applyMatrix4(m.matrixWorld);if(!r)r=s;else r.union(s);});return r;}
   return null;}
+// Kleinteile einer Figur/des Fliegerdackels (Ohren, Knöpfe, Nase, Brille: Kugel < R.small m) – ab R.detail m um ein Pixel am Handy
+let _muxV=null;
+function muxSmallParts(g){_muxV=_muxV||new THREE.Vector3();const out=[],lim=MUX.cull.R.small;g.updateMatrixWorld(true);
+  g.traverse(m=>{if(!m.isMesh||!muxGeoSphere(m.geometry))return;m.getWorldScale(_muxV);if(m.geometry.boundingSphere.radius*Math.max(_muxV.x,_muxV.y,_muxV.z)<lim)out.push(m);});
+  return out;}
 function muxCullBuild(){const C=MUX.cull,L=[];const own=new Map();
   for(const h of HUMANS)if(h&&h.g)own.set(h.g,['ped',h]);for(const c of CARS)if(c&&c.g)own.set(c.g,['car',c]);
   const chunk=new Set();for(const c of CITY.chunks.values()){if(c.low)chunk.add(c.low);if(c.high)chunk.add(c.high);}
   const sky=new Set([GROUND.far,typeof OVERVIEW!=='undefined'?OVERVIEW:null]);
-  for(const o of scene.children){if(!o||o.isLight||o.isCamera||o.isPoints||o.frustumCulled===false||sky.has(o))continue;
-    const ow=own.get(o);if(ow){L.push({o,k:ow[0],a:ow[1],x:0,z:0,r:3});continue;}
+  for(const o of scene.children){if(!o||o.isLight||o.isCamera||o.isPoints||o.frustumCulled===false||sky.has(o)||o.userData.muxProp)continue;
+    const ow=own.get(o);if(ow){L.push({o,k:ow[0],a:ow[1],x:0,z:0,r:3,sm:ow[0]==='ped'?muxSmallParts(o):null});continue;}
     if(!o.isMesh&&!o.isGroup)continue;
-    let s=o.userData.muxS;if(!s){const t=muxSphereOf(o);if(!t||!isFinite(t.radius)||t.radius<=0)continue;s=o.userData.muxS=[t.center.x,t.center.z,t.radius];}
+    let s=o.userData.muxS;if(!s){const t=muxSphereOf(o);if(!t||!isFinite(t.radius)||t.radius<=0)continue;s=o.userData.muxS=[t.center.x-o.position.x,t.center.z-o.position.z,t.radius];}
     if(s[2]>900)continue;// Riesenflächen (Boden, Rhein) bleiben
-    const k=chunk.has(o)?'bld':(o.isInstancedMesh&&(o.material===MAT.leaf||o.material===MAT.bark))?'tree':'stat';L.push({o,k,x:s[0],z:s[1],r:s[2]});}
-  C.list=L;}
+    // Straßen/Gehwege/Bordsteine der Kacheln (p2e_stream): weiter weg trägt der gemalte Boden (GROUND) dasselbe Bild
+    const k=chunk.has(o)?'bld':(o.isInstancedMesh&&(o.material===MAT.leaf||o.material===MAT.bark))?'tree':STREAM.live.has(o)?'road':'stat';
+    L.push({o,k,x:s[0],z:s[1],r:s[2],sm:DOGS.some(D=>D.g===o)?muxSmallParts(o):null});}
+  C.list=L;C.n=scene.children.length;}
 function muxCullApply(cam){const C=MUX.cull,R=C.R,px=cam.position.x,pz=cam.position.z,hid=[];const myCar=P1&&P1.car;
-  for(const e of C.list){const o=e.o;if(!o.visible||o.parent!==scene)continue;let x=e.x,z=e.z;
+  for(const e of C.list){const o=e.o;if(!o.visible||o.parent!==scene)continue;let x=o.position.x+e.x,z=o.position.z+e.z;
     if(e.k==='ped'){if(e.a===P1.h)continue;x=e.a.x;z=e.a.z;}else if(e.k==='car'){if(e.a===myCar)continue;x=e.a.x;z=e.a.z;}
-    const dx=x-px,dz=z-pz,lim=R[e.k]+e.r;if(dx*dx+dz*dz>lim*lim){o.visible=false;hid.push(o);}}
+    const dx=x-px,dz=z-pz,d2=dx*dx+dz*dz,lim=R[e.k]+e.r;if(d2>lim*lim){o.visible=false;hid.push(o);continue;}
+    if(e.sm&&d2>R.detail*R.detail)for(const m of e.sm)if(m.visible){m.visible=false;hid.push(m);}}
+  // Dach-Aufbauten und Dach-Szenen (p4m_roofs): von unterhalb der Dachkante sieht man von ihnen höchstens ein paar Pixel
+  const cy=cam.position.y-R.roofDy;
+  for(const g of ROOF.clutter.values())if(g&&g.visible&&cy<g.position.y){g.visible=false;hid.push(g);}
+  for(const sc of ROOF.active.values())if(sc&&sc.g.visible&&cy<sc.v){sc.g.visible=false;hid.push(sc.g);}
   C.hidden=hid.length;return hid;}
+
+// ---------- Stadtweite Requisiten auf „niedrig“: nur Instanzen in Kameranähe zeichnen ----------
+// Laternen, Bänke, Mülleimer, Poller, Litfaßsäulen, Ampelmasten, Café-Tische: je Art ein InstancedMesh über die ganze Stadt
+// (instGeo) – ein Draw-Call, aber alle Instanzen laufen durch die GPU (Laternen allein ~0,6 Mio. Dreiecke). Hier rücken nur die
+// Instanzen im Umkreis R der Kamera nach vorn (count = Treffer); neu sortiert wird erst nach `step` Metern Kamerabewegung.
+// Quell-Matrizen je Liste einmal kopiert (Mast + Leuchte teilen sie). Ausgenommen: Meshes mit Instanzfarben (Ampel-Lichter
+// schreiben ihre Farben je Index) und in Zonen-Gruppen verschobene (Lazy-Stadtteile) – die prüft erst das nächste Bild.
+MUX.props={list:[],pending:[],src:new Map(),R:420,step:30,x:NaN,z:NaN,runs:0,shown:0,total:0,full:true};
+const _muxInstGeo=instGeo;
+instGeo=function(geo,mat,list,cast){const im=_muxInstGeo(geo,mat,list,cast);if(im&&MUX.cull.on&&list.length>=64)MUX.props.pending.push({im,list,n:list.length,hid:false});return im;};
+function muxPropsShow(e,k){const im=e.im,A=im.instanceMatrix;im.count=k;A.clearUpdateRanges();A.addUpdateRange(0,k*16);A.needsUpdate=true;
+  if(k){im.computeBoundingSphere();if(e.hid){im.visible=true;e.hid=false;}}else if(im.visible){im.visible=false;e.hid=true;}}
+function muxPropsUpdate(cam){const P=MUX.props;
+  if(P.pending.length){for(const e of P.pending)if(e.im.parent===scene&&!e.im.instanceColor){e.im.userData.muxProp=true;P.list.push(e);}P.pending.length=0;P.x=NaN;}
+  const x=cam.position.x,z=cam.position.z;if(Math.abs(x-P.x)<P.step&&Math.abs(z-P.z)<P.step)return;
+  P.x=x;P.z=z;P.runs++;P.full=false;const R2=P.R*P.R;let shown=0,total=0;
+  for(const e of P.list){const a=e.im.instanceMatrix.array;let src=P.src.get(e.list);if(!src){src=a.slice(0,e.n*16);P.src.set(e.list,src);}
+    let k=0;for(let i=0;i<e.n;i++){const o=i*16,dx=src[o+12]-x,dz=src[o+14]-z;if(dx*dx+dz*dz>R2)continue;a.set(src.subarray(o,o+16),k*16);k++;}
+    muxPropsShow(e,k);shown+=k;total+=e.n;}
+  P.shown=shown;P.total=total;}
+// Geteilter Bildschirm zeichnet ohne renderFrame (zwei Kameras): dann wieder alle Instanzen
+function muxPropsAll(){const P=MUX.props;if(P.full)return;P.full=true;P.x=NaN;
+  for(const e of P.list){const src=P.src.get(e.list);if(src)e.im.instanceMatrix.array.set(src);muxPropsShow(e,e.n);}}
+{const _muxSplit=renderSplit;renderSplit=function(){muxPropsAll();return _muxSplit();};}
+
 const _muxRender=renderFrame;
 renderFrame=function(){const C=MUX.cull;
   if(!C.on||INDOOR||!Array.isArray(scene.children)||!P1||!P1.h)return _muxRender();
-  if(--C.t<=0){C.t=30;muxCullBuild();}
+  if(--C.t<=0||scene.children.length!==C.n){C.t=30;muxCullBuild();}
+  muxPropsUpdate(camera);
   const hid=muxCullApply(camera);try{return _muxRender();}finally{for(const o of hid)o.visible=true;}};
 
-// ---------- Messwerte für Tests/Audit: Draw-Calls und Dreiecke eines vollen Bildes ----------
-function muxRenderInfo(){try{const I=renderer.info;if(!I||!I.render)return {calls:0,triangles:0,culled:MUX.cull.hidden};I.autoReset=false;I.reset();renderFrame();const r={calls:I.render.calls,triangles:I.render.triangles,culled:MUX.cull.hidden};I.autoReset=true;return r;}
-  catch(_){return {calls:0,triangles:0,culled:MUX.cull.hidden};}}
+// ---------- Messwerte für Tests/Audit: Draw-Calls und Dreiecke genau eines Bildes, aufgeteilt nach Durchgang ----------
+// main = Szene (einmal je Bild, scenePasses), shadow = Schattenkarte, post = Nachbearbeitung (Bloom, Grading …);
+// renders = Aufrufe von renderer.render (Szene + Vollbild-Pässe). calls/triangles = Summe, wie bisher.
+function muxRenderInfo(){const C=MUX.cull,out={calls:0,triangles:0,culled:C.hidden,renders:0,scenePasses:0,
+    main:{calls:0,triangles:0},shadow:{calls:0,triangles:0},post:{calls:0,triangles:0}};
+  let I=null,SM=null,smR=null;const own=k=>Object.prototype.hasOwnProperty.call(scene,k),hadB=own('onBeforeRender'),hadA=own('onAfterRender'),ob=scene.onBeforeRender,oa=scene.onAfterRender;
+  try{I=renderer.info;if(!I||!I.render)return out;const R=I.render;I.autoReset=false;I.reset();const f0=R.frame;let c0=0,t0=0,s0c=0,s0t=0;
+    SM=renderer.shadowMap;smR=SM.render;
+    SM.render=function(a,b,c){const c1=R.calls,t1=R.triangles;try{return smR.call(this,a,b,c);}finally{out.shadow.calls+=R.calls-c1;out.shadow.triangles+=R.triangles-t1;}};
+    scene.onBeforeRender=function(){out.scenePasses++;c0=R.calls;t0=R.triangles;s0c=out.shadow.calls;s0t=out.shadow.triangles;};
+    scene.onAfterRender=function(){out.main.calls+=R.calls-c0-(out.shadow.calls-s0c);out.main.triangles+=R.triangles-t0-(out.shadow.triangles-s0t);};
+    renderFrame();
+    out.calls=R.calls;out.triangles=R.triangles;out.renders=R.frame-f0;out.culled=C.hidden;
+    out.post.calls=out.calls-out.main.calls-out.shadow.calls;out.post.triangles=out.triangles-out.main.triangles-out.shadow.triangles;
+    return out;}
+  catch(_){return out;}
+  finally{if(I)I.autoReset=true;if(SM&&smR)SM.render=smR;
+    if(hadB)scene.onBeforeRender=ob;else delete scene.onBeforeRender;if(hadA)scene.onAfterRender=oa;else delete scene.onAfterRender;}}
 MUX.renderInfo=muxRenderInfo;MUX.aimTarget=muxAimTarget;MUX.touchText=muxTouchText;
 {let v;Object.defineProperty(window,'__MEENZ',{configurable:true,enumerable:true,get(){return v;},
   set(x){v=x;if(x&&typeof x==='object'&&!('RINFO' in x)){Object.defineProperty(x,'RINFO',{get:muxRenderInfo,enumerable:true});x.MUX=MUX;}}});}
