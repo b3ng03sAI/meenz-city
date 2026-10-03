@@ -3,7 +3,7 @@
 // RINFO wird an __MEENZ gehängt, sobald p4e_main das Objekt setzt (Setter auf window).
 const MUX={touch:()=>typeof TOUCHUI!=='undefined'&&TOUCHUI.mode==='touch',
   audio:{hooked:false,resumes:0},aim:{snaps:0,last:null,CONE:12*Math.PI/180,R:40},
-  cull:{on:!!QS.lowLOD,list:[],t:0,hidden:0,R:{bld:600,stat:450,road:300,tree:320,ped:80,car:160,detail:18,small:0.07,roofDy:1.5}},pinch:{pts:new Map(),d0:0,zooms:0}};
+  cull:{on:!!QS.lowLOD,list:[],t:0,hidden:0,R:{bld:600,stat:450,road:300,tree:320,ped:80,car:160,detail:18,small:0.13,px:290,roofDy:1.5}},pinch:{pts:new Map(),d0:0,zooms:0}};
 
 // ---------- Touch-Texte: Tastennamen in Hinweisen durch die Knopf-Beschriftung ersetzen ----------
 const MUX_KEYS={F:'EIN/AUS',E:'AKTION',Leertaste:'SPRUNG','Leertaste halten':'SPRUNG halten',M:'KARTE',P:'II',G:'PROST',U:'SCHUHE',H:'HUPE',N:'RADIO',J:'JOB',Q:'WAFFE',R:'WAFFE'};
@@ -81,10 +81,11 @@ function muxSphereOf(o){_muxS=_muxS||new THREE.Sphere();o.updateWorldMatrix(true
   if(o.isMesh)return muxGeoSphere(o.geometry)?_muxS.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld):null;
   if(o.isGroup){let r=null;o.updateMatrixWorld(true);o.traverse(m=>{if(!m.isMesh||!muxGeoSphere(m.geometry))return;const s=m.geometry.boundingSphere.clone().applyMatrix4(m.matrixWorld);if(!r)r=s;else r.union(s);});return r;}
   return null;}
-// Kleinteile einer Figur/des Fliegerdackels (Ohren, Knöpfe, Nase, Brille: Kugel < R.small m) – ab R.detail m um ein Pixel am Handy
+// Kleinteile einer Figur/des Fliegerdackels (Ohren, Knöpfe, Nase, Brille, Hände, Hals: Kugel r < R.small m): ausgeblendet ab
+// max(R.detail, r·R.px) m – dann etwa ein Pixel am Handy (Ohr 0,03 m ab 18 m, Hand 0,08 m ab 23 m, Hals 0,09 m ab 26 m)
 let _muxV=null;
-function muxSmallParts(g){_muxV=_muxV||new THREE.Vector3();const out=[],lim=MUX.cull.R.small;g.updateMatrixWorld(true);
-  g.traverse(m=>{if(!m.isMesh||!muxGeoSphere(m.geometry))return;m.getWorldScale(_muxV);if(m.geometry.boundingSphere.radius*Math.max(_muxV.x,_muxV.y,_muxV.z)<lim)out.push(m);});
+function muxSmallParts(g){_muxV=_muxV||new THREE.Vector3();const R=MUX.cull.R,out=[],lim=R.small;g.updateMatrixWorld(true);
+  g.traverse(m=>{if(!m.isMesh||!muxGeoSphere(m.geometry))return;m.getWorldScale(_muxV);const r=m.geometry.boundingSphere.radius*Math.max(_muxV.x,_muxV.y,_muxV.z);if(r<lim){const d=Math.max(R.detail,r*R.px);out.push(m,d*d);}});
   return out;}
 function muxCullBuild(){const C=MUX.cull,L=[];const own=new Map();
   for(const h of HUMANS)if(h&&h.g)own.set(h.g,['ped',h]);for(const c of CARS)if(c&&c.g)own.set(c.g,['car',c]);
@@ -103,7 +104,7 @@ function muxCullApply(cam){const C=MUX.cull,R=C.R,px=cam.position.x,pz=cam.posit
   for(const e of C.list){const o=e.o;if(!o.visible||o.parent!==scene)continue;let x=o.position.x+e.x,z=o.position.z+e.z;
     if(e.k==='ped'){if(e.a===P1.h)continue;x=e.a.x;z=e.a.z;}else if(e.k==='car'){if(e.a===myCar)continue;x=e.a.x;z=e.a.z;}
     const dx=x-px,dz=z-pz,d2=dx*dx+dz*dz,lim=R[e.k]+e.r;if(d2>lim*lim){o.visible=false;hid.push(o);continue;}
-    if(e.sm&&d2>R.detail*R.detail)for(const m of e.sm)if(m.visible){m.visible=false;hid.push(m);}}
+    if(e.sm&&d2>R.detail*R.detail)for(let i=0,S=e.sm;i<S.length;i+=2){const m=S[i];if(d2>S[i+1]&&m.visible){m.visible=false;hid.push(m);}}}
   // Dach-Aufbauten und Dach-Szenen (p4m_roofs): von unterhalb der Dachkante sieht man von ihnen höchstens ein paar Pixel
   const cy=cam.position.y-R.roofDy;
   for(const g of ROOF.clutter.values())if(g&&g.visible&&cy<g.position.y){g.visible=false;hid.push(g);}
