@@ -5,8 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Meenz City – Arbeitsanleitung für Claude Code
 
 GTA-artiges Browser-Spiel in Mainz + Wiesbaden (three.js r160). Das Spiel wird als **eine einzige HTML-Datei** ausgeliefert
-(`game/meenz-city.html`, ~4,8 MB) und als claude.ai-Artifact veröffentlicht:
-https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (Stand: Version 33).
+(`game/meenz-city.html`, ~7 MB inkl. eingebettetem three.js + Schriften). Veröffentlicht als installierbare Web-App auf
+**GitHub Pages** https://b3ng03sai.github.io/meenz-city/ und als claude.ai-Artifact
+https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (beide Stand: Version 33). Der lokale `main` ist weiter (Wellen 7–8,
+Handy-UX, Fahrphysik) und **noch nicht gepusht** – Stand und nächste Schritte: `tasks/stand.md`.
 
 Sprache im Spiel und in Kommentaren: **Deutsch**, Dialoge gern auf **Meenzerisch/Rheinhessisch**.
 
@@ -68,6 +70,14 @@ python3 tests/run.py rad hbf     # nur test_rad.py + test_hbf.py;  --no-build ü
 | `p4za_ufo.js` | UFO-Ereignis |
 | `p5_missionen.js` | Neue Missionen (`free:true` = sofort verfügbar) |
 | `p5b_kart.js` | Spontane Gokart-Rennen (Strecke aus dem Straßengraph) |
+| `p5c…p5p` | Fahrrad + Führerschein, Autoradio, Stunts, Gautschen, Hubschrauber, Wiesbadener Wahrzeichen (`WIWAHR`), Nebenjobs, Straßenbahn, Rosenmontagszug, Nerobergbahn, Revierkämpfe (`REVIER`), Coup, Spielbank, S-Bahn |
+| `p6_lazy.js` | Gemeinsamer Lazy-Helfer für Stadtteile: Aufbau < 350 m, Freigabe > 500 m, Kollisionsraster-Schreibzugriffe werden protokolliert und zurückgenommen (`LAZY`) |
+| `p6a…p6g` | Stadtteile Altstadt, Neustadt, Oberstadt, Bretzenheim, Gonsenheim, Mombach, Weisenau (je eigenes Objekt + Test) |
+| `p6h…p6l` | Eichhörnchen-Power-up, Rausspringen, Ablecke-Oma, Nessie, JGA-Mission |
+| `p6m_touch.js`, `p6o_mobilux.js` | Touch-Steuerung (Kontextknöpfe) und Handy-Bedienung: Quer-Layout, Overlays, Karten-Pinch, Zielhilfe, Draw-Call-Begrenzung auf „niedrig“ (`__MEENZ.RINFO`) |
+| `p6n_intro.js` | Einleitung mit der Bürgermeisterin (nur bei neuem Spiel) |
+| `p6p_fahrphysik.js` | Direktere Fahrphysik für **Spieler**fahrzeuge (Wrapper um `physStep`, Tabelle `FP.CLS`), Kamera-Nachlauf, Polizei-Antritt; KI fährt unverändert |
+| `site/` | Rahmen für GitHub Pages (Manifest, Service Worker, Icons) – kein Spielcode |
 
 Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom). Bounds aus `OSM.bounds`.
 
@@ -82,6 +92,10 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
   `staticMesh()/staticInst()` registrieren (Distanz-LOD), Speicherbudget mit `tests/manual/mob9.py m` prüfen
   (Ziel: JS-Heap < ~700 MB im iPhone-Emulator, keine Canvas > 16 Mio. Pixel).
 - Spielerbezogene Bodenhöhe: `playerGroundY()` (Wasser → Schwimmhöhe), sonst `groundY(x,z,y)`.
+- **Neue Stadtteile/Orte immer lazy** über `p6_lazy.js` (nichts beim Boot anlegen) und mit **eigenem Seed-Zufall** –
+  nie `Math.random` beim Aufbau/Update ziehen, sonst verschiebt sich der Zufall aller Tests (Gonsenheim-Lektion).
+- Qualität `niedrig` (`QS.lowLOD`, `QS.noShadow`) existiert – Code darf nicht nur ultra/hoch/mittel annehmen.
+- Tests, die Geld prüfen: Revier-Einnahmen (`REVIER.incomeT=1e9`) vorher abschalten – sie zahlen zufällig dazwischen.
 
 ## Inhaltliche Regeln
 - **Keine echten lebenden Politiker** darstellen – nur fiktive Figuren (z. B. „Dr. Hubertus Schoppenhauer“).
@@ -112,8 +126,9 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
   (Pakete ohne Reihenfolge zuletzt). „Pausiert“ wird übersprungen, bis der Nutzer es wieder freigibt.
 - Nach einem fertigen Paket **direkt das nächste beginnen** – keine Rückfrage, kein Warten auf Freigabe zwischen Paketen.
   Arbeits-Branch je Welle/Stapel (`feat/welle-N`), die Feature-Agents einer Welle arbeiten in eigenen Worktrees und Branches
-  (`feat/wN-<paket>`) und werden in den Arbeits-Branch gemergt. Nach jedem Paket committen und pushen – `git push` hat der
-  Nutzer am 2026-10-02 für dieses Repo ausdrücklich dauerhaft freigegeben (Force-Push weiterhin nur nach Rückfrage).
+  (`feat/wN-<paket>`) und werden in den Arbeits-Branch gemergt. Nach jedem Paket **lokal** committen.
+  **Seit 2026-10-02 abends nicht pushen** (Nutzerwunsch): Branches lokal in `main` mergen, keine PRs/Tags, bis der Nutzer
+  das Pushen wieder freigibt (Force-Push sowieso nur nach Rückfrage).
 - Unterbrechen nur für: Artifact-Veröffentlichung/Release-Tag, eine echte Produktentscheidung, die die Notizen nicht
   beantworten, oder einen roten Test, dessen Ursache sich nicht klären lässt. Dann kurz fragen, sonst weiter.
 - Querbezüge in den Notizen beachten (z. B. „baut auf Paket 7 auf“): Voraussetzung zuerst.
@@ -136,7 +151,11 @@ Spalten Paket/Status/Phase/Bereich/Notizen/Reihenfolge; Status Geplant → In Ar
   `meenz-dev` im eigenen Worktree, merged die Branches und gibt den Gesamtstand **einmal** an einen `web-tester`
   (volle Suite, Screenshots, `mob9`, Haltung). Feature-Agents testen nur ihre eigene Datei + `test_all`
   (`python3 tests/run.py <paket> all`), nie die volle Suite – sonst laufen N volle Suiten parallel und die Maschine kippt.
-  Höchstens ~5 Feature-Agents gleichzeitig.
+  Höchstens **5 Feature-Agents gleichzeitig, insgesamt** (Nutzervorgabe) – Nebenaufgaben zählen mit.
+- Manuelle Skripte mit eigenem Server immer auf einem freien Port starten – fremde Server auf 8765/8799 o. Ä. liefern
+  sonst still einen anderen Stand aus.
+- Unter hoher Last (Load > 40) laufen Tests in Zeitüberschreitungen; dann nicht als Fehler werten, sondern einzeln
+  wiederholen und die volle Suite auf ruhiger Maschine in einem Lauf bestätigen.
 - Ein Feature = eine eigene Datei + eigener Branch/Worktree. Konfliktträchtig sind nur `build.py`, `p4e_main.js`
   (Schleife/Boot/`__MEENZ`), `p3_actors.js` (Fahrzeugtypen) und `p4c_player.js` – Änderungen dort klein halten.
 - Integration in der Hauptsession: mergen, dann `npm test` im Haupt-Tree – zwei grüne Branches sind nicht automatisch
