@@ -44,6 +44,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Bauen
+        env:
+          MEENZ_VERSION: Version ${{ inputs.tag || github.ref_name }}
         run: |
           cd game && python3 build.py && cd ..
           python3 site/build_site.py dist
