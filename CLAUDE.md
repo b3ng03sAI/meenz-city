@@ -95,6 +95,7 @@ Koordinaten: `x=(lon-8.2740)*71540`, `z=-(lat-49.9988)*111200` (Ursprung ≈ Dom
 - **Neue Stadtteile/Orte immer lazy** über `p6_lazy.js` (nichts beim Boot anlegen) und mit **eigenem Seed-Zufall** –
   nie `Math.random` beim Aufbau/Update ziehen, sonst verschiebt sich der Zufall aller Tests (Gonsenheim-Lektion).
 - Qualität `niedrig` (`QS.lowLOD`, `QS.noShadow`) existiert – Code darf nicht nur ultra/hoch/mittel annehmen.
+- Tests, die eine Strecke über eine feste Gehzeit zurücklegen, die Dauer aus `__MEENZ.FOOT.walk` ableiten (Tempo wurde schon geändert).
 - Tests, die Geld prüfen: Revier-Einnahmen (`REVIER.incomeT=1e9`) vorher abschalten – sie zahlen zufällig dazwischen.
 
 ## Inhaltliche Regeln

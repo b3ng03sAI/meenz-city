@@ -195,7 +195,8 @@ async def test(g):
     await g.step(0.3)
     g.check('Kerb vorbei, Spieler im Zelt: Platz bleibt bis zum Rausgehen', await g.js(f"()=>{{const K={G}.kerb;return !K.on&&K.built&&!!{G}.tent.door}}"))
     await g.js(f"()=>{{const M={M},P=M.P1,r=M.INDOOR();P.h.x=r.ox;P.h.z=r.oz+8.8;P.h.facing=0;P.cam.yaw=Math.PI}}")
-    await g.key('KeyS', hold=1.5, after=0.3)
+    # 1,5 s bei 3,4 m/s ≈ 5 m bis kurz vor den Ausgang – Dauer aus dem aktuellen Gehtempo ableiten
+    await g.key('KeyS', hold=1.5 * 3.4 / (await g.js(f"()=>{M}.FOOT.walk")), after=0.3)
     out = await g.js(f"()=>{{const M={M},h=M.P1.h;return {{room:!!h.room,indoor:!!M.INDOOR(),d:Math.hypot(h.x-({door[0]}),h.z-({door[1]}))}}}}")
     g.check('zu Fuß durch den Ausgang raus, vor dem Zelt', not out['room'] and not out['indoor'] and out['d'] < 4, out)
 
