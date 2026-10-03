@@ -137,7 +137,8 @@ function muxPropsAll(){const P=MUX.props;if(P.full)return;P.full=true;P.x=NaN;
 const _muxRender=renderFrame;
 renderFrame=function(){const C=MUX.cull;
   if(!C.on||INDOOR||!Array.isArray(scene.children)||!P1||!P1.h)return _muxRender();
-  if(--C.t<=0||scene.children.length!==C.n){C.t=30;muxCullBuild();}
+  // neu aufbauen alle 30 Bilder, bei neuen/entfernten Szenen-Objekten früher (frühestens nach 5 Bildern, z. B. im Gefecht)
+  if(--C.t<=0||(scene.children.length!==C.n&&C.t<=25)){C.t=30;muxCullBuild();}
   muxPropsUpdate(camera);
   const hid=muxCullApply(camera);try{return _muxRender();}finally{for(const o of hid)o.visible=true;}};
 
