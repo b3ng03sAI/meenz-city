@@ -21,7 +21,9 @@ function fbBegin(dt){const F=FRAMEB;F.pts.length=0;F.jump=false;
   PLAYERS.forEach((P,i)=>{if(!P.h)return;const p=ppos(P);let q=F.prev[i];
     if(!q){q=F.prev[i]={x:p[0],z:p[1],vx:0,vz:0};F.jump=true;}
     else if(Math.hypot(p[0]-q.x,p[1]-q.z)>250){F.jump=true;q.vx=q.vz=0;}
-    else if(dt>0){const k=Math.min(1,dt*4);q.vx+=((p[0]-q.x)/dt-q.vx)*k;q.vz+=((p[1]-q.z)/dt-q.vz)*k;}
+    else if(Math.hypot(p[0]-q.x,p[1]-q.z)>60){q.vx=q.vz=0;}// kleiner Versatz (Test-Teleport, Respawn): keine Fantasie-Geschwindigkeit
+    else if(dt>0){const k=Math.min(1,dt*4);q.vx+=((p[0]-q.x)/dt-q.vx)*k;q.vz+=((p[1]-q.z)/dt-q.vz)*k;
+      const v=Math.hypot(q.vx,q.vz);if(v>150){q.vx*=150/v;q.vz*=150/v;}}
     q.x=p[0];q.z=p[1];const T=fbAir(P)?6:3;F.pts.push({x:p[0],z:p[1],ax:p[0]+q.vx*T,az:p[1]+q.vz*T});});
   if(F.jump)F.jumps++;}
 function fbDist(x,z){const P=FRAMEB.pts;if(!P.length)return 1e9;let best=1e9;
