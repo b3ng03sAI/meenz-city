@@ -42,6 +42,32 @@ async def measure(g, vid, ctrl='player', on=True):
     return await g.js(MEASURE, [vid, ctrl, on])
 
 
+# Boot/Jetski (offenes Rheinwasser) und Flugzeug/Hubschrauber (in der Luft): Lenkansprechen und Gierfolge bei Sprung auf
+# vollen Einschlag; Gierrate aus der Kursänderung je Schritt (Hubschrauber setzt yawRate nicht)
+MEASURE_X = r"""([id,on])=>{const M=__MEENZ;const dt=1/60;M.FP.on=on;const air=id==='flugzeug'||id==='hubschrauber';
+  const [x,z]=air?[-3600,-400]:[756.5,279.9];const c=new M.Car(id,x,z,Math.PI/2,{ctrl:'player'});const v=air?(id==='flugzeug'?40:15):10;
+  c.vx=v;c.vz=0;c.speed=v;if(air){c.air=true;c.y=150;c.alt=150;c.vy=0;c.pitch=0.025;c.roll=0;c.rotor=1;}
+  const thr=id==='flugzeug'?0.6:(id==='hubschrauber'?0.4:0.6);const st=(s)=>{c.inp={throttle:thr,brake:0,steer:s,hand:false};const h0=c.h;c.physics(dt);if(!air){const s=Math.hypot(c.vx,c.vz)||1;c.vx*=v/s;c.vz*=v/s;c.speed=v;}return (c.h-h0)/dt;};
+  for(let t=0;t<0.5;t+=dt)st(0);const R={};let t=0,yr=[];
+  while(t<3){yr.push(Math.abs(st(1)));t+=dt;if(R.steer90===undefined&&c.steer>=0.9)R.steer90=t;}
+  const yEnd=yr[yr.length-1];R.yaw90=yr.findIndex(y=>y>=0.9*yEnd)*dt;R.yawSS=yEnd*180/Math.PI;
+  t=0;while(c.steer>0.1&&t<3){st(0);t+=dt;}R.center=t;R.steer90=R.steer90??9;c.remove();M.FP.on=true;
+  for(const k in R)R[k]=Math.round(R[k]*100)/100;return R;}"""
+
+# Polizei-KI in der Verfolgung vs. normaler Verkehr (gleicher Wagen): 0→50 und Höchsttempo
+POLICE = r"""([mode,on])=>{const M=__MEENZ;const dt=1/60;M.FP.on=on;const c=new M.Car('polizei',-3820,-100,Math.PI/2,{ctrl:'ai'});c.ai={mode};
+  let t=0;while(c.speed<50/3.6&&t<20){c.inp={throttle:1,brake:0,steer:0,hand:false};c.physics(dt);t+=dt;}const R={acc50:t};
+  for(t=0;t<60;t+=dt){c.inp={throttle:1,brake:0,steer:0,hand:false};c.physics(dt);if(c.x>-3350)c.x=-3820;}R.vmax=c.speed*3.6;c.remove();M.FP.on=true;
+  for(const k in R)R[k]=Math.round(R[k]*100)/100;return R;}"""
+
+# Kamera: Kleinwagen per Tastatur, 90°-Kurve, dann geradeaus – wie lange bis der Kamera-Gierfehler < 5° ist
+CAMERA = r"""(on)=>{const M=__MEENZ;M.FP.on=on;const P=M.P1,c=P.car;c.h=Math.PI/2;c.vx=40/3.6;c.vz=0;c.speed=40/3.6;c.yawRate=0;c.steer=0;
+  P.cam.yaw=c.h;P.cam.lastLook=-99;const dt=1/60,K=M.keys;const err=()=>{let d=c.h-P.cam.yaw;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return Math.abs(d)*180/Math.PI;};
+  const drive=(n,steer)=>{for(let i=0;i<n;i++){K.KeyW=true;K.KeyA=steer;K.KeyD=false;M.update(dt);}};
+  drive(30,false);let i=0;const h0=c.h;while(Math.abs(c.h-h0)<Math.PI/2&&i<600){drive(1,true);i++;}const turnT=i*dt,errTurn=err();
+  let t=0;while(err()>5&&t<6){drive(1,false);t+=dt;}let jit=0,prev=err();for(let k=0;k<60;k++){drive(1,false);const e=err();jit=Math.max(jit,e);prev=e;}
+  K.KeyW=false;K.KeyA=false;M.FP.on=true;return {turnT:Math.round(turnT*100)/100,errTurn:Math.round(errTurn*10)/10,settle:Math.round(t*100)/100,maxErrAfter:Math.round(jit*10)/10};}"""
+
 LEAN = r"""()=>{const M=__MEENZ;const dt=1/60;const c=new M.Car('motorrad',-3400,-50,Math.PI/2,{ctrl:'player'});c.vx=50/3.6;c.vz=0;
   for(let t=0;t<1.5;t+=dt){c.inp={throttle:0.4,brake:0,steer:1,hand:false};c.physics(dt);c.sync(dt);}
   const r={lean:c.lean,rotZ:c.g.rotation.z,yaw:c.yawRate,ay:Math.abs(c.speed*c.yawRate)/9.81};c.remove();return r;}"""
@@ -113,6 +139,28 @@ async def test(g):
     ai0 = await measure(g, 'kompakt', 'none', on=False); ai1 = await measure(g, 'kompakt', 'none', on=True)
     g.check('KI-Auto: Fahrphysik unverändert', ai0 == ai1, ai1)
 
+    # Wasser und Luft: Lenkung ≤ 0.2 s, Gierfolge schneller als vorher; Jetski wendiger als das große Boot
+    X0, X = {}, {}
+    for vid in ['boot', 'jetski', 'flugzeug', 'hubschrauber']:
+        X0[vid] = await g.js(MEASURE_X, [vid, False]); X[vid] = await g.js(MEASURE_X, [vid, True])
+        print(f'  {vid:12s} vorher  {X0[vid]}\n  {"":12s} nachher {X[vid]}', flush=True)
+        g.check(f'{vid}: Lenkung 90 % ≤ 0.2 s, Mitte ≤ 0.15 s', X[vid]['steer90'] <= 0.2 and X[vid]['center'] <= 0.15,
+                f"{X0[vid]['steer90']}/{X0[vid]['center']} → {X[vid]['steer90']}/{X[vid]['center']} s")
+        g.check(f'{vid}: Gierfolge mindestens 30 % schneller als vorher', X[vid]['yaw90'] <= 0.7 * X0[vid]['yaw90'], f"{X0[vid]['yaw90']} → {X[vid]['yaw90']} s")
+    g.check('Boot: Gierfolge ≤ 0.6 s; Jetski ≤ 0.35 s und dreht schneller als das Boot',
+            X['boot']['yaw90'] <= 0.6 and X['jetski']['yaw90'] <= 0.35 and X['jetski']['yawSS'] > X['boot']['yawSS'], (X['boot'], X['jetski']))
+
+    # Polizei-Verfolger: Antritt wie der Spieler-Kleinwagen (±15 %), Höchsttempo unverändert; Streife im Verkehr unverändert
+    pol0 = await g.js(POLICE, ['police', False]); pol = await g.js(POLICE, ['police', True])
+    tr0 = await g.js(POLICE, ['traffic', False]); tr = await g.js(POLICE, ['traffic', True])
+    print(f'  polizei      vorher {pol0} nachher {pol} verkehr {tr}', flush=True)
+    # Streifenwagen zog schon vorher stärker als der Kleinwagen; Ziel ist, dass der Abstand gleich bleibt (Verhältnis ±10 %)
+    q0, q1 = pol0['acc50'] / R0['kleinwagen']['acc50'], pol['acc50'] / a['acc50']
+    g.check('Polizei-Verfolger: 0→50 im gleichen Verhältnis zum Spieler-Kleinwagen wie vorher (±10 %)', pol['acc50'] < pol0['acc50'] and abs(q1 / q0 - 1) <= 0.1,
+            f"{pol0['acc50']} → {pol['acc50']} s, Verhältnis {q0:.2f} → {q1:.2f}")
+    g.check('Polizei-Verfolger: Höchsttempo unverändert (±3 %)', abs(pol['vmax'] - pol0['vmax']) <= 0.03 * pol0['vmax'], f"{pol0['vmax']} → {pol['vmax']}")
+    g.check('Polizeiwagen im normalen Verkehr: unverändert', tr == tr0, tr)
+
     # Schräglage Motorrad nach Querbeschleunigung
     ln = await g.js(LEAN)
     g.check('Motorrad legt sich in die Kurve (> 0.4 rad, gegen die Lenkrichtung)', ln['lean'] < -0.4 and (ln['rotZ'] is None or abs(ln['rotZ'] - ln['lean']) < 1e-6), ln)
@@ -127,6 +175,16 @@ async def test(g):
     await g.page.keyboard.up('KeyW')
     g.check('Tastatur: erster Frame weich (< 0.3), nach 0.1 s ≥ 0.9, losgelassen nach 0.1 s ≈ 0', 0 < abs(s1) < 0.3 and abs(s6) >= 0.9 and abs(s0) < 0.05,
             (round(s1, 2), round(s6, 2), round(s0, 2)))
+
+    # --- Verfolgerkamera: nach einer 90°-Kurve schneller wieder hinter dem Auto, danach ruhig (kein Zittern) ---
+    g.check('Spieler sitzt im Kleinwagen (Kamera)', await g.js(ENTER, 'kleinwagen'))
+    cam0 = await g.js(CAMERA, False)
+    g.check('Spieler sitzt im Kleinwagen (Kamera, neu)', await g.js(ENTER, 'kleinwagen'))
+    cam1 = await g.js(CAMERA, True)
+    print(f'  kamera       vorher {cam0} nachher {cam1}', flush=True)
+    g.check('Kamera: Gierfehler nach 90°-Kurve kleiner als vorher und < 5° in ≤ 0.8 s', cam1['errTurn'] < cam0['errTurn'] and cam1['settle'] <= 0.8 and cam1['settle'] < cam0['settle'],
+            f"{cam0['errTurn']}° / {cam0['settle']} s → {cam1['errTurn']}° / {cam1['settle']} s")
+    g.check('Kamera: danach ruhig hinter dem Auto (Fehler bleibt < 5°)', cam1['maxErrAfter'] < 5, cam1)
 
     # --- Touch-Joystick: Totzone, Kurve, Tempo-Hilfe, Gas beim Seitwärtslenken ---
     g.check('Spieler sitzt wieder im Kleinwagen', await g.js(ENTER, 'kleinwagen'))
