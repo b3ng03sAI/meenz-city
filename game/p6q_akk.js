@@ -74,7 +74,7 @@ function akkSign(G,uv,cx,y0,cz,w,h,face){const rx=Math.cos(face),rz=-Math.sin(fa
 // ---------- Materialien, Meshes, Atlas je Zone (lazyOwn) ----------
 function akkMat(Z,k){const C=Z.mats;if(C[k])return C[k];const own=m=>lazyOwn(Z,m);
   const D={stone:()=>stdMat({vertexColors:true,roughness:0.88}),metal:()=>stdMat({vertexColors:true,roughness:0.45,metalness:0.5}),glow:()=>new THREE.MeshBasicMaterial({vertexColors:true}),
-    pool:()=>stdMat({vertexColors:true,roughness:0.12,metalness:0.15}),band:()=>new THREE.MeshBasicMaterial({color:0x8a7442,transparent:true,opacity:0.32,depthWrite:false}),
+    pool:()=>stdMat({vertexColors:true,roughness:0.32,metalness:0.0}),band:()=>new THREE.MeshBasicMaterial({color:0xc49a52,transparent:true,opacity:0.45,depthWrite:false}),
     river:()=>stdMat({color:0x4f7480,roughness:0.08,metalness:0.2}),inst:()=>stdMat({roughness:0.75}),instM:()=>stdMat({roughness:0.45,metalness:0.55}),
     red:()=>new THREE.MeshBasicMaterial({color:0xff2a1a}),green:()=>new THREE.MeshBasicMaterial({color:0x22ff55})}[k];
   return C[k]=own(D());}
@@ -223,22 +223,25 @@ const akkSc=id=>AKK.scenes.find(s=>s.id===id)||null;
 // =====================================================================================================================
 function akkReduitPoly(){const R=POI.reduit||[530,-854];let best=null,bd=1e9;
   for(const b of BUILDINGS){if(!b||(b.area||0)<1500||Math.abs(b.x-R[0])>120||Math.abs(b.z-R[1])>120)continue;const d=Math.hypot(b.x-R[0],b.z-R[1]);if(d<bd){bd=d;best=b;}}
-  return best?{poly:best.poly.map(p=>[p[0],p[1]]),h:best.h||10,osm:true}:{poly:AKK_REDUIT_POLY,h:10,osm:false};}
+  return best?{poly:best.poly.map(p=>[p[0],p[1]]),h:best.wallTop||(best.h||10)*0.55,osm:true}:{poly:AKK_REDUIT_POLY,h:5.5,osm:false};}
 function akkBuildReduit(Z,Gs,Gm,Gg,Gt,uv){const src=akkReduitPoly(),P=src.poly,H=src.h;let a2=0;for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];a2+=a[0]*b[1]-b[0]*a[1];}const sg=a2>0?1:-1;
   const SAND=akkC(0xb07a5e),LIGHT=akkC(0xd9c3a0),DARK=akkC(0x2b2420),MOSS=akkC(0x5f6e48);const D=AKK_REDUIT_DOOR;let merlons=0,slits=0,edges=0;
   for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<2.5)continue;edges++;
     const ex=(b[0]-a[0])/L,ez=(b[1]-a[1])/L,nx=sg*ez,nz=-sg*ex,rot=Math.atan2(-ez,ex);const at=(t,o)=>[a[0]+ex*t+nx*o,a[1]+ez*t+nz*o];
-    // Gesims, Brüstung mit Zinnen auf dem Dach
-    {const c=at(L/2,0.15);Gs.box(c[0],H-0.7,c[1],L+0.3,0.45,0.5,rot,LIGHT);const w=at(L/2,-0.3);Gs.box(w[0],H,w[1],L,0.55,0.6,rot,SAND);}
-    for(let t=1.2;t<L-0.8;t+=2.4){const m=at(t,-0.3);Gs.box(m[0],H+0.55,m[1],1.2,0.7,0.6,rot,SAND);merlons++;}
-    // Schießscharten in zwei Reihen (nicht an der Kasemattentür)
-    for(let t=2;t<L-1.5;t+=3.6){const s=at(t,0.05);if(Math.hypot(s[0]-D[0],s[1]-D[1])<4)continue;for(const y of [1.6,H-3.6]){Gs.box(s[0],y,s[1],0.28,1.25,0.1,rot,DARK);slits++;}}
+    // Sandsteinverkleidung vor der OSM-Fassade (das Gebäude bleibt, das Modell legt sich davor)
+    {const p0=at(0,0.12),p1=at(L,0.12),ref=at(L/2,-2);Gs.quadOut([p0[0],0,p0[1]],[p1[0],0,p1[1]],[p1[0],H+0.05,p1[1]],[p0[0],H+0.05,p0[1]],[0,0],[1,0],[1,1],[0,1],SAND,[ref[0],H/2,ref[1]]);}
+    // Gesims, Brüstung mit Zinnen an der Traufe
+    {const c=at(L/2,0.3);Gs.box(c[0],H-0.55,c[1],L+0.3,0.4,0.45,rot,LIGHT);const w=at(L/2,0.12);Gs.box(w[0],H-0.15,w[1],L+0.2,1.15,0.6,rot,SAND);}
+    for(let t=1.2;t<L-0.8;t+=2.4){const m=at(t,0.12);Gs.box(m[0],H+1.0,m[1],1.2,0.8,0.6,rot,SAND);merlons++;}
+    // Schießscharten in zwei Reihen (nicht an der Kasemattentür), Gurtgesims dazwischen
+    for(let t=2;t<L-1.5;t+=3.6){const s=at(t,0.17);if(Math.hypot(s[0]-D[0],s[1]-D[1])<4)continue;for(const y of [1.3,H-2.4]){Gs.box(s[0],y,s[1],0.3,1.2,0.1,rot,DARK);slits++;}}
+    {const c=at(L/2,0.2);Gs.box(c[0],H*0.46,c[1],L+0.2,0.22,0.25,rot,LIGHT);}
     // Sockel mit Moos
-    {const c=at(L/2,0.12);Gs.box(c[0],0,c[1],L+0.2,0.5,0.35,rot,MOSS);}}
+    {const c=at(L/2,0.25);Gs.box(c[0],0,c[1],L+0.2,0.5,0.35,rot,MOSS);}}
   // Kasemattentür, Sandsteinrahmen, Tafel
   const fx=Math.sin(D[2]),fz=Math.cos(D[2]),rx=Math.cos(D[2]),rz=-Math.sin(D[2]);const W0=[D[0]-fx*1.2,D[1]-fz*1.2];
-  Gs.box(W0[0]+fx*0.05,0,W0[1]+fz*0.05,2.2,3.0,0.2,D[2],DARK);for(const s of [-1,1])Gs.box(W0[0]+fx*0.12+rx*s*1.25,0,W0[1]+fz*0.12+rz*s*1.25,0.35,3.4,0.3,D[2],LIGHT);Gs.box(W0[0]+fx*0.12,3.0,W0[1]+fz*0.12,2.9,0.45,0.32,D[2],LIGHT);
-  akkSign(Gt,uv.reduit,W0[0]+fx*0.18+rx*3.0,1.3,W0[1]+fz*0.18+rz*3.0,2.2,1.3,D[2]);
+  Gs.box(W0[0]+fx*0.2,0,W0[1]+fz*0.2,2.2,3.0,0.2,D[2],DARK);for(const s of [-1,1])Gs.box(W0[0]+fx*0.28+rx*s*1.25,0,W0[1]+fz*0.28+rz*s*1.25,0.35,3.4,0.3,D[2],LIGHT);Gs.box(W0[0]+fx*0.28,3.0,W0[1]+fz*0.28,2.9,0.45,0.32,D[2],LIGHT);
+  akkSign(Gt,uv.reduit,W0[0]+fx*0.2+rx*3.0,1.3,W0[1]+fz*0.2+rz*3.0,2.2,1.3,D[2]);
   // Hof: Kanonen beidseits der Tür (Rohr zum Rhein), zwei Fahnenmasten, Infotafel
   const yard=(o,s)=>[D[0]+fx*o+rx*s,D[1]+fz*o+rz*s];const cannons=[];
   for(const s of [-4.5,4.5]){const p=yard(3.2,s);const q=akkSpot(p[0],p[1],1.2,6);if(!q)continue;const lf=akkLF(q[0],q[1],D[2]-Math.PI/2);
@@ -255,7 +258,8 @@ function akkBuildFlags(Z,uv){const g=lazyOwn(Z,new THREE.PlaneGeometry(1.8,1.2).
   for(const f of AKK.reduit.flags){const k=f.side==='mz'?'flagMz':'flagWi';const geo=lazyOwn(Z,g.clone());const u=uv[k];const a=geo.attributes.uv;
     for(let i=0;i<a.count;i++){a.setXY(i,u[0]+(u[2]-u[0])*a.getX(i),u[1]+(u[3]-u[1])*a.getY(i));}
     const m=new THREE.Mesh(geo,Z.mats.flag||(Z.mats.flag=lazyOwn(Z,stdMat({map:Z.mats.atlas.map,side:THREE.DoubleSide,roughness:0.8}))));m.position.set(f.x,f.y,f.z);m.rotation.y=AKK_REDUIT_DOOR[2]-Math.PI/2;Z.group.add(m);f.mesh=m;akkStats('kastel').meshes++;}}
-function akkBuildBrueckenkopf(Z,Gs,Gm,Gg,Gt,uv){const B0=BRIDGES[0];const T=B0?{B:B0.B,U:B0.U,N:B0.N,hw:B0.hw}:AKK_THB;const {B,U,N,hw}=T;const SAND=akkC(0xb98a64),LIGHT=akkC(0xdcc6a2);const pyl=[];
+// Brückendaten als Kopien: keine Weltreferenzen über ein Dispose hinweg
+function akkBuildBrueckenkopf(Z,Gs,Gm,Gg,Gt,uv){const B0=BRIDGES[0];const T=B0?{B:[B0.B[0],B0.B[1]],U:[B0.U[0],B0.U[1]],N:[B0.N[0],B0.N[1]],hw:B0.hw}:AKK_THB;const {B,U,N,hw}=T;const SAND=akkC(0xb98a64),LIGHT=akkC(0xdcc6a2);const pyl=[];
   for(const s of [-1,1]){const want=[B[0]+U[0]*10+N[0]*s*(hw+2.6),B[1]+U[1]*10+N[1]*s*(hw+2.6)];const q=akkSpot(want[0],want[1],1.6,8);if(!q)continue;const rot=Math.atan2(-U[1],U[0]);
     Gs.box(q[0],0,q[1],2.4,1.0,2.4,rot,LIGHT);Gs.box(q[0],1.0,q[1],2.0,6.0,2.0,rot,SAND);Gs.box(q[0],7.0,q[1],2.4,0.5,2.4,rot,LIGHT);Gs.box(q[0],7.5,q[1],1.2,0.8,1.2,rot,SAND);
     Gg.box(q[0],8.3,q[1],0.6,0.8,0.6,rot,akkC(0xffd98a));Gm.box(q[0],9.1,q[1],0.8,0.15,0.8,rot,akkC(0x2a2a2a));akkHitObb(Z,q[0],q[1],2.4,2.4,rot,9);pyl.push({x:q[0],z:q[1]});}
@@ -280,7 +284,7 @@ function akkBuildUfer(Z){const A=[470,-985],Bp=[720,-640];const L=Math.hypot(Bp[
   const benchMat=Z.mats.bench||(Z.mats.bench=lazyOwn(Z,stdMat({vertexColors:true,color:0x8a5a36,roughness:0.7})));akkInst(Z,bg.geo(),benchMat,U.benches);
   akkInst(Z,new THREE.CylinderGeometry(0.07,0.09,4.6,8).translate(0,2.3,0),akkMat(Z,'instM'),U.lamps);akkInst(Z,new THREE.SphereGeometry(0.28,10,8).translate(0,4.7,0),lampMat,U.lamps,false);
   akkInst(Z,new THREE.CylinderGeometry(0.28,0.24,0.9,10).translate(0,0.45,0),akkMat(Z,'instM'),U.bins,true,[0x2f6b3a]);
-  akkInst(Z,new THREE.IcosahedronGeometry(1.0,0).translate(0,0.7,0),akkMat(Z,'inst'),U.bushes,true,[0x4f7a32,0x5d8a3a,0x46702c]);
+  akkInst(Z,new THREE.IcosahedronGeometry(1.0,1).scale(1.15,0.75,1.15).translate(0,0.65,0),akkMat(Z,'inst'),U.bushes,true,[0x4f7a32,0x5d8a3a,0x46702c]);
   AKK.ufer=U;return U;}
 function akkKastelScenes(Z){const D=AKK_REDUIT_DOOR,fx=Math.sin(D[2]),fz=Math.cos(D[2]),rx=Math.cos(D[2]),rz=-Math.sin(D[2]);const R=AKK.reduit,U=AKK.ufer,BK=AKK.brueckenkopf;
   if(R.flags.length){const f=R.flags[0];const p=akkSpot(f.x+fx*1.6+rx*0.8,f.z+fz*1.6+rz*0.8,0.5,5)||[f.x+fx*1.6,f.z+fz*1.6];
@@ -319,11 +323,11 @@ function akkKastelBuild(Z){const uv=akkAtlas(Z,[
 function akkBadLF(){const B=AKK_BAD;return akkLF(B.O[0],B.O[1],Math.atan2(-B.U[1],B.U[0]));}
 function akkMaaraueBuild(Z){const B=AKK_BAD,lf=akkBadLF();const uv=akkAtlas(Z,[akkSignPanel('bad',AKK_SIGN_TEXTS.bad,'#1d6fa5','#ffffff','#ffd23f'),akkSignPanel('kiosk',AKK_SIGN_TEXTS.kiosk,'#e63946','#ffffff','#ffe9a8'),
     akkSignPanel('muendung',AKK_SIGN_TEXTS.muendung,'#2f4a2f','#ffffff','#e8e0c8',{border:'#e8e0c8'})]);
-  const Gs=new GB(),Gm=new GB(),Gp=new GB(),Gt=new GB();const DECK=akkC(0xd8d4c8),COP=akkC(0xf4f4f0),TILE=akkC(0x3fa9d9),LANE=akkC(0x1d4f8c),CON=akkC(0xb8b4aa),WH=akkC(0xffffff),BLUE=akkC(0x1d6fa5);
+  const Gs=new GB(),Gm=new GB(),Gp=new GB(),Gt=new GB();const DECK=akkC(0xd8d4c8),COP=akkC(0xf4f4f0),TILE=akkC(0x1b86c4),LANE=akkC(0x0b3a66),CON=akkC(0xb8b4aa),WH=akkC(0xffffff),BLUE=akkC(0x1d6fa5);
   const S={pools:[],fence:0,umbrellas:[],towels:[],tower:null,boards:[]};
   // Becken: Wasserfläche knapp über dem Boden (der Boden deckt alles darunter ab), Bahnen, Beckenrand, Deck
   for(const p of B.pools){if(p.r!==undefined){const c=lf.P(p.cu,0,p.cv);const n=20;for(let k=0;k<n;k++){const a0=k/n*TAU,a1=(k+1)/n*TAU;
-      const q0=lf.P(p.cu+Math.cos(a0)*p.r,0.07,p.cv+Math.sin(a0)*p.r),q1=lf.P(p.cu+Math.cos(a1)*p.r,0.07,p.cv+Math.sin(a1)*p.r);Gp.triOut([c[0],0.07,c[2]],q1,q0,[0,0],[1,0],[0,1],akkC(0x6cc6e8),[c[0],-1,c[2]]);
+      const q0=lf.P(p.cu+Math.cos(a0)*p.r,0.07,p.cv+Math.sin(a0)*p.r),q1=lf.P(p.cu+Math.cos(a1)*p.r,0.07,p.cv+Math.sin(a1)*p.r);Gp.triOut([c[0],0.07,c[2]],q1,q0,[0,0],[1,0],[0,1],akkC(0x3aa6d8),[c[0],-1,c[2]]);
       const o0=lf.P(p.cu+Math.cos(a0)*(p.r+0.5),0,p.cv+Math.sin(a0)*(p.r+0.5)),o1=lf.P(p.cu+Math.cos(a1)*(p.r+0.5),0,p.cv+Math.sin(a1)*(p.r+0.5));akkUp(Gs,[q0[0],0.16,q0[2]],[q1[0],0.16,q1[2]],[o1[0],0.16,o1[2]],[o0[0],0.16,o0[2]],COP);}
       S.pools.push({id:p.id,name:p.name,x:c[0],z:c[2]});continue;}
     akkFlat(Gp,lf,p.u0,p.u1,p.v0,p.v1,0.07,TILE);
@@ -374,7 +378,7 @@ function akkMaaraueBuild(Z){const B=AKK_BAD,lf=akkBadLF();const uv=akkAtlas(Z,[a
     akkSign(Gt,uv.muendung,bp[0]+Math.sin(face+Math.PI)*0.05,1.3,bp[2]+Math.cos(face+Math.PI)*0.05,2.3,1.15,face+Math.PI);
     akkHitObb(Z,bp[0],bp[2],2.4,0.3,face,2.6);akkStepRect(Z,ml,-2.5,2.5,-2.0,2.0,0.25);
     const band=[];for(const p of AKK_BAND){const i=idx(p[0],p[1]);if(i>=0&&(mfG(i)&4))band.push(p);}const Gb=new GB();const BW=16;
-    for(let i=1;i<band.length;i++){const a=band[i-1],b=band[i];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const nx=-(b[1]-a[1])/L*BW,nz=(b[0]-a[0])/L*BW;const y=WATER_LEVEL+0.04;
+    for(let i=1;i<band.length;i++){const a=band[i-1],b=band[i];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const nx=-(b[1]-a[1])/L*BW,nz=(b[0]-a[0])/L*BW;const y=WATER_LEVEL+0.3;
       akkUp(Gb,[a[0]-nx,y,a[1]-nz],[b[0]-nx,y,b[1]-nz],[b[0]+nx,y,b[1]+nz],[a[0]+nx,y,a[1]+nz],WHITE);}
     const bm=akkMesh(Z,Gb,'band',false);if(bm)bm.renderOrder=2;
     AKK.muendung={x:T[0],z:T[1],deck:{x:T[0],z:T[1],y:0.25},band,board:{x:bp[0],z:bp[2]}};}
@@ -497,6 +501,9 @@ function akkZoneDispose(Z){const k=Z.o.key;akkDropScenes(Z);const i=AKK.live.ind
   if(k==='amoeneburg'&&AKK.industrie)AKK.industrie.arm=null;
   if(k==='maaraue')AKK.swim.in=false;}
 
+// p6_lazy legt Z.group vor build() an – in echtem three.js zieht die UUID aus Math.random: eigene Zonen ganz im eigenen Strom bauen
+const _akkLazyBuild=lazyBuild;
+lazyBuild=function(Z){if(Z&&Z.o&&Z.o.build===akkZoneBuild)return akkRng(()=>_akkLazyBuild(Z));return _akkLazyBuild(Z);};
 function setupAkk(){
   for(const k in AKK_ZC)AKK.zones[k]=lazyZone({name:'akk_'+k,key:k,x:AKK_ZC[k][0],z:AKK_ZC[k][1],build:akkZoneBuild,dispose:akkZoneDispose});
   label('Reduit-Hof',AKK_REDUIT_DOOR[0]-10,AKK_REDUIT_DOOR[1]+5,'small');label('Freibad Maaraue',AKK_BAD.O[0],AKK_BAD.O[1],'lm');label('Mainmündung',AKK_BAD.T[0],AKK_BAD.T[1]+15,'small');
@@ -510,9 +517,9 @@ function akkUpdate(dt,P){const [px,pz]=ppos(P);const indoor=!!P.h.room;for(const
       if(h.akkPose==='stand'||h.akkPose==='helmet'){const dx=P.h.x-h.x,dz=P.h.z-h.z;if(dx*dx+dz*dz<49)faceTo(h,dx,dz,dt,2);}
       if(h.akkLie){h.g.rotation.x=-Math.PI/2;}if(h.fx&&h.face.visible)h.updateFace();h.g.position.set(h.x,h.y,h.z);h.g.rotation.y=h.facing;}
     sc.lineT-=dt;if(sc.lineT>0)continue;sc.lineT=sc.gag?5+Math.random()*3:8+Math.random()*7;if(d>(sc.gag?24:22)||indoor)continue;
-    const c=sc.people.filter(h=>!h.removed&&h.alive&&h.state==='roof'&&!h.bubble);if(!c.length)continue;
-    if(sc.gag){const G=AKK.gag;const side=G.side==='mz'?'wi':'mz';const h=c.find(o=>o.akkSide===side);if(!h)continue;const L=AKK_GAG[side];const t=L[G.lines%L.length];say(h,t,4.2);G.side=side;G.lines++;G.last=t;}
-    else if(sc.lines.length)say(mpick(c),mpick(sc.lines),3.6);}
+    const c=sc.people.filter(h=>!h.removed&&h.alive&&h.state==='roof'&&!h.bubble);
+    if(sc.gag){const G=AKK.gag;const side=G.side==='mz'?'wi':'mz';const h=c.find(o=>o.akkSide===side);if(!h){sc.lineT=1;continue;}const L=AKK_GAG[side];const t=L[G.lines%L.length];say(h,t,4.2);G.side=side;G.lines++;G.last=t;}
+    else if(c.length&&sc.lines.length)say(mpick(c),mpick(sc.lines),3.6);}
   if(AKK.zones.kastel.built)akkUpdateKastel(dt,P,px,pz);
   if(AKK.zones.maaraue.built)akkUpdateBad(dt,P);
   if(AKK.zones.schleuse.built&&AKK.schleuse){const S=AKK.schleuse;const ph=S.phase;S.t+=dt;akkLockSet(S,S.t);if(ph==='leeren'&&S.phase==='unter_auf')S.cycles++;akkLockLadder(dt,P);}
