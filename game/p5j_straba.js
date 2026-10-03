@@ -7,7 +7,7 @@
 // strabaControlFlee(P), strabaControlForce(P).
 const STRABA={lines:[],trams:[],riding:null,ticket:{validUntil:-1,price:2.9,minutes:120},control:null,lastControl:null,
   FINE:60,CONTROL_CHANCE:0.3,forceControl:false,VMAX:12,ACC:1.1,DEC:1.3,DWELL:12,DOOR_T:1.6,
-  SEC:9.4,GAP:0.6,W:2.3,hud:null};
+  SEC:9.4,GAP:0.6,W:2.3,hud:null,playerHits:0};   // playerHits: wie oft eine Bahn einen Spieler erwischt hat (für Tests)
 // Endstellen je Linie (Koordinaten der Gleisenden). Die Strecke Richtung Lerchenberg endet in den Gleisdaten bei Marienborn
 // (Hans-Böckler-Straße): Lerchenberg selbst liegt außerhalb der OSM-Daten des Spiels.
 const STRABA_DEFS=[{no:'50',color:'#c8102e',a:[-6167,295],aName:'Finthen',b:[-277,2536],bName:'Hechtsheim'},
@@ -164,7 +164,7 @@ function strabaShove(t){const S=STRABA,hl=S.SEC/2+0.2,hw=S.W/2;
   for(const c of CARS){if(c.dead||c.removed||c.T.boat||Math.abs(c.x-t.x)>25||Math.abs(c.z-t.z)>25)continue;
     push(c,c.T.W*0.5,(nx,nz,pen)=>{c.x+=nx*pen;c.z+=nz*pen;c.vx=c.vx*0.5+nx*Math.min(6,t.v*0.5);c.vz=c.vz*0.5+nz*Math.min(6,t.v*0.5);if(t.v>4&&c.health>0)c.health-=t.v*0.3;});}
   for(const h of HUMANS){if(!h.alive||h.inCar||h.room||h.state==='knock'||Math.abs(h.x-t.x)>25||Math.abs(h.z-t.z)>25)continue;
-    push(h,0.35,(nx,nz,pen)=>{h.x+=nx*pen;h.z+=nz*pen;if(t.v<=3)return;const pv=playerOfHuman(h);if(pv){damagePlayer(pv,t.v*2.5);}else knockHuman(h,nx*4+Math.sin(t.h)*t.v*0.6,nz*4+Math.cos(t.h)*t.v*0.6,2.5,t.v*5,false);});}}
+    push(h,0.35,(nx,nz,pen)=>{h.x+=nx*pen;h.z+=nz*pen;if(t.v<=3)return;const pv=playerOfHuman(h);if(pv){STRABA.playerHits++;damagePlayer(pv,t.v*2.5);}else knockHuman(h,nx*4+Math.sin(t.h)*t.v*0.6,nz*4+Math.cos(t.h)*t.v*0.6,2.5,t.v*5,false);});}}
 function strabaStep(t,dt){const S=STRABA,R=strabaRouteOf(t);
   if(t.state==='dwell'){t.dwellT+=dt;const closing=simTime>=t.depT-S.DOOR_T;t.doors=clamp(t.doors+(closing?-dt:dt)/S.DOOR_T*1.0,0,1);
     if(simTime>=t.depT&&t.doors<=0){if(strabaTurnBlocked(t))t.depT=simTime+3;else{strabaBeforeDepart(t);strabaDepart(t);}}}
@@ -235,6 +235,14 @@ const _strabaFire=playerFire;
 playerFire=function(P,I){if(strabaRideOf(P))return;_strabaFire(P,I);};
 const _strabaStartTalk=startTalk;
 startTalk=function(P,npc){if(strabaRideOf(P))return;_strabaStartTalk(P,npc);};
+// Fahrgast in Straßenbahn oder S-Bahn (sbahnRideOf aus p5p, erst zur Laufzeit aufgerufen): keine Pöbler, keine Powerups
+function strabaSeated(P){return !!(P&&(strabaRideOf(P)||(typeof sbahnRideOf==='function'&&sbahnRideOf(P))));}
+const _strabaNearbyPed=nearbyPed;
+nearbyPed=function(P,rmin,rmax){return strabaSeated(P)?null:_strabaNearbyPed(P,rmin,rmax);};
+const _strabaActivePed=updateActivePed;
+updateActivePed=function(o,dt){if(strabaSeated(nearestPlayer(o.x,o.z))){o.state='walk';pedFlee(o,o.x,o.z,1);o.setExpr('neutral');return;}_strabaActivePed(o,dt);};
+const _strabaPuActivate=puActivate;
+puActivate=function(P,key){return strabaSeated(P)?false:_strabaPuActivate(P,key);};
 const STRABA_CAM={x:0,y:0,z:0,h:0,speed:0,T:{H:3.4,L:16}};
 const _strabaCam=updateCamera;
 updateCamera=function(P,dt){const R=strabaRideOf(P);if(!R){_strabaCam(P,dt);return;}const t=R.tram,c=STRABA_CAM;c.x=t.x;c.y=t.y;c.z=t.z;c.h=t.h;c.speed=t.v;
