@@ -78,7 +78,7 @@ function autosStations(P,lod){const hf=P.hf,hard=[],soft=[];
   const nA=lod?2:8;for(const zc of [P.wb/2,-P.wb/2])for(let k=0;k<=nA;k++)hard.push(zc+P.R*Math.cos(k/nA*Math.PI));
   hard.push(P.zW0,P.zW1,P.zRt,P.zRb,P.sideTo);
   if(!lod){for(const b of P.bands)hard.push(b[0],b[1]);soft.push(P.zW1+0.07,P.zW1+0.16,P.zW0-0.06,P.zRt-0.07,P.zRt+0.12,hf-P.Rn-0.12,hf-P.Rn-0.3,P.zRb+0.08);}
-  const step=lod?0.9:0.2;for(let z=hf-P.Rn;z>-hf+P.Rt;z-=step)soft.push(z);
+  const step=lod?0.9:Math.max(0.2,P.hf/11);for(let z=hf-P.Rn;z>-hf+P.Rt;z-=step)soft.push(z);
   const H=[...new Set(hard.filter(z=>z>=-hf&&z<=hf))].sort((a,b)=>b-a).filter((z,i,a)=>i===0||a[i-1]-z>0.004);
   const md=lod?0.3:0.07;const out=H.slice();
   for(const z of soft.filter(z=>z>-hf&&z<hf).sort((a,b)=>b-a))if(out.every(q=>Math.abs(q-z)>md))out.push(z);
