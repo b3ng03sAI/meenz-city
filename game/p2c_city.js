@@ -74,61 +74,78 @@ const STATIC_LOD={list:[],t:0,R:1700};
 function staticMesh(m){if(!LOWMEM)return m;dropCPU(m.geometry);const c=m.geometry.boundingSphere;STATIC_LOD.list.push({m,x:c.center.x,z:c.center.z,r:c.radius});return m;}
 function staticInst(m){if(!LOWMEM)return m;const c=m.boundingSphere;STATIC_LOD.list.push({m,x:c.center.x,z:c.center.z,r:c.radius});return m;}
 function updateStaticLOD(px,pz,force){STATIC_LOD.t-=1;if(STATIC_LOD.t>0&&!force)return;STATIC_LOD.t=20;const R=STATIC_LOD.R;for(const e of STATIC_LOD.list){const d=Math.hypot(e.x-px,e.z-pz)-e.r;e.m.visible=d<R;}}
+// Phone: forget streamed meshes again when their tile is freed (Paket 40.5)
+function streamUnstatic(set){if(set.size)STATIC_LOD.list=STATIC_LOD.list.filter(e=>!set.has(e.m));}
+// Straßen, Gehwege, Bordsteine, Markierungen (Paket 40.5): beim Boot nur Oberflächenart, Kanaldeckel, Zebrastreifen und der
+// Kachel-Index. Die Meshes baut p2e_stream.js je 320-m-Kachel nur in Spielernähe (streamRoadGB) – gleiche Geometrie wie früher.
+const STREAM_ROAD_Y={main:0.062,street:0.06,ped:0.055,path:0.05};
+const STREAM_AO={r:0.6,g:0.6,b:0.62};
+function streamCarEdge(E){return E.road.type==='main'||E.road.type==='street';}
 function buildRoads(){
-  const AO={r:0.6,g:0.6,b:0.62};const RC=new Map();
-  const gbs=(x,z)=>{const k=chunkKey(x,z);let o=RC.get(k);if(!o){o={sw:new GB(),asp:new GB(),cob:new GB(),slab:new GB(),gravel:new GB(),curb:new GB(),paint:new GB()};RC.set(k,o);}return o;};
-  const yOf={main:0.062,street:0.06,ped:0.055,path:0.05};
-  for(const r of ROADS){if(r.bridge)continue;r.surfK=roadSurf(r);const y=yOf[r.type]||0.06;const G=gbs(...r.pts[r.pts.length>>1]);const sw=G.sw;
-    if(r.sw>0){stripGB(sw,r.pts,r.w/2-0.4,r.w/2+r.sw,0.04,3,WHITE,AO);stripGB(sw,r.pts,-(r.w/2-0.4),-(r.w/2+r.sw),0.04,3,WHITE,AO);}
-    const uv=r.surfK==='asp'?6:r.surfK==='slab'?4:r.surfK==='gravel'?3:2;stripGB(G[r.surfK],r.pts,r.w/2,-r.w/2,y,uv);
-    // Endkappen gegen Lücken in Kurven/Kreuzungen
-    for(const p of [r.pts[0],r.pts[r.pts.length-1]])discGB(G[r.surfK],p[0],p[1],r.w/2,y-0.002,uv,r.type==='path'?8:14);
-    if(r.sw>0)for(const p of [r.pts[0],r.pts[r.pts.length-1]])discGB(sw,p[0],p[1],r.w/2+r.sw,0.038,3,14);}
-  // Gelenke innerhalb einer Straße (Knicke) mit Scheiben schließen
-  for(const r of ROADS){if(r.bridge||r.type==='path')continue;const G=gbs(...r.pts[r.pts.length>>1]);for(let k=1;k<r.pts.length-1;k++){const a=r.pts[k-1],b=r.pts[k],c=r.pts[k+1];const d1=[b[0]-a[0],b[1]-a[1]],d2=[c[0]-b[0],c[1]-b[1]];const cs=(d1[0]*d2[0]+d1[1]*d2[1])/((Math.hypot(...d1)*Math.hypot(...d2))||1);if(cs<0.97)discGB(G[r.surfK],b[0],b[1],r.w/2,(yOf[r.type]||0.06)-0.002,6,12);}}
-  const isCarE=E=>E.road.type==='main'||E.road.type==='street';
+  for(const r of ROADS){if(r.bridge)continue;r.surfK=roadSurf(r);streamTileAt(...r.pts[r.pts.length>>1]).roads.push(r);}
   const nodeTrim=n=>{const N=NODES[n];const es=N.e.filter(e=>EDGES[e].road.type!=='path');if(es.length<3)return 0;let m=0;for(const e of es){const r=EDGES[e].road;m=Math.max(m,r.w/2+r.sw);}return m+0.3;};
-  const trims=new Float32Array(NODES.length);for(let n=0;n<NODES.length;n++)trims[n]=nodeTrim(n);
-  for(let e=0;e<EDGES.length;e++){const E=EDGES[e];if(E.dead)continue;const r=E.road;if(r.bridge||!isCarE(E))continue;const A=NODES[E.a],B=NODES[E.b];const d=[(B.x-A.x)/E.len,(B.z-A.z)/E.len],rt=[-d[1],d[0]];const a=[A.x,A.z];
-    const t0=trims[E.a],t1=E.len-trims[E.b];if(t1-t0<0.3)continue;const Q=gbs(A.x,A.z),curb=Q.curb,paint=Q.paint;
-    if(r.sw>0)for(const s of [-1,1])curbBand(curb,a,d,rt,t0,t1,s*r.w/2,s*(r.w/2+0.28),0.16);
+  const trims=STREAM.trims=new Float32Array(NODES.length);for(let n=0;n<NODES.length;n++)trims[n]=nodeTrim(n);
+  // Kanaldeckel: einmal beim Boot global (ein InstancedMesh), nie neu gebaut – Zufall wie vor 40.5 aus Math.random, damit
+  // Lage und die Boot-Zufallsfolge (Startverkehr, Passanten in Tests) unverändert bleiben
+  for(let e=0;e<EDGES.length;e++){const E=EDGES[e];if(E.dead)continue;const r=E.road;if(r.bridge||!streamCarEdge(E))continue;const A=NODES[E.a],B=NODES[E.b];
+    const t0=trims[E.a],t1=E.len-trims[E.b];if(t1-t0<0.3)continue;streamTileAt(A.x,A.z).edges.push(e);
     if(r.type!=='main'||r.surfK!=='asp')continue;
     const m0=t0+(t0>0?1.5:0),m1=t1-(trims[E.b]>0?1.5:0);if(m1-m0<1)continue;
-    for(const s of [-1,1])paintQuad(paint,a,d,rt,m0,m1,s*(r.w/2-0.45)-0.075,s*(r.w/2-0.45)+0.075);
-    if(r.w>=5.5){const ph=(E.a*7)%9;for(let t=m0+ph%3;t+3<m1;t+=9)paintQuad(paint,a,d,rt,t,t+3,-0.065,0.065);}
-    if(E.len>30&&Math.random()<0.5){const t=mr(t0+4,t1-4);const o=(r.lane||r.w/4)*(Math.random()<0.5?1:-1);MANHOLES.push([a[0]+d[0]*t+rt[0]*o,a[1]+d[1]*t+rt[1]*o]);}}
+    if(E.len>30&&Math.random()<0.5){const d=[(B.x-A.x)/E.len,(B.z-A.z)/E.len],rt=[-d[1],d[0]];const t=mr(t0+4,t1-4);const o=(r.lane||r.w/4)*(Math.random()<0.5?1:-1);MANHOLES.push([A.x+d[0]*t+rt[0]*o,A.z+d[1]*t+rt[1]*o]);}}
   // Zebrastreifen an echten Überwegen (OSM highway=crossing)
   ZEBRAS.length=0;
   for(let i=0;i<OSM.crossings.length;i+=2){const x=OSM.crossings[i]/10,z=OSM.crossings[i+1]/10;const n=nearestNode(x,z,false);if(n<0)continue;const N=NODES[n];if(Math.hypot(N.x-x,N.z-z)>1.5)continue;
-    const es=N.e.filter(e=>EDGES[e].road.type==='main'||EDGES[e].road.type==='street');if(!es.length)continue;const E=EDGES[es[0]];if(E.road.surfK!=='asp')continue;const o=NODES[edgeOther(es[0],n)];const d=[(o.x-N.x)/E.len,(o.z-N.z)/E.len],rt=[-d[1],d[0]];const paint=gbs(N.x,N.z).paint;
-    for(let l=-E.road.w/2+0.6;l<E.road.w/2-0.5;l+=1.0)paintQuad(paint,[N.x,N.z],d,rt,-1.6,1.6,l,l+0.5,0.079);ZEBRAS.push({x:N.x,z:N.z});}
-  const add=(G,mat,cast=false)=>{if(G.empty)return;const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=cast;scene.add(staticMesh(m));};
-  for(const o of RC.values()){add(o.sw,MAT.sidewalk);add(o.asp,MAT.asphalt);add(o.cob,MAT.cobble);add(o.slab,MAT.plaza);add(o.gravel,MAT.gravel);add(o.curb,MAT.curb,true);add(o.paint,MAT.paint);}
+    const es=N.e.filter(e=>streamCarEdge(EDGES[e]));if(!es.length)continue;const E=EDGES[es[0]];if(E.road.surfK!=='asp')continue;const o=NODES[edgeOther(es[0],n)];const d=[(o.x-N.x)/E.len,(o.z-N.z)/E.len],rt=[-d[1],d[0]];
+    streamTileAt(N.x,N.z).zebras.push({x:N.x,z:N.z,d,rt,w:E.road.w});ZEBRAS.push({x:N.x,z:N.z});}
   const mhTex=canvasTex(64,64,g=>{g.fillStyle='#3a3836';g.beginPath();g.arc(32,32,31,0,TAU);g.fill();g.strokeStyle='#1e1d1c';g.lineWidth=3;for(let i=-28;i<30;i+=7){g.beginPath();g.moveTo(i,4);g.lineTo(i+20,60);g.stroke();}g.strokeStyle='#55524e';g.lineWidth=4;g.beginPath();g.arc(32,32,29,0,TAU);g.stroke();},false);
   const mh=new THREE.InstancedMesh(new THREE.CircleGeometry(0.4,16).rotateX(-Math.PI/2),stdMat({map:mhTex,transparent:true,alphaTest:0.3,roughness:0.5,metalness:0.6,polygonOffset:true,polygonOffsetFactor:-5,polygonOffsetUnits:-5}),Math.max(1,MANHOLES.length));
   const mm=new THREE.Matrix4();MANHOLES.forEach((p,i)=>{mm.makeTranslation(p[0],0.079,p[1]);mh.setMatrixAt(i,mm);});mh.count=MANHOLES.length;mh.receiveShadow=true;scene.add(mh);
 }
 const ZEBRAS=[];
+// Kachel-Bauer Straßen: Ebene 'road' (Fahrbahn je Belag), 'sw' (Gehweg), 'curb' (Bordstein + Markierung). Liefert [GB, Material, Schatten].
+function streamRoadGB(T,layer){
+  if(layer==='sw'){const sw=new GB();for(const r of T.roads){if(!(r.sw>0))continue;
+      stripGB(sw,r.pts,r.w/2-0.4,r.w/2+r.sw,0.04,3,WHITE,STREAM_AO);stripGB(sw,r.pts,-(r.w/2-0.4),-(r.w/2+r.sw),0.04,3,WHITE,STREAM_AO);
+      for(const p of [r.pts[0],r.pts[r.pts.length-1]])discGB(sw,p[0],p[1],r.w/2+r.sw,0.038,3,14);}
+    return [[sw,MAT.sidewalk]];}
+  if(layer==='road'){const G={asp:new GB(),cob:new GB(),slab:new GB(),gravel:new GB()};
+    for(const r of T.roads){const y=STREAM_ROAD_Y[r.type]||0.06;const uv=r.surfK==='asp'?6:r.surfK==='slab'?4:r.surfK==='gravel'?3:2;stripGB(G[r.surfK],r.pts,r.w/2,-r.w/2,y,uv);
+      // Endkappen gegen Lücken in Kurven/Kreuzungen
+      for(const p of [r.pts[0],r.pts[r.pts.length-1]])discGB(G[r.surfK],p[0],p[1],r.w/2,y-0.002,uv,r.type==='path'?8:14);}
+    // Gelenke innerhalb einer Straße (Knicke) mit Scheiben schließen
+    for(const r of T.roads){if(r.type==='path')continue;for(let k=1;k<r.pts.length-1;k++){const a=r.pts[k-1],b=r.pts[k],c=r.pts[k+1];const d1=[b[0]-a[0],b[1]-a[1]],d2=[c[0]-b[0],c[1]-b[1]];const cs=(d1[0]*d2[0]+d1[1]*d2[1])/((Math.hypot(...d1)*Math.hypot(...d2))||1);if(cs<0.97)discGB(G[r.surfK],b[0],b[1],r.w/2,(STREAM_ROAD_Y[r.type]||0.06)-0.002,6,12);}}
+    return [[G.asp,MAT.asphalt],[G.cob,MAT.cobble],[G.slab,MAT.plaza],[G.gravel,MAT.gravel]];}
+  const curb=new GB(),paint=new GB();const trims=STREAM.trims;
+  for(const e of T.edges){const E=EDGES[e];const r=E.road;const A=NODES[E.a],B=NODES[E.b];const d=[(B.x-A.x)/E.len,(B.z-A.z)/E.len],rt=[-d[1],d[0]];const a=[A.x,A.z];
+    const t0=trims[E.a],t1=E.len-trims[E.b];
+    if(r.sw>0)for(const s of [-1,1])curbBand(curb,a,d,rt,t0,t1,s*r.w/2,s*(r.w/2+0.28),0.16);
+    if(r.type!=='main'||r.surfK!=='asp')continue;
+    const m0=t0+(t0>0?1.5:0),m1=t1-(trims[E.b]>0?1.5:0);if(m1-m0<1)continue;
+    for(const s of [-1,1])paintQuad(paint,a,d,rt,m0,m1,s*(r.w/2-0.45)-0.075,s*(r.w/2-0.45)+0.075);
+    if(r.w>=5.5){const ph=(E.a*7)%9;for(let t=m0+ph%3;t+3<m1;t+=9)paintQuad(paint,a,d,rt,t,t+3,-0.065,0.065);}}
+  for(const Z of T.zebras)for(let l=-Z.w/2+0.6;l<Z.w/2-0.5;l+=1.0)paintQuad(paint,[Z.x,Z.z],Z.d,Z.rt,-1.6,1.6,l,l+0.5,0.079);
+  return [[curb,MAT.curb,true],[paint,MAT.paint]];}
+// Plätze, Parkplätze, Grün, Beete (Fläche → Kachel der BBox-Mitte) und Gleise (Kachel des mittleren Punkts): nur Index
 function buildGroundMeshes(){
-  const GC=new Map();const gq=(x,z)=>{const k=chunkKey(x,z);let o=GC.get(k);if(!o){o={grass:new GB(),plaza:new GB(),park:new GB(),grav:new GB(),soil:new GB()};GC.set(k,o);}return o;};
-  for(const a of AREAS){const k=a.kind;const bb=a.bb||(a.bb=bboxOf(a.poly));const {grass,plaza,park,grav,soil}=gq((bb[0]+bb[2])/2,(bb[1]+bb[3])/2);
+  for(const a of AREAS){const bb=a.bb||(a.bb=bboxOf(a.poly));streamTileAt((bb[0]+bb[2])/2,(bb[1]+bb[3])/2).areas.push(a);}
+  for(const r of RAILS){if(!r.bridge)streamTileAt(...r.pts[r.pts.length>>1]).rails.push(r);}
+  STREAM.railMat={sl:stdMat({vertexColors:true,roughness:0.95}),ra:stdMat({color:0x8a8580,metalness:0.85,roughness:0.3})};
+}
+function streamGroundGB(T){const grass=new GB(),plaza=new GB(),park=new GB(),grav=new GB(),soil=new GB();
+  for(const a of T.areas){const k=a.kind;
     if(k==='square')fillGB(plaza,a.poly,null,0.032,4);
     else if(k==='parking')fillGB(park,a.poly,null,0.022,6);
     else if(k==='rail'||k==='construction')fillGB(grav,a.poly,null,0.02,3);
     else if(k==='flowerbed')fillGB(soil,a.poly,null,0.03,2,{r:0.75,g:0.62,b:0.5});
     else if(k==='playground')fillGB(grav,a.poly,null,0.028,3,{r:1.15,g:1.05,b:0.85});
     else fillGB(grass,a.poly,null,k==='pitch'?0.028:0.026,3,k==='forest'?{r:0.8,g:0.85,b:0.75}:k==='pitch'?{r:0.95,g:1.08,b:0.9}:WHITE);}
-  const add=(G,mat)=>{if(G.empty)return;const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;scene.add(staticMesh(m));};
-  for(const o of GC.values()){add(o.grass,MAT.grass);add(o.plaza,MAT.plaza);add(o.park,MAT.asphalt);add(o.grav,MAT.gravel);add(o.soil,MAT.leafBed||MAT.grass);}
-  // Gleise
-  const RCH=new Map();const rq=(x,z)=>{const k=chunkKey(x,z);let o=RCH.get(k);if(!o){o={bed:new GB(),sl:new GB(),rails:new GB()};RCH.set(k,o);}return o;};
-  for(const r of RAILS){if(r.bridge)continue;const {bed,sl,rails}=rq(...r.pts[r.pts.length>>1]);if(!r.tram){stripGB(bed,r.pts,1.7,-1.7,0.035,2);}
+  return [[grass,MAT.grass],[plaza,MAT.plaza],[park,MAT.asphalt],[grav,MAT.gravel],[soil,MAT.leafBed||MAT.grass]];}
+function streamRailGB(T){const bed=new GB(),sl=new GB(),rails=new GB();
+  for(const r of T.rails){if(!r.tram){stripGB(bed,r.pts,1.7,-1.7,0.035,2);}
     const pts=r.pts;for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<0.1)continue;const d=[(b[0]-a[0])/L,(b[1]-a[1])/L],n=[-d[1],d[0]];
       for(const o of [-0.72,0.72])rails.beam([a[0]+n[0]*o,r.tram?0.07:0.17,a[1]+n[1]*o],[b[0]+n[0]*o,r.tram?0.07:0.17,b[1]+n[1]*o],0.07,r.tram?0.02:0.14);
       if(!r.tram&&QS.detail>=1)for(let t=0.3;t<L;t+=0.65){const c=[a[0]+d[0]*t,a[1]+d[1]*t];sl.quadOut([c[0]-n[0]*1.3-d[0]*0.12,0.06,c[1]-n[1]*1.3-d[1]*0.12],[c[0]+n[0]*1.3-d[0]*0.12,0.06,c[1]+n[1]*1.3-d[1]*0.12],[c[0]+n[0]*1.3+d[0]*0.12,0.06,c[1]+n[1]*1.3+d[1]*0.12],[c[0]-n[0]*1.3+d[0]*0.12,0.06,c[1]-n[1]*1.3+d[1]*0.12],[0,0],[1,0],[1,0.1],[0,0.1],{r:0.55,g:0.5,b:0.45},[c[0],-5,c[1]]);}}}
-  const slM=stdMat({vertexColors:true,roughness:0.95}),raM=stdMat({color:0x8a8580,metalness:0.85,roughness:0.3});
-  for(const o of RCH.values()){add(o.bed,MAT.gravel);add(o.sl,slM);add(o.rails,raM);}
-}
+  return [[bed,MAT.gravel],[sl,STREAM.railMat.sl],[rails,STREAM.railMat.ra]];}
 
 // ===================== RHEIN, UMLAND =====================
 let WATER_MAT=null;const WATER_OFF={a:{value:new THREE.Vector2()},b:{value:new THREE.Vector2()}};
@@ -145,6 +162,8 @@ function buildRiver(){
     const la=[a[0]-nx*1.6,a[1]-nz*1.6],lb=[b[0]-nx*1.6,b[1]-nz*1.6];
     cap.quadOut([a[0],0.07,a[1]],[b[0],0.07,b[1]],[lb[0],0.07,lb[1]],[la[0],0.07,la[1]],[0,0],[L/2,0],[L/2,0.8],[0,0.8],WHITE,[mx,-5,mz]);}}
   const wm=new THREE.Mesh(g.geo(),M.lightStone);wm.receiveShadow=true;scene.add(wm);const cm=new THREE.Mesh(cap.geo(),MAT.curb);cm.receiveShadow=true;scene.add(cm);
+  // Handy: Kaimauern/Uferkappen nach dem GPU-Upload aus dem RAM (Paket 40.5, Phase E)
+  if(LOWMEM){dropCPU(wm.geometry);dropCPU(cm.geometry);}
   T.water.repeat.set(1,1);
   WATER_MAT=new THREE.MeshStandardMaterial({color:0x1b3a44,roughness:0.06,metalness:0.0,normalMap:T.water,normalScale:new THREE.Vector2(0.32,0.32),envMapIntensity:1.15});
   WATER_MAT.onBeforeCompile=sh=>{sh.uniforms.wOffA=WATER_OFF.a;sh.uniforms.wOffB=WATER_OFF.b;
@@ -157,7 +176,7 @@ function buildRiver(){
   for(const p of PONDS){const a=Math.abs(polyArea(p.poly));const y=p.fountain?0.55:0.12;shapeMesh(p.poly,y,M.water,4);
     if(p.fountain||a<400){const n=p.poly.length;for(let i=0;i<n;i++){const A=p.poly[i],B=p.poly[(i+1)%n];rim.beam([A[0],0.3,A[1]],[B[0],0.3,B[1]],0.45,0.6);}}
     rasterPoly(HG,[p.poly],1);}
-  if(!rim.empty){const m=new THREE.Mesh(rim.geo(),M.lightStone);m.castShadow=true;m.receiveShadow=true;scene.add(m);}
+  if(!rim.empty){const m=new THREE.Mesh(rim.geo(),M.lightStone);m.castShadow=true;m.receiveShadow=true;scene.add(m);if(LOWMEM)dropCPU(m.geometry);}
   // Umland mit Weinbergen und Feldern (Rheinhessen / Rheingau)
   const fieldTex=canvasTex(1024,1024,g=>{const R=mulberry32(60);g.fillStyle='#5f7040';g.fillRect(0,0,1024,1024);
     for(let i=0;i<220;i++){const x=R()*1024,y=R()*1024,w=40+R()*140,h=30+R()*120;const t=R();g.fillStyle=t<0.3?'#6f7d44':t<0.5?'#8a8a52':t<0.65?'#a59a62':t<0.8?'#556b36':'#7a6a48';g.save();g.translate(x,y);g.rotate(R()*0.6-0.3);g.fillRect(-w/2,-h/2,w,h);
@@ -203,9 +222,9 @@ function buildBridge(){
     side.quadOut(P(t0,-W,y0-1.6),P(t0,W,y0-1.6),P(t1,W,y1-1.6),P(t1,-W,y1-1.6),[0,0],[1,0],[1,1],[0,1],WHITE,P((t0+t1)/2,0,y0+5));
     if(i%9===4)for(const s of [-1,1])LAMPS.push({x:P(t0,s*10.4,0)[0],z:P(t0,s*10.4,0)[2],y:y0+0.15,face:Math.atan2(-BR_N[0]*s,-BR_N[1]*s)});}
   const railTex=canvasTex(64,32,g=>{g.clearRect(0,0,64,32);g.fillStyle='#4c5755';g.fillRect(0,0,64,4);g.fillRect(0,26,64,3);for(let x=0;x<64;x+=8)g.fillRect(x,0,2.5,32);});
-  const add=(G,mat,cast)=>{const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=!!cast;scene.add(m);};
+  const add=(G,mat,cast)=>{const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=!!cast;scene.add(m);if(LOWMEM)dropCPU(m.geometry);};
   add(deck,MAT.asphalt,true);add(walk,MAT.sidewalk);add(curbG,MAT.curb);add(side,M.steel,true);add(paint,MAT.paint);
-  scene.add(new THREE.Mesh(rail.geo(),stdMat({map:railTex,alphaTest:0.5,side:THREE.DoubleSide,metalness:0.5,roughness:0.45})));
+  {const m=new THREE.Mesh(rail.geo(),stdMat({map:railTex,alphaTest:0.5,side:THREE.DoubleSide,metalness:0.5,roughness:0.45}));scene.add(m);if(LOWMEM)dropCPU(m.geometry);}
   const rot=Math.atan2(-BR_U[1],BR_U[0]);const piers=PIERS.map(p=>p.t);
   for(const p of PIERS){const q=P(p.t,p.l,0);lbox(q[0],q[2],Math.max(6,p.len),Math.max(14,p.wid),deckY(p.t)-1.6+9,M.redPlain,{y:-9,rot,solid:false,reserve:false,tw:4,th:4});}
   for(let k=0;k<piers.length-1;k++){const ta=piers[k]+4,tb=piers[k+1]-4;const tm=(ta+tb)/2;const crown=deckY(tm)-1.8;const NS=20;
@@ -229,7 +248,7 @@ function buildGirderBridges(){for(const br of BRIDGES){if(br.kind==='arch')conti
     side.quadOut(P(t0,-W,y0-2.4),P(t0,W,y0-2.4),P(t1,W,y1-2.4),P(t1,-W,y1-2.4),[0,0],[1,0],[1,1],[0,1],WHITE,P((t0+t1)/2,0,y0+5));
     if(i%3===0)paintQuad(paint,br.A,br.U,br.N,t0,t0+3,-0.07,0.07,y0+0.012);
     if(i%6===3)for(const s of [-1,1])LAMPS.push({x:P(t0,s*(W-0.6),0)[0],z:P(t0,s*(W-0.6),0)[2],y:y0+0.15,face:Math.atan2(-br.N[0]*s,-br.N[1]*s)});}
-  const add=(G,mat,cast)=>{if(G.empty)return;const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=!!cast;scene.add(m);};
+  const add=(G,mat,cast)=>{if(G.empty)return;const m=new THREE.Mesh(G.geo(),mat);m.receiveShadow=true;m.castShadow=!!cast;scene.add(m);if(LOWMEM)dropCPU(m.geometry);};
   add(deck,MAT.asphalt,true);add(walk,MAT.sidewalk);add(side,M.lightStone,true);add(paint,MAT.paint);
   const rot=Math.atan2(-br.U[1],br.U[0]);
   for(const p of br.piers){const q=P(p.t,p.l,0);const h=deckY(p.t,br)-2.4+9;for(const s of [-1,1]){const r=P(p.t,p.l+s*Math.max(2.5,p.wid/2-3),0);lbox(r[0],r[2],Math.max(3,Math.min(8,p.len)),3,h,M.lightStone,{y:-9,rot,solid:false,reserve:false,tw:4,th:4});}}
@@ -248,13 +267,26 @@ function crownGeo(kind,detail){const R=mulberry32(kind*31+7);const pos=[],nor=[]
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
   g.translate(0,kind===1?4.2:4.6,0);g.computeBoundingSphere();return g;}
 function trunkGeo(kind){const g=new GB();g.beam([0,0,0],[0,kind===1?5:4.6,0],0.34,0.34,WHITE);g.beam([0,2.8,0],[0.9,4.6,0.2],0.16,0.16);g.beam([0,3.2,0],[-0.8,4.8,-0.3],0.15,0.15);const geo=g.geo();return geo;}
-function buildTrees(){const det=QS.detail;const crowns=[0,1,2].map(k=>crownGeo(k,det)),trunks=[0,1,2].map(k=>trunkGeo(k));
-  const groups=new Map();for(const t of TREES){const kind=t.kind??(Math.abs(Math.floor(t.x*3+t.z*7))%5===0?1:Math.abs(Math.floor(t.x+t.z))%3===0?2:0);const key=chunkKey(t.x,t.z)+'|'+kind;if(!groups.has(key))groups.set(key,{kind,list:[]});groups.get(key).list.push(t);}
+// Bäume (Paket 40.5): gemeinsame Kronen-/Stamm-Geometrie + Kachel-Index; Instanzen je Kachel und Art baut p2e_stream.js
+function buildTrees(){const det=QS.detail;STREAM.treeGeo={crowns:[0,1,2].map(k=>crownGeo(k,det)),trunks:[0,1,2].map(k=>trunkGeo(k))};
+  for(const t of TREES)streamTileAt(t.x,t.z).trees.push(t);
+  // Der frühere Gesamtbau zog 6 Zufallszahlen je Baum; dieselbe Zahl ziehen, damit die Boot-Zufallsfolge danach gleich bleibt
+  // (Startverkehr/Passanten in den Tests). Die Kachel-Bäume selbst nutzen den Kachel-Zufall (streamTreeMeshes).
+  for(let i=TREES.length*6;i>0;i--)Math.random();}
+// Baum-InstancedMeshes einer Kachel (direkte Szenen-Kinder mit MAT.leaf/bark, Höhe aus t.y – p6c_oberst hebt Bäume an).
+// R = Kachel-Zufall; liefert [[Krone, Bäume], [Stamm, null], …] und einen Prüfwert über alle Instanzen.
+function streamTreeMeshes(T,R){const {crowns,trunks}=STREAM.treeGeo;const groups=new Map();
+  for(const t of T.trees){const kind=t.kind??(Math.abs(Math.floor(t.x*3+t.z*7))%5===0?1:Math.abs(Math.floor(t.x+t.z))%3===0?2:0);let g=groups.get(kind);if(!g)groups.set(kind,g=[]);g.push(t);}
   const m=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(),p=new THREE.Vector3(),c=new THREE.Color(),up=new THREE.Vector3(0,1,0);
-  for(const g of groups.values()){const n=g.list.length;const cm=new THREE.InstancedMesh(crowns[g.kind],MAT.leaf,n),tm=new THREE.InstancedMesh(trunks[g.kind],MAT.bark,n);
-    g.list.forEach((t,i)=>{const sc=t.s*mr(0.85,1.15);q.setFromAxisAngle(up,mr(0,TAU));p.set(t.x,0,t.z);s.set(sc,sc*mr(0.9,1.15),sc);m.compose(p,q,s);cm.setMatrixAt(i,m);tm.setMatrixAt(i,m);
-      c.setHSL(mr(0.2,0.3),mr(0.35,0.6),mr(0.45,0.62));cm.setColorAt(i,c);});
-    cm.castShadow=tm.castShadow=true;cm.receiveShadow=tm.receiveShadow=true;cm.computeBoundingSphere();tm.computeBoundingSphere();scene.add(staticInst(cm));scene.add(staticInst(tm));}}
+  const out=[];let n=0,h=0;
+  for(const [kind,list] of groups){const cm=new THREE.InstancedMesh(crowns[kind],MAT.leaf,list.length),tm=new THREE.InstancedMesh(trunks[kind],MAT.bark,list.length);
+    list.forEach((t,i)=>{const sc=t.s*(0.85+0.3*R()),rot=R()*TAU,sy=sc*(0.9+0.25*R());const y=t.y??STREAM.treeLift.get(t)??0;
+      q.setFromAxisAngle(up,rot);p.set(t.x,y,t.z);s.set(sc,sy,sc);m.compose(p,q,s);cm.setMatrixAt(i,m);tm.setMatrixAt(i,m);
+      const ch=0.2+0.1*R(),cs=0.35+0.25*R(),cl=0.45+0.17*R();c.setHSL(ch,cs,cl);cm.setColorAt(i,c);
+      n++;h+=t.x+t.z*0.7+y*3+sc*11+sy*13+rot*17+ch*19+cs*23+cl*29;});
+    cm.castShadow=tm.castShadow=true;cm.receiveShadow=tm.receiveShadow=true;cm.computeBoundingSphere();tm.computeBoundingSphere();
+    out.push([cm,list],[tm,null]);}
+  return {out,n,h};}
 
 // ===================== STRASSENMÖBEL =====================
 const TRAFFIC_LIGHTS=[];let TL_MESH=null;let TL_NODES=new Set();
