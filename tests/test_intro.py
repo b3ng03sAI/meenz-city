@@ -27,6 +27,15 @@ async def test(g):
     r0 = await g.js(f"()=>{M}.INTRO.mouse.rotation.y"); await g.step(0.5); r1 = await g.js(f"()=>{M}.INTRO.mouse.rotation.y")
     g.check('Maus dreht sich', r1 - r0 > 1.0, f'{r0:.2f} → {r1:.2f}')
 
+    # Schutz: während der Einleitung darf niemand den Spieler verletzen (er ist gesperrt und kann sich nicht wehren)
+    hp = await g.js(f"()=>{{const M={M},P=M.P1;P.h.health=100;P.armor=0;M.damagePlayer(P,30);M.knockHuman(P.h,3,0,2,25,false);return P.h.health}}")
+    g.check('Einleitung: Schaden und Umfahren prallen ab', hp == 100, hp)
+    b = await g.js(f"""()=>{{const M={M},P=M.P1;const o=M.HUMANS.find(h=>h.kind==='ped'&&h.alive&&!h.inCar&&h!==M.INTRO.h);if(!o)return null;
+        o.x=P.h.x+0.8;o.z=P.h.z+0.3;o.state='brawl';o.target=P.h;return true}}""")
+    await g.step(2)
+    b2 = await g.js(f"()=>({{hp:{M}.P1.h.health,brawl:{M}.HUMANS.some(h=>h.state==='brawl'||h.state==='pester')}})")
+    g.check('Einleitung: Raufbold lässt den Spieler in Ruhe', b and b2['hp'] == 100 and not b2['brawl'], [b, b2])
+
     # Bewegung gesperrt
     p0 = await g.js(f"()=>[{M}.P1.h.x,{M}.P1.h.z]")
     await g.page.keyboard.down('KeyW'); await g.step(1); await g.page.keyboard.up('KeyW')
@@ -62,5 +71,8 @@ async def test(g):
     await g.page.keyboard.down('KeyW'); await g.step(1); await g.page.keyboard.up('KeyW')
     p1 = await g.js(f"()=>[{M}.P1.h.x,{M}.P1.h.z]")
     g.check('danach ist die Steuerung wieder frei', abs(p1[0] - p0[0]) + abs(p1[1] - p0[1]) > 1, [p0, p1])
+    await g.step(4.5)
+    hp = await g.js(f"()=>{{const M={M},P=M.P1;P.h.health=100;P.armor=0;M.damagePlayer(P,10);return P.h.health}}")
+    g.check('nach der Schonfrist wirkt Schaden wieder', hp == 90, hp)
 
 run(test, real=True)

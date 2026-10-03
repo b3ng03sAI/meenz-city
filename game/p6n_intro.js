@@ -88,3 +88,16 @@ addEventListener('keydown',e=>{if(!INTRO.active)return;if(e.code==='Escape'){e.p
   const s=introScript()[INTRO.step];if(s&&s.ask&&(e.code==='Digit1'||e.code==='Digit2'||e.code==='Numpad1'||e.code==='Numpad2')){introAnswer(e.code.endsWith('1')?0:1);e.stopImmediatePropagation();return;}
   if(e.code==='Space'||e.code==='Enter'||e.code==='KeyE'){e.preventDefault();e.stopImmediatePropagation();introNext();}},true);
 INTRO.start=introStart;INTRO.next=introNext;INTRO.answer=introAnswer;INTRO.end=introEnd;INTRO.script=introScript;
+
+// Schutz während der Einleitung (+ kurze Schonfrist danach): der Spieler ist gesperrt und kann sich nicht wehren.
+const INTRO_GRACE=4;
+function introProtected(P){return !!(P&&P===P1&&(INTRO.active||(INTRO.done&&simTime<(INTRO.endT||0)+INTRO_GRACE)));}
+{const _end=introEnd;introEnd=function(){INTRO.endT=simTime;return _end.apply(this,arguments);};}
+const _introDamage=damagePlayer;
+damagePlayer=function(P,d){if(introProtected(P))return;return _introDamage(P,d);};
+const _introKnock=knockHuman;
+knockHuman=function(h,vx,vz,vy,dmg,byPlayer){if(P1&&h===P1.h&&introProtected(P1))return;return _introKnock(h,vx,vz,vy,dmg,byPlayer);};
+const _introNearbyPed=nearbyPed;
+nearbyPed=function(P,rmin,rmax){return introProtected(P)?null:_introNearbyPed(P,rmin,rmax);};
+const _introActivePed=updateActivePed;
+updateActivePed=function(o,dt){if(introProtected(nearestPlayer(o.x,o.z))){o.state='walk';pedFlee(o,o.x,o.z,1);o.setExpr('neutral');return;}_introActivePed(o,dt);};
