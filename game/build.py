@@ -21,7 +21,7 @@ def meenz_version():
         return f"Version {v}+{n} · Entwicklungsstand {sha}{' (geändert)' if d.endswith('-dirty') else ''} · {datetime.date.today():%d.%m.%Y}"
     except Exception:
         return 'Version '+v
-MEENZ_VERSION=os.environ.get('MEENZ_VERSION') or meenz_version()  # Pages-Workflow setzt die Tag-Version
+MEENZ_VERSION=(os.environ.get('MEENZ_VERSION') or meenz_version()).replace('Version v','Version ')  # Pages-Workflow setzt die Tag-Version
 shell=shell.replace('__MEENZ_VERSION__',MEENZ_VERSION)
 print(MEENZ_VERSION)
 # Cover-/Ladescreen-Bilder als data-URI einbetten (Vorschaubild beim Teilen + Splash)

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GTA-artiges Browser-Spiel in Mainz + Wiesbaden (three.js r160). Das Spiel wird als **eine einzige HTML-Datei** ausgeliefert
 (`game/meenz-city.html`, ~7 MB inkl. eingebettetem three.js + Schriften). Veröffentlicht als installierbare Web-App auf
 **GitHub Pages** https://b3ng03sai.github.io/meenz-city/ und als claude.ai-Artifact
-https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (beide Stand: Version 33). Der lokale `main` ist weiter (Wellen 7–8,
+https://claude.ai/artifact/Mg1JaXqKwiitTMRnBoWDjq (beide Stand: Version 34). Der lokale `main` ist weiter (Wellen 7–8,
 Handy-UX, Fahrphysik) und **noch nicht gepusht** – Stand und nächste Schritte: `tasks/stand.md`.
 
 Sprache im Spiel und in Kommentaren: **Deutsch**, Dialoge gern auf **Meenzerisch/Rheinhessisch**.
