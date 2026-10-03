@@ -23,7 +23,7 @@ function fastTravel(d){const P=P1;if(!P.h||P.gameOver)return;if(wanted>0){ftMsg(
   closeMap();const el=renderer.domElement;el.style.transition='filter .35s';el.style.filter='brightness(0)';
   setTimeout(()=>{if(c){c.x=s[0];c.z=s[1];c.h=s[2]||0;c.vx=c.vz=0;c.speed=0;c.y=groundY(c.x,c.z);c.sync&&c.sync(0);}else{const h=P.h;h.x=s[0];h.z=s[1];h.y=d.y!==undefined?d.y:groundY(h.x,h.z);P.vy=0;h.sync();}
     if(P2&&P2.h&&G.split){const h2=P2.h;if(!P2.car){h2.x=s[0]+2;h2.z=s[1];h2.y=groundY(h2.x,h2.z);}}
-    P.cam.init=false;gameMin=(gameMin+10)%1440;envDirty=true;lampAssignT=0;updateCityLOD(0,0,99,true,[[s[0],s[1]]]);updateGround(0,0,true,99,[[s[0],s[1]]]);managePopulation(0,true);
+    P.cam.init=false;gameMin=(gameMin+10)%1440;envDirty=true;lampAssignT=0;updateCityLOD(0,0,99,true,[[s[0],s[1]]]);streamJump(s[0],s[1]);updateGround(0,0,true,99,[[s[0],s[1]]]);managePopulation(0,true);
     showBig(d.n.toUpperCase(),'mission',2.2,'Schnellreise · '+d.g);el.style.filter='';setTimeout(()=>{el.style.transition='';},400);},380);}
 function ftMsg(t){const p=FT.panel;if(!p)return;const m=p.querySelector('.ftmsg');m.textContent=t;m.style.display='';clearTimeout(m._t);m._t=setTimeout(()=>{m.style.display='none';},3500);}
 function ftPanel(){if(FT.panel)return FT.panel;const p=document.createElement('div');p.id='ftpanel';p.style.cssText='position:absolute;left:12px;top:86px;bottom:60px;width:min(260px,44vw);overflow:auto;background:rgba(12,16,20,.86);border-radius:10px;padding:10px 10px 12px;color:#eee;font:500 14px "Barlow Condensed",sans-serif;z-index:3;box-shadow:0 6px 24px rgba(0,0,0,.4)';
