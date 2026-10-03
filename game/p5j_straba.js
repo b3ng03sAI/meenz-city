@@ -235,6 +235,14 @@ const _strabaFire=playerFire;
 playerFire=function(P,I){if(strabaRideOf(P))return;_strabaFire(P,I);};
 const _strabaStartTalk=startTalk;
 startTalk=function(P,npc){if(strabaRideOf(P))return;_strabaStartTalk(P,npc);};
+// Fahrgast in Straßenbahn oder S-Bahn (sbahnRideOf aus p5p, erst zur Laufzeit aufgerufen): keine Pöbler, keine Powerups
+function strabaSeated(P){return !!(P&&(strabaRideOf(P)||(typeof sbahnRideOf==='function'&&sbahnRideOf(P))));}
+const _strabaNearbyPed=nearbyPed;
+nearbyPed=function(P,rmin,rmax){return strabaSeated(P)?null:_strabaNearbyPed(P,rmin,rmax);};
+const _strabaActivePed=updateActivePed;
+updateActivePed=function(o,dt){if(strabaSeated(nearestPlayer(o.x,o.z))){o.state='walk';pedFlee(o,o.x,o.z,1);o.setExpr('neutral');return;}_strabaActivePed(o,dt);};
+const _strabaPuActivate=puActivate;
+puActivate=function(P,key){return strabaSeated(P)?false:_strabaPuActivate(P,key);};
 const STRABA_CAM={x:0,y:0,z:0,h:0,speed:0,T:{H:3.4,L:16}};
 const _strabaCam=updateCamera;
 updateCamera=function(P,dt){const R=strabaRideOf(P);if(!R){_strabaCam(P,dt);return;}const t=R.tram,c=STRABA_CAM;c.x=t.x;c.y=t.y;c.z=t.z;c.h=t.h;c.speed=t.v;
