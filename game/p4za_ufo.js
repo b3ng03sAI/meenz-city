@@ -2,7 +2,7 @@
 const UFO={on:false,t:0,next:240+Math.random()*300,g:null,x:0,y:140,z:0,tx:0,tz:0,phase:'',victim:null,hits:0,forced:false,osc:null};
 function ufoModel(){const g=new THREE.Group();const metal=new THREE.MeshStandardMaterial({color:0xb8c2cc,metalness:0.95,roughness:0.18});
   const disc=new THREE.Mesh(new THREE.SphereGeometry(7,32,12).scale(1,0.22,1),metal);g.add(disc);
-  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.6,24,12,0,TAU,0,Math.PI/2),new THREE.MeshPhysicalMaterial({color:0x7fe6c8,roughness:0.05,metalness:0.1,transmission:0.4,transparent:true,opacity:0.7,emissive:0x1b6650,emissiveIntensity:0.6}));dome.position.y=1.1;g.add(dome);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(2.6,24,12,0,TAU,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x7fe6c8,roughness:0.05,metalness:0.1,transparent:true,opacity:0.6,emissive:0x1b6650,emissiveIntensity:0.6}));dome.position.y=1.1;g.add(dome);
   const alien=new THREE.Group();const skin=stdMat({color:0x6fcf5a,roughness:0.6});const head=new THREE.Mesh(new THREE.SphereGeometry(0.55,14,10).scale(1,1.25,1),skin);head.position.y=1.9;alien.add(head);
   for(const s of [-1,1]){const e=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,8).scale(1.3,0.8,0.6),new THREE.MeshBasicMaterial({color:0x050505}));e.position.set(s*0.22,2.0,0.44);alien.add(e);}g.add(alien);g.userData.alien=alien;
   const ring=new THREE.Mesh(new THREE.TorusGeometry(6.3,0.35,8,40),new THREE.MeshBasicMaterial({color:0x60ffe0}));ring.rotation.x=Math.PI/2;ring.position.y=-0.6;g.add(ring);
